@@ -1,23 +1,19 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
+
+#include "settings/lib/ISettingCallback.h"
+#include "settings/lib/ISettingsHandler.h"
+#include "utils/GlobalsHandling.h"
+#include "utils/Locale.h"
+#include "utils/Speed.h"
+#include "utils/Temperature.h"
 
 #include <locale>
 #include <map>
@@ -26,13 +22,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-
-#include "settings/lib/ISettingCallback.h"
-#include "settings/lib/ISettingsHandler.h"
-#include "utils/GlobalsHandling.h"
-#include "utils/Locale.h"
-#include "utils/Speed.h"
-#include "utils/Temperature.h"
 
 #ifdef TARGET_WINDOWS
 #ifdef GetDateFormat
@@ -44,6 +33,7 @@
 #endif // TARGET_WINDOWS
 
 class TiXmlNode;
+struct StringSettingOption;
 
 namespace ADDON
 {
@@ -68,8 +58,6 @@ public:
 
   // implementation of ISettingsHandler
   void OnSettingsLoaded() override;
-
-  bool Load(const std::string& strLanguage);
 
   /*!
    \brief Returns the language addon for the given locale (or the current one).
@@ -99,23 +87,14 @@ public:
   \param reloadServices (optional) Whether to reload services relying on localization.
   \return True if the language has been successfully loaded, false otherwise.
   */
-  bool SetLanguage(const std::string &strLanguage = "", bool reloadServices = true);
-  /*!
-   \brief Sets and loads the given (or configured) language, its details and strings.
-
-   \param fallback Whether the fallback language has been loaded instead of the given language.
-   \param strLanguage (optional) Language to be loaded.
-   \param reloadServices (optional) Whether to reload services relying on localization.
-   \return True if the language has been successfully loaded, false otherwise.
-   */
-  bool SetLanguage(bool& fallback, const std::string &strLanguage = "", bool reloadServices = true);
+  bool SetLanguage(std::string strLanguage = "", bool reloadServices = true);
 
   const std::string& GetAudioLanguage() const;
   // language can either be a two char language code as defined in ISO639
   // or a three char language code
   // or a language name in english (as used by XBMC)
   void SetAudioLanguage(const std::string& language);
-  
+
   // three char language code (not win32 specific)
   const std::string& GetSubtitleLanguage() const;
   // language can either be a two char language code as defined in ISO639
@@ -182,36 +161,36 @@ public:
   static std::string GetLanguagePath() { return "resource://"; }
   static std::string GetLanguagePath(const std::string &language);
   static std::string GetLanguageInfoPath(const std::string &language);
+  bool UseLocaleCollation();
 
   static void LoadTokens(const TiXmlNode* pTokens, std::set<std::string>& vecTokens);
 
-  static void SettingOptionsLanguageNamesFiller(std::shared_ptr<const CSetting> setting, std::vector< std::pair<std::string, std::string> > &list, std::string &current, void *data);
-  static void SettingOptionsAudioStreamLanguagesFiller(std::shared_ptr<const CSetting> setting, std::vector< std::pair<std::string, std::string> > &list, std::string &current, void *data);
-  static void SettingOptionsSubtitleStreamLanguagesFiller(std::shared_ptr<const CSetting> setting, std::vector< std::pair<std::string, std::string> > &list, std::string &current, void *data);
-  static void SettingOptionsSubtitleDownloadlanguagesFiller(std::shared_ptr<const CSetting> setting, std::vector< std::pair<std::string, std::string> > &list, std::string &current, void *data);
-  static void SettingOptionsISO6391LanguagesFiller(std::shared_ptr<const CSetting> setting, std::vector< std::pair<std::string, std::string> > &list, std::string &current, void *data);
-  static void SettingOptionsRegionsFiller(std::shared_ptr<const CSetting> setting, std::vector< std::pair<std::string, std::string> > &list, std::string &current, void *data);
-  static void SettingOptionsShortDateFormatsFiller(std::shared_ptr<const CSetting> setting, std::vector< std::pair<std::string, std::string> > &list, std::string &current, void *data);
-  static void SettingOptionsLongDateFormatsFiller(std::shared_ptr<const CSetting> setting, std::vector< std::pair<std::string, std::string> > &list, std::string &current, void *data);
-  static void SettingOptionsTimeFormatsFiller(std::shared_ptr<const CSetting> setting, std::vector< std::pair<std::string, std::string> > &list, std::string &current, void *data);
-  static void SettingOptions24HourClockFormatsFiller(std::shared_ptr<const CSetting> setting, std::vector< std::pair<std::string, std::string> > &list, std::string &current, void *data);
-  static void SettingOptionsTemperatureUnitsFiller(std::shared_ptr<const CSetting> setting, std::vector< std::pair<std::string, std::string> > &list, std::string &current, void *data);
-  static void SettingOptionsSpeedUnitsFiller(std::shared_ptr<const CSetting> setting, std::vector< std::pair<std::string, std::string> > &list, std::string &current, void *data);
+  static void SettingOptionsLanguageNamesFiller(std::shared_ptr<const CSetting> setting, std::vector<StringSettingOption> &list, std::string &current, void *data);
+  static void SettingOptionsAudioStreamLanguagesFiller(std::shared_ptr<const CSetting> setting, std::vector<StringSettingOption> &list, std::string &current, void *data);
+  static void SettingOptionsSubtitleStreamLanguagesFiller(std::shared_ptr<const CSetting> setting, std::vector<StringSettingOption> &list, std::string &current, void *data);
+  static void SettingOptionsSubtitleDownloadlanguagesFiller(std::shared_ptr<const CSetting> setting, std::vector<StringSettingOption> &list, std::string &current, void *data);
+  static void SettingOptionsISO6391LanguagesFiller(std::shared_ptr<const CSetting> setting, std::vector<StringSettingOption> &list, std::string &current, void *data);
+  static void SettingOptionsRegionsFiller(std::shared_ptr<const CSetting> setting, std::vector<StringSettingOption> &list, std::string &current, void *data);
+  static void SettingOptionsShortDateFormatsFiller(std::shared_ptr<const CSetting> setting, std::vector<StringSettingOption> &list, std::string &current, void *data);
+  static void SettingOptionsLongDateFormatsFiller(std::shared_ptr<const CSetting> setting, std::vector<StringSettingOption> &list, std::string &current, void *data);
+  static void SettingOptionsTimeFormatsFiller(std::shared_ptr<const CSetting> setting, std::vector<StringSettingOption> &list, std::string &current, void *data);
+  static void SettingOptions24HourClockFormatsFiller(std::shared_ptr<const CSetting> setting, std::vector<StringSettingOption> &list, std::string &current, void *data);
+  static void SettingOptionsTemperatureUnitsFiller(std::shared_ptr<const CSetting> setting, std::vector<StringSettingOption> &list, std::string &current, void *data);
+  static void SettingOptionsSpeedUnitsFiller(std::shared_ptr<const CSetting> setting, std::vector<StringSettingOption> &list, std::string &current, void *data);
 
 protected:
   void SetDefaults();
+  bool Load(const std::string& strLanguage);
 
   static bool DetermineUse24HourClockFromTimeFormat(const std::string& timeFormat);
   static bool DetermineUseMeridiemFromTimeFormat(const std::string& timeFormat);
   static std::string PrepareTimeFormat(const std::string& timeFormat, bool use24HourClock);
-  static void AddLanguages(std::vector< std::pair<std::string, std::string> > &list);
+  static void AddLanguages(std::vector<StringSettingOption> &list);
 
-  class CRegion
+  class CRegion final
   {
   public:
-    CRegion(const CRegion& region);
     CRegion();
-    virtual ~CRegion();
     void SetDefaults();
     void SetTemperatureUnit(const std::string& strUnit);
     void SetSpeedUnit(const std::string& strUnit);
@@ -220,7 +199,7 @@ protected:
     class custom_numpunct : public std::numpunct<char>
     {
     public:
-      custom_numpunct(const char decimal_point, const char thousands_sep, const std::string grouping)
+      custom_numpunct(const char decimal_point, const char thousands_sep, const std::string& grouping)
         : cDecimalPoint(decimal_point), cThousandsSep(thousands_sep), sGroup(grouping) {}
     protected:
       char do_decimal_point() const override { return cDecimalPoint; }
@@ -264,7 +243,7 @@ protected:
   CRegion m_defaultRegion; // default, will be used if no region available via langinfo.xml
   std::locale m_systemLocale;     // current locale, matching GUI settings
   std::locale m_originalLocale; // original locale, without changes of collate
-
+  int m_collationtype;
   LanguageResourcePtr m_languageAddon;
 
   std::string m_strGuiCharSet;

@@ -1,27 +1,12 @@
 /*
- *      Copyright (C) 2005-2016 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
-
-#include <memory>
-#include <vector>
 
 #include "DVDInputStream.h"
 #include "IVideoPlayer.h"
@@ -29,26 +14,33 @@
 #include "addons/binary-addons/AddonInstanceHandler.h"
 #include "addons/kodi-addon-dev-kit/include/kodi/addon-instance/Inputstream.h"
 
+#include <memory>
+#include <vector>
+
 class CInputStreamProvider
   : public ADDON::IAddonProvider
 {
 public:
-  CInputStreamProvider(ADDON::BinaryAddonBasePtr addonBase, kodi::addon::IAddonInstance* parentInstance);
+  CInputStreamProvider(ADDON::BinaryAddonBasePtr addonBase, KODI_HANDLE parentInstance);
 
-  void getAddonInstance(INSTANCE_TYPE instance_type, ADDON::BinaryAddonBasePtr& addonBase, kodi::addon::IAddonInstance*& parentInstance) override;
+  void getAddonInstance(INSTANCE_TYPE instance_type,
+                        ADDON::BinaryAddonBasePtr& addonBase,
+                        KODI_HANDLE& parentInstance) override;
 
 private:
   ADDON::BinaryAddonBasePtr m_addonBase;
-  kodi::addon::IAddonInstance* m_parentInstance;
+  KODI_HANDLE m_parentInstance;
 };
 
 //! \brief Input stream class
 class CInputStreamAddon
-  : public ADDON::IAddonInstanceHandler,
-    public CDVDInputStream,
-    public CDVDInputStream::IDisplayTime,
-    public CDVDInputStream::IPosTime,
-    public CDVDInputStream::IDemux
+  : public ADDON::IAddonInstanceHandler
+  , public CDVDInputStream
+  , public CDVDInputStream::IDisplayTime
+  , public CDVDInputStream::ITimes
+  , public CDVDInputStream::IPosTime
+  , public CDVDInputStream::IDemux
+  , public CDVDInputStream::IChapter
 {
 public:
   CInputStreamAddon(ADDON::BinaryAddonBasePtr& addonBase, IVideoPlayer* player, const CFileItem& fileitem);
@@ -61,16 +53,20 @@ public:
   void Close() override;
   int Read(uint8_t* buf, int buf_size) override;
   int64_t Seek(int64_t offset, int whence) override;
-  bool Pause(double dTime) override;
   int64_t GetLength() override;
+  int GetBlockSize() override;
   bool IsEOF() override;
-  bool CanSeek() override;
+  bool CanSeek() override; //! @todo drop this
   bool CanPause() override;
 
   // IDisplayTime
   CDVDInputStream::IDisplayTime* GetIDisplayTime() override;
   int GetTotalTime() override;
   int GetTime() override;
+
+  // ITime
+  CDVDInputStream::ITimes* GetITimes() override;
+  bool GetTimes(Times &times) override;
 
   // IPosTime
   CDVDInputStream::IPosTime* GetIPosTime() override;
@@ -83,7 +79,7 @@ public:
   CDemuxStream* GetStream(int streamId) const override;
   std::vector<CDemuxStream*> GetStreams() const override;
   void EnableStream(int streamId, bool enable) override;
-  void OpenStream(int streamid) override;
+  bool OpenStream(int streamid) override;
 
   int GetNrOfStreams() const override;
   void SetSpeed(int speed) override;
@@ -91,8 +87,15 @@ public:
   void AbortDemux() override;
   void FlushDemux() override;
   void SetVideoResolution(int width, int height) override;
-  int64_t PositionStream();
-  bool IsRealTimeStream();
+  bool IsRealtime() override;
+
+  // IChapter
+  CDVDInputStream::IChapter* GetIChapter() override;
+  int GetChapter() override;
+  int GetChapterCount() override;
+  void GetChapterName(std::string& name, int ch = -1) override;
+  int64_t GetChapterPos(int ch = -1) override;
+  bool SeekChapter(int ch) override;
 
 protected:
   static int ConvertVideoCodecProfile(STREAMCODEC_PROFILE profile);

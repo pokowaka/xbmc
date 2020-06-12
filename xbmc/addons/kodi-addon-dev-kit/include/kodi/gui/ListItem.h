@@ -1,23 +1,12 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with KODI; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "../AddonBase.h"
 #include "definitions.h"
@@ -37,7 +26,7 @@ namespace gui
     GUIHANDLE GetControlHandle() const { return m_controlHandle; }
 
   protected:
-    CAddonGUIControlBase(CAddonGUIControlBase* window)
+    explicit CAddonGUIControlBase(CAddonGUIControlBase* window)
     : m_controlHandle(nullptr),
       m_interface(::kodi::addon::CAddonBase::m_interface->toKodi),
       m_Window(window) {}
@@ -111,7 +100,7 @@ namespace gui
      * Related to call of "ListItemPtr kodi::gui::CWindow::GetListItem(int listPos)"
      * Not needed for addon development itself
      */
-    CListItem(GUIHANDLE listItemHandle)
+    explicit CListItem(GUIHANDLE listItemHandle)
       : CAddonGUIControlBase(nullptr)
     {
       m_controlHandle = listItemHandle;
@@ -193,43 +182,6 @@ namespace gui
     void SetLabel2(const std::string& label)
     {
       m_interface->kodi_gui->listItem->set_label2(m_interface->kodiBase, m_controlHandle, label.c_str());
-    }
-    //--------------------------------------------------------------------------
-
-    //==========================================================================
-    ///
-    /// \ingroup cpp_kodi_gui_CListItem
-    /// @brief To get current icon image of entry
-    ///
-    /// @return The current icon image path (if present)
-    ///
-    std::string GetIconImage()
-    {
-      std::string image;
-      char* ret = m_interface->kodi_gui->listItem->get_icon_image(m_interface->kodiBase, m_controlHandle);
-      if (ret != nullptr)
-      {
-        if (std::strlen(ret))
-          image = ret;
-        m_interface->free_string(m_interface->kodiBase, ret);
-      }
-      return image;
-    }
-    //--------------------------------------------------------------------------
-
-    //==========================================================================
-    ///
-    /// \ingroup cpp_kodi_gui_CListItem
-    /// @brief To set icon image of entry
-    ///
-    /// @param image                    The image to use for.
-    ///
-    /// @note Alternative can be \ref SetArt used
-    ///
-    ///
-    void SetIconImage(const std::string& image)
-    {
-      m_interface->kodi_gui->listItem->set_icon_image(m_interface->kodiBase, m_controlHandle, image.c_str());
     }
     //--------------------------------------------------------------------------
 

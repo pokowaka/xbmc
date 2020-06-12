@@ -1,5 +1,4 @@
 @ECHO OFF
-SETLOCAL ENABLEDELAYEDEXPANSION
 REM setup all paths
 PUSHD %~dp0\..\..\..
 SET base_dir=%CD%
@@ -8,21 +7,28 @@ SET builddeps_dir=%base_dir%\project\BuildDependencies
 SET bin_dir=%builddeps_dir%\bin
 SET msys_dir=%builddeps_dir%\msys64
 IF NOT EXIST %msys_dir% (SET msys_dir=%builddeps_dir%\msys32)
-SET awk_exe=%msys_dir%\usr\bin\awk.exe
 SET sed_exe=%msys_dir%\usr\bin\sed.exe
 
 REM read the version values from version.txt
-FOR /f %%i IN ('%awk_exe% "/APP_NAME/ {print $2}" %base_dir%\version.txt') DO SET APP_NAME=%%i
-FOR /f %%i IN ('%awk_exe% "/COMPANY_NAME/ {print $2}" %base_dir%\version.txt') DO SET COMPANY_NAME=%%i
-FOR /f %%i IN ('%awk_exe% "/WEBSITE/ {print $2}" %base_dir%\version.txt') DO SET WEBSITE=%%i
-FOR /f %%i IN ('%awk_exe% "/VERSION_MAJOR/ {print $2}" %base_dir%\version.txt') DO SET MAJOR=%%i
-FOR /f %%i IN ('%awk_exe% "/VERSION_MINOR/ {print $2}" %base_dir%\version.txt') DO SET MINOR=%%i
-FOR /f %%i IN ('%awk_exe% "/VERSION_TAG/ {print $2}" %base_dir%\version.txt') DO SET TAG=%%i
-FOR /f %%i IN ('%awk_exe% "/ADDON_API/ {print $2}" %base_dir%\version.txt') DO SET VERSION_NUMBER=%%i.0
+SET version_props=^
+APP_NAME ^
+COMPANY_NAME ^
+PACKAGE_DESCRIPTION ^
+PACKAGE_IDENTITY ^
+PACKAGE_PUBLISHER ^
+VERSION_MAJOR ^
+VERSION_MINOR ^
+VERSION_TAG ^
+VERSION_CODE ^
+WEBSITE
 
-SET APP_VERSION=%MAJOR%.%MINOR%
-IF NOT [%TAG%] == [] (
-  SET APP_VERSION=%APP_VERSION%-%TAG%
+FOR %%p IN (%version_props%) DO (
+  FOR /f "delims=" %%v IN ('%sed_exe% -n "/%%p/ s/%%p *//p" %base_dir%\version.txt') DO SET %%p=%%v
+)
+
+SET APP_VERSION=%VERSION_MAJOR%.%VERSION_MINOR%
+IF NOT [%VERSION_TAG%] == [] (
+  SET APP_VERSION=%APP_VERSION%-%VERSION_TAG%
 )
 
 rem ----Usage----
@@ -47,8 +53,7 @@ SET promptlevel=prompt
 SET buildbinaryaddons=true
 SET exitcode=0
 SET useshell=rxvt
-SET BRANCH=na
-FOR %%b in (%1, %2, %3, %4, %5) DO (
+FOR %%b in (%*) DO (
   IF %%b==clean SET buildmode=clean
   IF %%b==noclean SET buildmode=noclean
   IF %%b==noprompt SET promptlevel=noprompt
@@ -58,11 +63,11 @@ FOR %%b in (%1, %2, %3, %4, %5) DO (
 
 SET PreferredToolArchitecture=x64
 SET buildconfig=Release
-set WORKSPACE=%base_dir%\kodi-build
+set WORKSPACE=%base_dir%\kodi-build.%TARGET_PLATFORM%
 
 
   :: sets the BRANCH env var
-  call getbranch.bat
+  FOR /f %%a IN ('getbranch.bat') DO SET BRANCH=%%a
 
   rem  CONFIG END
   rem -------------------------------------------------------------
@@ -79,7 +84,7 @@ set WORKSPACE=%base_dir%\kodi-build
   MKDIR %WORKSPACE%
   PUSHD %WORKSPACE%
 
-  cmake.exe -G "%cmakeGenerator%" %base_dir%
+  cmake.exe -G "%cmakeGenerator%" %cmakeProps% %base_dir%
   IF %errorlevel%==1 (
     set DIETEXT="%APP_NAME%.EXE failed to build!"
     goto DIE
@@ -98,6 +103,7 @@ set WORKSPACE=%base_dir%\kodi-build
   POPD
   ECHO Done!
   ECHO ------------------------------------------------------------
+  IF "%cmakeProps%" NEQ "" GOTO MAKE_APPX
   GOTO MAKE_BUILD_EXE
 
 
@@ -106,7 +112,7 @@ set WORKSPACE=%base_dir%\kodi-build
   PUSHD %base_dir%\project\Win32BuildSetup
   IF EXIST BUILD_WIN32\application rmdir BUILD_WIN32\application /S /Q
   rem Add files to exclude.txt that should not be included in the installer
-  
+
   Echo Thumbs.db>>exclude.txt
   Echo Desktop.ini>>exclude.txt
   Echo dsstdfx.bin>>exclude.txt
@@ -133,17 +139,15 @@ set WORKSPACE=%base_dir%\kodi-build
 
   rem Exclude dlls from system to avoid duplicates
   Echo .dll>>exclude_dll.txt
-  
+
   md BUILD_WIN32\application
 
   xcopy %EXE% BUILD_WIN32\application > NUL
   xcopy %D3D% BUILD_WIN32\application > NUL
   xcopy %base_dir%\userdata BUILD_WIN32\application\userdata /E /Q /I /Y /EXCLUDE:exclude.txt > NUL
-  copy %base_dir%\LICENSE.GPL BUILD_WIN32\application > NUL
-  copy %base_dir%\copying.txt BUILD_WIN32\application > NUL
+  copy %base_dir%\LICENSE.md BUILD_WIN32\application > NUL
   copy %base_dir%\privacy-policy.txt BUILD_WIN32\application > NUL
   copy %base_dir%\known_issues.txt BUILD_WIN32\application > NUL
-  xcopy dependencies\*.* BUILD_WIN32\application /Q /I /Y /EXCLUDE:exclude.txt  > NUL
 
   xcopy %WORKSPACE%\addons BUILD_WIN32\application\addons /E /Q /I /Y /EXCLUDE:exclude.txt > NUL
   xcopy %WORKSPACE%\*.dll BUILD_WIN32\application /Q /I /Y > NUL
@@ -152,7 +156,15 @@ set WORKSPACE=%base_dir%\kodi-build
   xcopy %WORKSPACE%\media BUILD_WIN32\application\media /E /Q /I /Y /EXCLUDE:exclude.txt  > NUL
 
   REM create AppxManifest.xml
-  "%sed_exe%" -e s/@APP_NAME@/%APP_NAME%/g -e s/@COMPANY_NAME@/%COMPANY_NAME%/g -e s/@TARGET_ARCHITECTURE@/%TARGET_ARCHITECTURE%/g -e s/@APP_VERSION@/%APP_VERSION%/g -e s/@VERSION_NUMBER@/%VERSION_NUMBER%/g "AppxManifest.xml.in" > "BUILD_WIN32\application\AppxManifest.xml"
+  "%sed_exe%" ^
+    -e 's/@APP_NAME@/%APP_NAME%/g' ^
+    -e 's/@COMPANY_NAME@/%COMPANY_NAME%/g' ^
+    -e 's/@TARGET_ARCHITECTURE@/%TARGET_ARCHITECTURE%/g' ^
+    -e 's/@VERSION_CODE@/%VERSION_CODE%/g' ^
+    -e 's/@PACKAGE_IDENTITY@/%PACKAGE_IDENTITY%/g' ^
+    -e 's/@PACKAGE_PUBLISHER@/%PACKAGE_PUBLISHER%/g' ^
+    -e 's/@PACKAGE_DESCRIPTION@/%PACKAGE_DESCRIPTION%/g' ^
+    "AppxManifest.xml.in" > "BUILD_WIN32\application\AppxManifest.xml"
 
   SET build_path=%CD%
   IF %buildbinaryaddons%==true (
@@ -185,7 +197,7 @@ set WORKSPACE=%base_dir%\kodi-build
   del /s /q /f BUILD_WIN32\application\*.exp  > NUL
   del /s /q /f BUILD_WIN32\application\*.lib  > NUL
   POPD
-  
+
   ECHO ------------------------------------------------------------
   ECHO Build Succeeded!
   GOTO NSIS_EXE
@@ -209,7 +221,7 @@ set WORKSPACE=%base_dir%\kodi-build
     rem try with space delim instead of tab
     FOR /F "tokens=2* delims= " %%A IN ('REG QUERY "HKLM\Software\NSIS" /ve') DO SET NSISExePath=%%B
   )
-      
+
   IF NOT EXIST "%NSISExePath%" (
     rem fails on localized windows (Default) becomes (Par D�faut)
     FOR /F "tokens=3* delims=  " %%A IN ('REG QUERY "HKLM\Software\NSIS" /ve') DO SET NSISExePath=%%B
@@ -218,7 +230,7 @@ set WORKSPACE=%base_dir%\kodi-build
   IF NOT EXIST "%NSISExePath%" (
     FOR /F "tokens=3* delims= " %%A IN ('REG QUERY "HKLM\Software\NSIS" /ve') DO SET NSISExePath=%%B
   )
-  
+
   rem proper x64 registry checks
   IF NOT EXIST "%NSISExePath%" (
     ECHO using x64 registry entries
@@ -238,7 +250,7 @@ set WORKSPACE=%base_dir%\kodi-build
   )
 
   SET NSISExe=%NSISExePath%\makensis.exe
-  "%NSISExe%" /V1 /X"SetCompressor /FINAL lzma" /Dapp_root="%CD%\BUILD_WIN32" /DAPP_NAME="%APP_NAME%" /DTARGET_ARCHITECTURE="%TARGET_ARCHITECTURE%" /DVERSION_NUMBER="%VERSION_NUMBER%" /DCOMPANY_NAME="%COMPANY_NAME%" /DWEBSITE="%WEBSITE%" /Dapp_revision="%GIT_REV%" /Dapp_branch="%BRANCH%" /D%TARGET_ARCHITECTURE% "genNsisInstaller.nsi"
+  "%NSISExe%" /V1 /X"SetCompressor /FINAL lzma" /Dapp_root="%CD%\BUILD_WIN32" /DAPP_NAME="%APP_NAME%" /DTARGET_ARCHITECTURE="%TARGET_ARCHITECTURE%" /DVERSION_NUMBER="%VERSION_CODE%.0" /DCOMPANY_NAME="%COMPANY_NAME%" /DWEBSITE="%WEBSITE%" /Dapp_revision="%GIT_REV%" /Dapp_branch="%BRANCH%" /D%TARGET_ARCHITECTURE% "genNsisInstaller.nsi"
   IF NOT EXIST "%APP_SETUPFILE%" (
     POPD
     set DIETEXT=Failed to create %APP_SETUPFILE%. NSIS installed?
@@ -251,7 +263,42 @@ set WORKSPACE=%base_dir%\kodi-build
   ECHO Setup is located at %CD%\%APP_SETUPFILE%
   ECHO ------------------------------------------------------------
   GOTO END
-  
+
+:MAKE_APPX
+  set app_ext=msix
+  call %base_dir%\project\Win32BuildSetup\extract_git_rev.bat > NUL
+  for /F %%a IN ('dir /B /S %WORKSPACE%\AppPackages ^| findstr /I /R "%APP_NAME%_.*_%TARGET_ARCHITECTURE%_%buildconfig%\.%app_ext%$"') DO (
+    copy /Y %%a %base_dir%\%APP_NAME%-%GIT_REV%-%BRANCH%-%TARGET_ARCHITECTURE%.%app_ext%
+    copy /Y %%~dpna.cer %base_dir%\%APP_NAME%-%GIT_REV%-%BRANCH%-%TARGET_ARCHITECTURE%.cer
+    copy /Y %%~dpna.appxsym %base_dir%\%APP_NAME%-%GIT_REV%-%BRANCH%-%TARGET_ARCHITECTURE%.appxsym
+    goto END
+  )
+  rem Release builds don't have Release in it's name
+  for /F %%a IN ('dir /B /S %WORKSPACE%\AppPackages ^| findstr /I /R "%APP_NAME%_.*_%TARGET_ARCHITECTURE%\.%app_ext%$"') DO (
+    copy /Y %%a %base_dir%\%APP_NAME%-%GIT_REV%-%BRANCH%-%TARGET_ARCHITECTURE%.%app_ext%
+    copy /Y %%~dpna.cer %base_dir%\%APP_NAME%-%GIT_REV%-%BRANCH%-%TARGET_ARCHITECTURE%.cer
+    copy /Y %%~dpna.appxsym %base_dir%\%APP_NAME%-%GIT_REV%-%BRANCH%-%TARGET_ARCHITECTURE%.appxsym
+    goto END
+  )
+
+  rem apxx file has win32 instead of x86 in it's name
+  if %TARGET_ARCHITECTURE%==x86 (
+    for /F %%a IN ('dir /B /S %WORKSPACE%\AppPackages ^| findstr /I /R "%APP_NAME%_.*_win32_%buildconfig%\.%app_ext%$"') DO (
+      copy /Y %%a %base_dir%\%APP_NAME%-%GIT_REV%-%BRANCH%-%TARGET_ARCHITECTURE%.%app_ext%
+      copy /Y %%~dpna.cer %base_dir%\%APP_NAME%-%GIT_REV%-%BRANCH%-%TARGET_ARCHITECTURE%.cer
+      copy /Y %%~dpna.appxsym %base_dir%\%APP_NAME%-%GIT_REV%-%BRANCH%-%TARGET_ARCHITECTURE%.appxsym
+      goto END
+    )
+
+    rem Release builds don't have Release in it's name
+    for /F %%a IN ('dir /B /S %WORKSPACE%\AppPackages ^| findstr /I /R "%APP_NAME%_.*_win32\.%app_ext%$"') DO (
+      copy /Y %%a %base_dir%\%APP_NAME%-%GIT_REV%-%BRANCH%-%TARGET_ARCHITECTURE%.%app_ext%
+      copy /Y %%~dpna.cer %base_dir%\%APP_NAME%-%GIT_REV%-%BRANCH%-%TARGET_ARCHITECTURE%.cer
+      copy /Y %%~dpna.appxsym %base_dir%\%APP_NAME%-%GIT_REV%-%BRANCH%-%TARGET_ARCHITECTURE%.appxsym
+      goto END
+    )
+  )
+
 :DIE
   ECHO ------------------------------------------------------------
   ECHO !-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-!-

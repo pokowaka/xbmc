@@ -1,32 +1,21 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <set>
-#include <string>
-#include <vector>
-#include <memory>
+#pragma once
 
 #include "dbwrappers/DatabaseQuery.h"
 #include "utils/SortUtils.h"
 #include "utils/XBMCTinyXML.h"
+
+#include <memory>
+#include <set>
+#include <string>
+#include <vector>
 
 class CURL;
 class CVariant;
@@ -78,6 +67,9 @@ protected:
 private:
   std::string GetVideoResolutionQuery(const std::string &parameter) const;
   static std::string FormatLinkQuery(const char *field, const char *table, const MediaType& mediaType, const std::string& mediaField, const std::string& parameter);
+  std::string FormatYearQuery(const std::string& field,
+                              const std::string& param,
+                              const std::string& parameter) const;
 };
 
 class CSmartPlaylistRuleCombination : public CDatabaseQueryRuleCombination
@@ -99,7 +91,7 @@ class CSmartPlaylist : public IDatabaseQueryRuleFactory
 {
 public:
   CSmartPlaylist();
-  virtual ~CSmartPlaylist() = default;
+  ~CSmartPlaylist() override = default;
 
   bool Load(const CURL& url);
   bool Load(const std::string &path);
@@ -144,7 +136,7 @@ public:
   /*! \brief get the where clause for a playlist
    We handle playlists inside playlists separately in order to ensure we don't introduce infinite loops
    by playlist A including playlist B which also (perhaps via other playlists) then includes playlistA.
-   
+
    \param db the database to use to format up results
    \param referencedPlaylists a set of playlists to know when we reach a cycle
    \param needWhere whether we need to prepend the where clause with "WHERE "

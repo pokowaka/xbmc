@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: KODI Main\n"
-"Report-Msgid-Bugs-To: http://trac.kodi.tv/\n"
+"Report-Msgid-Bugs-To: https://github.com/xbmc/xbmc/issues/\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Kodi Translation Team\n"
@@ -148,10 +148,6 @@ msgctxt "#31033"
 msgid "Your rating"
 msgstr "Einkunnin þín"
 
-msgctxt "#31034"
-msgid "Extended info"
-msgstr "Ítarlegar upplýsingar"
-
 msgctxt "#31035"
 msgid "Pages"
 msgstr "Síður"
@@ -182,7 +178,7 @@ msgstr "Veldu hvaða tegund og bættu við reglum til að útbúa snjallan-spilu
 
 msgctxt "#31044"
 msgid "Add group"
-msgstr "Bæta við hóp"
+msgstr "Bæta við hópi"
 
 msgctxt "#31045"
 msgid "Rename group"
@@ -190,7 +186,7 @@ msgstr "Endurnefna hóp"
 
 msgctxt "#31046"
 msgid "Delete group"
-msgstr "Eyða hóp"
+msgstr "Eyða hópi"
 
 msgctxt "#31048"
 msgid "Available"
@@ -199,10 +195,6 @@ msgstr "Tiltækt"
 msgctxt "#31050"
 msgid "Press [B]OK[/B] to stop"
 msgstr "Ýttu á [B]OK[/B] til að stoppa"
-
-msgctxt "#31051"
-msgid "Toggle language"
-msgstr "Víxla tungumáli"
 
 msgctxt "#31052"
 msgid "filtered"
@@ -268,6 +260,10 @@ msgctxt "#31072"
 msgid "Power Options"
 msgstr "Valkostir orkustýringar"
 
+msgctxt "#31074"
+msgid "Total duration"
+msgstr "Heildar tímalengd"
+
 msgctxt "#31075"
 msgid "Movie sets"
 msgstr "Kvikmyndasett"
@@ -296,10 +292,6 @@ msgctxt "#31089"
 msgid "Available groups"
 msgstr "Tiltækir hópar"
 
-msgctxt "#31090"
-msgid "Search trailer"
-msgstr "Leita að stiklu"
-
 msgctxt "#31092"
 msgid "Video menu"
 msgstr "Myndefnisvalmynd"
@@ -314,7 +306,7 @@ msgstr "Nota rennslishreyfingar"
 
 msgctxt "#31096"
 msgid "Local subtitle available"
-msgstr "Staðvær þýðingartexti tiltækur"
+msgstr "Staðvær skjátexti tiltækur"
 
 msgctxt "#31097"
 msgid "Channel options"
@@ -380,10 +372,6 @@ msgctxt "#31114"
 msgid "Search YouTube"
 msgstr "Leita á YouTube"
 
-msgctxt "#31115"
-msgid "Search TheMovieDB"
-msgstr "Leita á TheMovieDB"
-
 msgctxt "#31116"
 msgid "Remove this main menu item"
 msgstr "Fjarlægja þetta atriði úr aðalvalmynd"
@@ -416,10 +404,6 @@ msgctxt "#31123"
 msgid "Same director"
 msgstr "Sami Lleikstjóri"
 
-msgctxt "#31124"
-msgid "Show images on map"
-msgstr "Birta myndir á landakorti"
-
 msgctxt "#31125"
 msgid "Press up for actor info"
 msgstr "Ýttu á upp fyrir upplýsingar um leikara"
@@ -447,6 +431,14 @@ msgstr "Stillingar sem tengjast aðalvalmynd: Stilltu upphafsskjáinn eins og þ
 msgctxt "#31131"
 msgid "Choose skin fanart pack"
 msgstr "Veldu pakka með aðdáendamyndum fyrir skinn"
+
+msgctxt "#31132"
+msgid "Select Program"
+msgstr "Veldu forrit"
+
+msgctxt "#31133"
+msgid "Select Resolution"
+msgstr "Veldu upplausn"
 
 msgctxt "#31134"
 msgid "Remaining"
@@ -555,3 +547,19 @@ msgstr "Spilaðu þína eigin leiki eða náðu í einhverja af fjölmörgum lei
 msgctxt "#31163"
 msgid "Show Fanart background"
 msgstr "Birta aðdáendamynd sem bakgrunn"
+
+msgctxt "#31164"
+msgid "Choose kind of profile identification"
+msgstr "Veldu gerð notandaauðkenningar"
+
+msgctxt "#31165"
+msgid "Profile name"
+msgstr "Nafn notanda"
+
+msgctxt "#31166"
+msgid "Profile avatar"
+msgstr "Notandatáknmynd"
+
+msgctxt "#31167"
+msgid "Animate background"
+msgstr "Lifandi bakgrunnur"

@@ -1,22 +1,11 @@
 /*
- *      Copyright (C) 2017 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
 #include <memory>
@@ -42,17 +31,17 @@ class COSScreenSaverManager;
 class COSScreenSaverInhibitor
 {
 public:
-  COSScreenSaverInhibitor();
-  COSScreenSaverInhibitor(COSScreenSaverInhibitor&& other);
-  COSScreenSaverInhibitor& operator=(COSScreenSaverInhibitor&& other);
-  ~COSScreenSaverInhibitor();
+  COSScreenSaverInhibitor() noexcept;
+  COSScreenSaverInhibitor(COSScreenSaverInhibitor&& other) noexcept;
+  COSScreenSaverInhibitor& operator=(COSScreenSaverInhibitor&& other) noexcept;
+  ~COSScreenSaverInhibitor() noexcept;
   void Release();
   bool IsActive() const;
   operator bool() const;
 
 private:
   friend class COSScreenSaverManager;
-  COSScreenSaverInhibitor(COSScreenSaverManager* manager);
+  explicit COSScreenSaverInhibitor(COSScreenSaverManager* manager);
   bool m_active;
   COSScreenSaverManager* m_manager;
 
@@ -84,6 +73,16 @@ public:
 };
 
 /**
+ * Dummy implementation of IOSScreenSaver
+ */
+class CDummyOSScreenSaver : public IOSScreenSaver
+{
+public:
+  void Inhibit() override {}
+  void Uninhibit() override {}
+};
+
+/**
  * Manage the OS screen saver
  *
  * This class keeps track of a number of \ref COSScreenSaverInhibitor instances
@@ -96,7 +95,7 @@ public:
   /**
    * Create manager with backing OS-specific implementation
    */
-  COSScreenSaverManager(std::unique_ptr<IOSScreenSaver>&& impl);
+  explicit COSScreenSaverManager(std::unique_ptr<IOSScreenSaver> impl);
   /**
    * Create inhibitor that prevents the OS screen saver from becoming active as
    * long as it is alive
@@ -111,7 +110,7 @@ private:
   friend class COSScreenSaverInhibitor;
   void RemoveInhibitor();
 
-  unsigned int m_inhibitionCount = 0;
+  unsigned int m_inhibitionCount{0u};
   std::unique_ptr<IOSScreenSaver> m_impl;
 };
 

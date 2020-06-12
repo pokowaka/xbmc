@@ -1,35 +1,26 @@
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "PeripheralImon.h"
-#include "utils/log.h"
-#include "settings/Settings.h"
+
 #include "input/InputManager.h"
+#include "settings/Settings.h"
+#include "utils/log.h"
 
 using namespace PERIPHERALS;
 
 std::atomic<long> CPeripheralImon::m_lCountOfImonsConflictWithDInput(0L);
 
 
-CPeripheralImon::CPeripheralImon(CPeripherals& manager, const PeripheralScanResult& scanResult, CPeripheralBus* bus) :
-  CPeripheralHID(manager, scanResult, bus)
+CPeripheralImon::CPeripheralImon(CPeripherals& manager,
+                                 const PeripheralScanResult& scanResult,
+                                 CPeripheralBus* bus)
+  : CPeripheralHID(manager, scanResult, bus)
 {
   m_features.push_back(FEATURE_IMON);
   m_bImonConflictsWithDInput = false;
@@ -40,7 +31,7 @@ void CPeripheralImon::OnDeviceRemoved()
   if (m_bImonConflictsWithDInput)
   {
     if (--m_lCountOfImonsConflictWithDInput == 0)
-      ActionOnImonConflict(false);    
+      ActionOnImonConflict(false);
   }
 }
 
@@ -51,7 +42,7 @@ bool CPeripheralImon::InitialiseFeature(const PeripheralFeature feature)
 #if defined(TARGET_WINDOWS)
     if (HasSetting("disable_winjoystick") && GetSettingBool("disable_winjoystick"))
       m_bImonConflictsWithDInput = true;
-    else 
+    else
 #endif // TARGET_WINDOWS
       m_bImonConflictsWithDInput = false;
 
@@ -66,15 +57,17 @@ bool CPeripheralImon::InitialiseFeature(const PeripheralFeature feature)
   return CPeripheralHID::InitialiseFeature(feature);
 }
 
-void CPeripheralImon::AddSetting(const std::string &strKey, std::shared_ptr<const CSetting> setting, int order)
+void CPeripheralImon::AddSetting(const std::string& strKey,
+                                 std::shared_ptr<const CSetting> setting,
+                                 int order)
 {
 #if !defined(TARGET_WINDOWS)
-  if (strKey.compare("disable_winjoystick")!=0)
+  if (strKey.compare("disable_winjoystick") != 0)
 #endif // !TARGET_WINDOWS
     CPeripheralHID::AddSetting(strKey, setting, order);
 }
 
-void CPeripheralImon::OnSettingChanged(const std::string &strChangedSetting)
+void CPeripheralImon::OnSettingChanged(const std::string& strChangedSetting)
 {
   if (strChangedSetting.compare("disable_winjoystick") == 0)
   {
@@ -84,7 +77,7 @@ void CPeripheralImon::OnSettingChanged(const std::string &strChangedSetting)
       if (--m_lCountOfImonsConflictWithDInput == 0)
         ActionOnImonConflict(false);
     }
-    else if(!m_bImonConflictsWithDInput && GetSettingBool("disable_winjoystick"))
+    else if (!m_bImonConflictsWithDInput && GetSettingBool("disable_winjoystick"))
     {
       m_bImonConflictsWithDInput = true;
       ++m_lCountOfImonsConflictWithDInput;
@@ -96,4 +89,3 @@ void CPeripheralImon::OnSettingChanged(const std::string &strChangedSetting)
 void CPeripheralImon::ActionOnImonConflict(bool deviceInserted /*= true*/)
 {
 }
-

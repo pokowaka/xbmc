@@ -1,33 +1,22 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "DVDClock.h"
-#include "TimingConstants.h"
+
 #include "VideoReferenceClock.h"
-#include <math.h>
-#include "utils/MathUtils.h"
+#include "cores/VideoPlayer/Interface/Addon/TimingConstants.h"
 #include "threads/SingleLock.h"
-#include "utils/log.h"
+#include "utils/MathUtils.h"
 #include "utils/TimeUtils.h"
+#include "utils/log.h"
 
 #include <inttypes.h>
+#include <math.h>
 
 CDVDClock::CDVDClock()
 {
@@ -38,7 +27,7 @@ CDVDClock::CDVDClock()
   m_paused = false;
   m_speedAfterPause = DVD_PLAYSPEED_PAUSE;
   m_iDisc = 0;
-  m_maxspeedadjust = 0.0;
+  m_maxspeedadjust = 5.0;
   m_systemAdjust = 0;
   m_speedAdjust = 0;
   m_startClock = 0;
@@ -119,6 +108,16 @@ void CDVDClock::Pause(bool pause)
   {
     m_paused = false;
     SetSpeed(m_speedAfterPause);
+  }
+}
+
+void CDVDClock::Advance(double time)
+{
+  CSingleLock lock(m_critSection);
+
+  if (m_pauseClock)
+  {
+    m_pauseClock += time / DVD_TIME_BASE * m_systemFrequency;
   }
 }
 
@@ -244,16 +243,16 @@ int CDVDClock::UpdateFramerate(double fps, double* interval /*= NULL*/)
 
   CSingleLock lock(m_speedsection);
 
-  double weight = MathUtils::round_int(rate) / (double)MathUtils::round_int(fps);
+  double weight = (rate * 2) / fps;
 
   //set the speed of the videoreferenceclock based on fps, refreshrate and maximum speed adjust set by user
   if (m_maxspeedadjust > 0.05)
   {
-    if (weight / MathUtils::round_int(weight) < 1.0 + m_maxspeedadjust / 100.0
-    &&  weight / MathUtils::round_int(weight) > 1.0 - m_maxspeedadjust / 100.0)
+    if (weight / MathUtils::round_int(weight) < 1.0 + m_maxspeedadjust / 200.0
+    &&  weight / MathUtils::round_int(weight) > 1.0 - m_maxspeedadjust / 200.0)
       weight = MathUtils::round_int(weight);
   }
-  double speed = rate / (fps * weight);
+  double speed = (rate * 2.0 ) / (fps * weight);
   lock.Leave();
 
   m_videoRefClock->SetSpeed(speed);
@@ -292,7 +291,7 @@ double CDVDClock::SystemToPlaying(int64_t system)
     m_vSyncAdjust = 0;
     m_bReset = false;
   }
-  
+
   if (m_pauseClock)
     current = m_pauseClock;
   else

@@ -1,13 +1,20 @@
-set(SOURCES AddonInterfaces.cpp
+set(SOURCES AddonBase.cpp
+            AddonInterfaces.cpp
             AudioEngine.cpp
             General.cpp
             Filesystem.cpp
             Network.cpp)
 
-set(HEADERS AddonInterfaces.h
+set(HEADERS AddonBase.h
+            AddonInterfaces.h
             AudioEngine.h
             General.h
             Filesystem.h
             Network.h)
 
-core_add_library(addonsBinaryInterfaces)
+if(CORE_SYSTEM_NAME STREQUAL android)
+  list(APPEND SOURCES platform/android/System.cpp)
+  list(APPEND HEADERS platform/android/System.h)
+endif()
+
+core_add_library(addons_interfaces)

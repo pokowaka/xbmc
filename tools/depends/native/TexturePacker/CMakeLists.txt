@@ -43,8 +43,6 @@ target_include_directories(TexturePacker
                                     ${JPEG_INCLUDE_DIR}
                                     ${GIF_INCLUDE_DIR}
                                     ${CMAKE_SOURCE_DIR}/xbmc
-                                    ${CMAKE_SOURCE_DIR}/xbmc/${PLATFORM_DIR}
-                                    ${CMAKE_SOURCE_DIR}/lib
                                     ${CMAKE_CURRENT_SOURCE_DIR}/src
                                     ${CMAKE_CURRENT_SOURCE_DIR}/src/decoder)
 target_link_libraries(TexturePacker
@@ -53,4 +51,4 @@ target_link_libraries(TexturePacker
                               ${PNG_LIBRARIES}
                               ${JPEG_LIBRARIES}
                               ${LZO2_LIBRARIES})
-target_compile_options(TexturePacker PRIVATE ${ARCH_DEFINES})
+target_compile_options(TexturePacker PRIVATE ${ARCH_DEFINES} ${SYSTEM_DEFINES})

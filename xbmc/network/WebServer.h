@@ -1,32 +1,19 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
-
-#ifdef HAS_WEB_SERVER
-#include <memory>
-#include <vector>
+#pragma once
 
 #include "network/httprequesthandler/IHTTPRequestHandler.h"
 #include "threads/CriticalSection.h"
+#include "utils/logtypes.h"
+
+#include <memory>
+#include <vector>
 
 namespace XFILE
 {
@@ -44,6 +31,7 @@ public:
   bool Start(uint16_t port, const std::string &username, const std::string &password);
   bool Stop();
   bool IsStarted();
+  static bool WebServerSupportsSSL();
   void SetCredentials(const std::string &username, const std::string &password);
 
   void RegisterRequestHandler(IHTTPRequestHandler *handler);
@@ -58,7 +46,7 @@ protected:
     struct MHD_PostProcessor *postprocessor;
     int errorStatus;
 
-    ConnectionHandler(const std::string& uri)
+    explicit ConnectionHandler(const std::string& uri)
       : fullUri(uri)
       , isNew(true)
       , requestHandler(nullptr)
@@ -110,16 +98,9 @@ private:
   // MHD callback implementations
   static void* UriRequestLogger(void *cls, const char *uri);
 
-#if (MHD_VERSION >= 0x00090200)
   static ssize_t ContentReaderCallback (void *cls, uint64_t pos, char *buf, size_t max);
-#elif (MHD_VERSION >= 0x00040001)
-  static int ContentReaderCallback (void *cls, uint64_t pos, char *buf, int max);
-#else
-  static int ContentReaderCallback (void *cls, size_t pos, char *buf, int max);
-#endif
   static void ContentReaderFreeCallback(void *cls);
 
-#if (MHD_VERSION >= 0x00040001)
   static int AnswerToConnection (void *cls, struct MHD_Connection *connection,
                         const char *url, const char *method,
                         const char *version, const char *upload_data,
@@ -128,26 +109,22 @@ private:
                              const char *filename, const char *content_type,
                              const char *transfer_encoding, const char *data, uint64_t off,
                              size_t size);
-#else   //libmicrohttpd < 0.4.0
-  static int AnswerToConnection (void *cls, struct MHD_Connection *connection,
-                        const char *url, const char *method,
-                        const char *version, const char *upload_data,
-                        unsigned int *upload_data_size, void **con_cls);
-  static int HandlePostField(void *cls, enum MHD_ValueKind kind, const char *key,
-                             const char *filename, const char *content_type,
-                             const char *transfer_encoding, const char *data, uint64_t off,
-                             unsigned int size);
-#endif
 
-  uint16_t m_port;
-  struct MHD_Daemon *m_daemon_ip6;
-  struct MHD_Daemon *m_daemon_ip4;
-  bool m_running;
-  size_t m_thread_stacksize;
-  bool m_authenticationRequired;
+  bool LoadCert(std::string &skey, std::string &scert);
+
+  uint16_t m_port = 0;
+  struct MHD_Daemon *m_daemon_ip6 = nullptr;
+  struct MHD_Daemon *m_daemon_ip4 = nullptr;
+  bool m_running = false;
+  size_t m_thread_stacksize = 0;
+  bool m_authenticationRequired = false;
   std::string m_authenticationUsername;
   std::string m_authenticationPassword;
-  CCriticalSection m_critSection;
+  std::string m_key;
+  std::string m_cert;
+  mutable CCriticalSection m_critSection;
   std::vector<IHTTPRequestHandler *> m_requestHandlers;
+
+  Logger m_logger;
+  static Logger s_logger;
 };
-#endif

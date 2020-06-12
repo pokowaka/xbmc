@@ -26,28 +26,75 @@ configure_file(${CMAKE_SOURCE_DIR}/tools/android/packaging/apksign
                ${CMAKE_BINARY_DIR}/tools/android/packaging/apksign COPYONLY)
 configure_file(${CMAKE_SOURCE_DIR}/tools/android/packaging/make_symbols.sh
                ${CMAKE_BINARY_DIR}/tools/android/packaging/make_symbols.sh COPYONLY)
+configure_file(${CMAKE_SOURCE_DIR}/tools/android/packaging/build.gradle
+               ${CMAKE_BINARY_DIR}/tools/android/packaging/build.gradle COPYONLY)
+configure_file(${CMAKE_SOURCE_DIR}/tools/android/packaging/gradlew
+               ${CMAKE_BINARY_DIR}/tools/android/packaging/gradlew COPYONLY)
+configure_file(${CMAKE_SOURCE_DIR}/tools/android/packaging/settings.gradle
+               ${CMAKE_BINARY_DIR}/tools/android/packaging/settings.gradle COPYONLY)
+configure_file(${CMAKE_SOURCE_DIR}/tools/android/packaging/gradle/wrapper/gradle-wrapper.jar
+               ${CMAKE_BINARY_DIR}/tools/android/packaging/gradle/wrapper/gradle-wrapper.jar COPYONLY)
+configure_file(${CMAKE_SOURCE_DIR}/tools/android/packaging/gradle/wrapper/gradle-wrapper.properties
+               ${CMAKE_BINARY_DIR}/tools/android/packaging/gradle/wrapper/gradle-wrapper.properties COPYONLY)
 file(WRITE ${CMAKE_BINARY_DIR}/tools/depends/Makefile.include
      "$(PREFIX)/lib/${APP_NAME_LC}/lib${APP_NAME_LC}.so: ;\n")
 
+string(REPLACE "." ";" APP_VERSION_CODE_LIST ${APP_VERSION_CODE})
+list(GET APP_VERSION_CODE_LIST 0 major)
+list(GET APP_VERSION_CODE_LIST 1 minor)
+list(GET APP_VERSION_CODE_LIST 2 patch)
+unset(APP_VERSION_CODE_LIST)
+math(EXPR APP_VERSION_CODE_ANDROID "(${major} * 100 + ${minor}) * 1000 + ${patch}")
+unset(major)
+unset(minor)
+if(ARCH STREQUAL aarch64 AND patch LESS 999)
+  math(EXPR APP_VERSION_CODE_ANDROID "${APP_VERSION_CODE_ANDROID} + 1")
+endif()
+unset(patch)
+
 set(package_files strings.xml
-                  activity_main.xml
                   colors.xml
                   searchable.xml
                   AndroidManifest.xml
-                  src/org/xbmc/kodi/Main.java
-                  src/org/xbmc/kodi/Splash.java
-                  src/org/xbmc/kodi/XBMCBroadcastReceiver.java
-                  src/org/xbmc/kodi/XBMCImageContentProvider.java
-                  src/org/xbmc/kodi/XBMCInputDeviceListener.java
-                  src/org/xbmc/kodi/XBMCJsonRPC.java
-                  src/org/xbmc/kodi/XBMCMediaContentProvider.java
-                  src/org/xbmc/kodi/XBMCRecommendationBuilder.java
-                  src/org/xbmc/kodi/XBMCSearchableActivity.java
-                  src/org/xbmc/kodi/XBMCSettingsContentObserver.java
-                  src/org/xbmc/kodi/XBMCProperties.java
-                  src/org/xbmc/kodi/XBMCVideoView.java
-                  src/org/xbmc/kodi/interfaces/XBMCAudioManagerOnAudioFocusChangeListener.java
-                  src/org/xbmc/kodi/interfaces/XBMCSurfaceTextureOnFrameAvailableListener.java
+                  build.gradle
+                  src/Splash.java
+                  src/Main.java
+                  src/XBMCBroadcastReceiver.java
+                  src/XBMCInputDeviceListener.java
+                  src/XBMCJsonRPC.java
+                  src/XBMCMainView.java
+                  src/XBMCMediaSession.java
+                  src/XBMCRecommendationBuilder.java
+                  src/XBMCSearchableActivity.java
+                  src/XBMCSettingsContentObserver.java
+                  src/XBMCProperties.java
+                  src/XBMCVideoView.java
+                  src/XBMCFile.java
+                  src/channels/SyncChannelJobService.java
+                  src/channels/SyncProgramsJobService.java
+                  src/channels/model/XBMCDatabase.java
+                  src/channels/model/Subscription.java
+                  src/channels/util/SharedPreferencesHelper.java
+                  src/channels/util/TvUtil.java
+                  src/interfaces/XBMCAudioManagerOnAudioFocusChangeListener.java
+                  src/interfaces/XBMCSurfaceTextureOnFrameAvailableListener.java
+                  src/interfaces/XBMCNsdManagerResolveListener.java
+                  src/interfaces/XBMCNsdManagerRegistrationListener.java
+                  src/interfaces/XBMCNsdManagerDiscoveryListener.java
+                  src/interfaces/XBMCMediaDrmOnEventListener.java
+                  src/interfaces/XBMCDisplayManagerDisplayListener.java
+                  src/model/TVEpisode.java
+                  src/model/Movie.java
+                  src/model/TVShow.java
+                  src/model/File.java
+                  src/model/Album.java
+                  src/model/Song.java
+                  src/model/MusicVideo.java
+                  src/model/Media.java
+                  src/content/XBMCFileContentProvider.java
+                  src/content/XBMCMediaContentProvider.java
+                  src/content/XBMCContentProvider.java
+                  src/content/XBMCYTDLContentProvider.java
                   )
 foreach(file IN LISTS package_files)
   configure_file(${CMAKE_SOURCE_DIR}/tools/android/packaging/xbmc/${file}.in
@@ -60,7 +107,7 @@ add_custom_target(bundle
                                                ${CMAKE_BINARY_DIR}/tools/android/packaging/media
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/tools/android/packaging/xbmc/res
                                                ${CMAKE_BINARY_DIR}/tools/android/packaging/xbmc/res
-    COMMAND ${CMAKE_COMMAND} -E copy_directory ${DEPENDS_PATH}/lib/python2.7 ${libdir}/python2.7
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${DEPENDS_PATH}/lib/python${PYTHON_VERSION} ${libdir}/python${PYTHON_VERSION}
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${DEPENDS_PATH}/share/${APP_NAME_LC} ${datadir}/${APP_NAME_LC}
     COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${APP_NAME_LC}>
                                      ${libdir}/${APP_NAME_LC}/$<TARGET_FILE_NAME:${APP_NAME_LC}>)
@@ -105,12 +152,13 @@ foreach(lib IN LISTS required_dyload dyload_optional ITEMS Shairplay)
     add_bundle_file(${DEPENDS_PATH}/lib/${lib_so} ${libdir} "")
   endif()
 endforeach()
+add_bundle_file(${ASS_LIBRARY} ${libdir} "")
+add_bundle_file(${SHAIRPLAY_LIBRARY} ${libdir} "")
 add_bundle_file(${SMBCLIENT_LIBRARY} ${libdir} "")
 
 # Main targets from Makefile.in
 if(CPU MATCHES i686)
   set(CPU x86)
-  set(ARCH x86)
 endif()
 foreach(target apk obb apk-unsigned apk-obb apk-obb-unsigned apk-noobb apk-clean apk-sign)
   add_custom_target(${target}
@@ -119,12 +167,12 @@ foreach(target apk obb apk-unsigned apk-obb apk-obb-unsigned apk-noobb apk-clean
               CMAKE_SOURCE_DIR=${CMAKE_SOURCE_DIR}
               CC=${CMAKE_C_COMPILER}
               CPU=${CPU}
-              ARCH=${ARCH}
+              HOST=${HOST}
+              TOOLCHAIN=${TOOLCHAIN}
               PREFIX=${prefix}
               DEPENDS_PATH=${DEPENDS_PATH}
               NDKROOT=${NDKROOT}
               SDKROOT=${SDKROOT}
-              SDK_PLATFORM=${SDK_PLATFORM}
               STRIP=${CMAKE_STRIP}
               AAPT=${AAPT_EXECUTABLE}
               DX=${DX_EXECUTABLE}

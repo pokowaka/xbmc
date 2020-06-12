@@ -1,23 +1,12 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2017 Team KODI
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with KODI; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include <string>
 #include <time.h>
@@ -37,6 +26,7 @@ typedef struct AddonToKodiFuncTable_kodi_gui_general
   int (*get_video_resolution)(void* kodiBase);
   int (*get_current_window_dialog_id)(void* kodiBase);
   int (*get_current_window_id)(void* kodiBase);
+  void* (*get_hw_context)(void* kodiBase);
 } AddonToKodiFuncTable_kodi_gui_general;
 
 typedef struct AddonToKodiFuncTable_kodi_gui_control_button
@@ -210,6 +200,8 @@ typedef struct AddonToKodiFuncTable_kodi_gui_dialogFileBrowser
   void (*clear_file_list)(void* kodiBase, char*** file_list, unsigned int entries);
 } AddonToKodiFuncTable_kodi_gui_dialogFileBrowser;
 
+// typedef void (*char_callback_t) (CGUIKeyboard *ref, const std::string &typedString);
+
 typedef struct AddonToKodiFuncTable_kodi_gui_dialogKeyboard
 {
   bool (*show_and_get_input_with_head)(void* kodiBase, const char* text_in, char** text_out, const char* heading, bool allow_empty_result, bool hiddenInput, unsigned int auto_close_ms);
@@ -223,7 +215,7 @@ typedef struct AddonToKodiFuncTable_kodi_gui_dialogKeyboard
   bool (*send_text_to_active_keyboard)(void* kodiBase, const char* text, bool close_keyboard);
   bool (*is_keyboard_activated)(void* kodiBase);
 } AddonToKodiFuncTable_kodi_gui_dialogKeyboard;
-  
+
 typedef struct AddonToKodiFuncTable_kodi_gui_dialogNumeric
 {
   bool (*show_and_verify_new_password)(void* kodiBase, char** password);
@@ -262,6 +254,8 @@ typedef struct AddonToKodiFuncTable_kodi_gui_dialogProgress
 typedef struct AddonToKodiFuncTable_kodi_gui_dialogSelect
 {
   int (*open)(void* kodiBase, const char *heading, const char *entries[], unsigned int size, int selected, unsigned int autoclose);
+  bool (*open_multi_select)(void* kodiBase, const char* heading, const char* entryIDs[], const char* entryNames[],
+                            bool entriesSelected[], unsigned int size, unsigned int autoclose);
 } AddonToKodiFuncTable_kodi_gui_dialogSelect;
 
 typedef struct AddonToKodiFuncTable_kodi_gui_dialogTextViewer
@@ -284,8 +278,6 @@ typedef struct AddonToKodiFuncTable_kodi_gui_listItem
   void (*set_label)(void* kodiBase, void* handle, const char* label);
   char* (*get_label2)(void* kodiBase, void* handle);
   void (*set_label2)(void* kodiBase, void* handle, const char* label);
-  char* (*get_icon_image)(void* kodiBase, void* handle);
-  void (*set_icon_image)(void* kodiBase, void* handle, const char* image);
   char* (*get_art)(void* kodiBase, void* handle, const char* type);
   void (*set_art)(void* kodiBase, void* handle, const char* type, const char* image);
   char* (*get_path)(void* kodiBase, void* handle);
@@ -310,12 +302,12 @@ typedef struct AddonToKodiFuncTable_kodi_gui_window
   void* (*create)(void* kodiBase, const char* xml_filename, const char* default_skin, bool as_dialog, bool is_media);
   void (*destroy)(void* kodiBase, void* handle);
   void (*set_callbacks)(void* kodiBase, void* handle, void* clienthandle,
-       bool (*)(void* handle),
-       bool (*)(void* handle, int),
-       bool (*)(void* handle, int),
-       bool (*)(void* handle, int),
-       void (*)(void* handle, int, gui_context_menu_pair*, unsigned int*),
-       bool (*)(void* handle, int, unsigned int));
+        bool (*CBInit)(void*),
+        bool (*CBFocus)(void*, int),
+        bool (*CBClick)(void*, int),
+        bool (*CBOnAction)(void*, int, uint32_t, wchar_t),
+        void (*CBGetContextButtons)(void*, int, gui_context_menu_pair*, unsigned int*),
+        bool (*CBOnContextButton)(void*, int, unsigned int));
   bool (*show)(void* kodiBase, void* handle);
   bool (*close)(void* kodiBase, void* handle);
   bool (*do_modal)(void* kodiBase, void* handle);
@@ -324,6 +316,8 @@ typedef struct AddonToKodiFuncTable_kodi_gui_window
   bool (*set_focus_id)(void* kodiBase, void* handle, int control_id);
   int (*get_focus_id)(void* kodiBase, void* handle);
   void (*set_control_label)(void* kodiBase, void* handle, int control_id, const char* label);
+  void (*set_control_visible)(void* kodiBase, void* handle, int control_id, bool visible);
+  void (*set_control_selected)(void* kodiBase, void* handle, int control_id, bool selected);
 
   /* Window property functions */
   void (*set_property)(void* kodiBase, void* handle, const char* key, const char* value);

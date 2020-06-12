@@ -1,45 +1,31 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "threads/Thread.h"
-#include "IVideoPlayer.h"
-#include "DVDMessageQueue.h"
-#include "DVDStreamInfo.h"
-#include "DVDCodecs/Video/DVDVideoCodec.h"
+#pragma once
+
 #include "DVDClock.h"
+#include "DVDCodecs/Video/DVDVideoCodec.h"
+#include "DVDMessageQueue.h"
 #include "DVDOverlayContainer.h"
+#include "DVDStreamInfo.h"
+#include "IVideoPlayer.h"
 #include "PTSTracker.h"
 #include "cores/VideoPlayer/VideoRenderers/RenderManager.h"
+#include "threads/Thread.h"
 #include "utils/BitstreamStats.h"
+
 #include <atomic>
 
+#define DROP_DROPPED 1
+#define DROP_VERYLATE 2
+#define DROP_BUFFER_LEVEL 4
+
 class CDemuxStreamVideo;
-
-#define VIDEO_PICTURE_QUEUE_SIZE 1
-
-#define EOS_ABORT 1
-#define EOS_DROPPED 2
-#define EOS_VERYLATE 4
-#define EOS_BUFFER_LEVEL 8
 
 class CDroppingStats
 {
@@ -77,7 +63,6 @@ public:
 
   void EnableSubtitle(bool bEnable) override { m_bRenderSubs = bEnable; }
   bool IsSubtitleEnabled() override { return m_bRenderSubs; }
-  void EnableFullscreen(bool bEnable) override { m_bAllowFullscreen = bEnable; }
   double GetSubtitleDelay() override { return m_iSubtitleDelay; }
   void SetSubtitleDelay(double delay) override { m_iSubtitleDelay = delay; }
   bool IsStalled() const override { return m_stalled; }
@@ -86,7 +71,6 @@ public:
   double GetOutputDelay() override; /* returns the expected delay, from that a packet is put in queue */
   std::string GetPlayerInfo() override;
   int GetVideoBitrate() override;
-  std::string GetStereoMode() override;
   void SetSpeed(int iSpeed) override;
   bool SupportsExtention() const override { return m_pVideoCodec && m_pVideoCodec->SupportsExtention(); }
 
@@ -96,6 +80,14 @@ public:
 
 protected:
 
+  enum EOutputState
+  {
+    OUTPUT_NORMAL,
+    OUTPUT_ABORT,
+    OUTPUT_DROPPED,
+    OUTPUT_AGAIN
+  };
+
   void OnExit() override;
   void Process() override;
 
@@ -103,7 +95,7 @@ protected:
   void SendMessageBack(CDVDMsg* pMsg, int priority = 0);
   MsgQueueReturnCode GetMessage(CDVDMsg** pMsg, unsigned int iTimeoutInMilliSeconds, int &priority);
 
-  int OutputPicture(const VideoPicture* src, double pts);
+  EOutputState OutputPicture(const VideoPicture* src);
   void ProcessOverlays(const VideoPicture* pSource, double pts);
   void OpenStream(CDVDStreamInfo &hint, CDVDVideoCodec* codec);
 
@@ -126,7 +118,6 @@ protected:
                              //this is increased exponentially from CVideoPlayerVideo::CalcFrameRate()
 
   bool m_bFpsInvalid;        // needed to ignore fps (e.g. dvd stills)
-  bool m_bAllowFullscreen;
   bool m_bRenderSubs;
   float m_fForcedAspectRatio;
   int m_speed;
@@ -147,4 +138,6 @@ protected:
   CDroppingStats m_droppingStats;
   CRenderManager& m_renderManager;
   VideoPicture m_picture;
+
+  EOutputState m_outputSate;
 };

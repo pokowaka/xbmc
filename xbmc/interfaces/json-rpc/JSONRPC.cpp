@@ -1,41 +1,31 @@
 /*
- *      Copyright (C) 2005-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <string.h>
-
 #include "JSONRPC.h"
+
+#include "ServiceBroker.h"
 #include "ServiceDescription.h"
+#include "TextureDatabase.h"
 #include "addons/Addon.h"
 #include "addons/IAddon.h"
 #include "dbwrappers/DatabaseQuery.h"
-#include "input/ActionTranslator.h"
 #include "input/WindowTranslator.h"
+#include "input/actions/ActionTranslator.h"
 #include "interfaces/AnnouncementManager.h"
 #include "playlists/SmartPlayList.h"
 #include "settings/AdvancedSettings.h"
-#include "utils/log.h"
+#include "settings/SettingsComponent.h"
 #include "utils/StringUtils.h"
 #include "utils/Variant.h"
-#include "TextureDatabase.h"
+#include "utils/log.h"
 
-using namespace ANNOUNCEMENT;
+#include <string.h>
+
 using namespace JSONRPC;
 
 bool CJSONRPC::m_initialized = false;
@@ -110,7 +100,9 @@ void CJSONRPC::Initialize()
 
   for (unsigned int index = 0; index < size; index++)
     CJSONServiceDescription::AddNotification(JSONRPC_SERVICE_NOTIFICATIONS[index]);
-  
+
+  CJSONServiceDescription::ResolveReferences();
+
   m_initialized = true;
   CLog::Log(LOGINFO, "JSONRPC v%s: Successfully initialized", CJSONServiceDescription::GetVersion());
 }
@@ -170,8 +162,8 @@ JSONRPC_STATUS CJSONRPC::GetConfiguration(const std::string &method, ITransportL
 {
   int flags = client->GetAnnouncementFlags();
 
-  for (int i = 1; i <= ANNOUNCE_ALL; i *= 2)
-    result["notifications"][AnnouncementFlagToString((AnnouncementFlag)i)] = (flags & i) == i;
+  for (int i = 1; i <= ANNOUNCEMENT::ANNOUNCE_ALL; i *= 2)
+    result["notifications"][AnnouncementFlagToString((ANNOUNCEMENT::AnnouncementFlag)i)] = (flags & i) == i;
 
   return OK;
 }
@@ -184,33 +176,33 @@ JSONRPC_STATUS CJSONRPC::SetConfiguration(const std::string &method, ITransportL
   if (parameterObject.isMember("notifications"))
   {
     CVariant notifications = parameterObject["notifications"];
-    if ((notifications["Player"].isNull() && (oldFlags & Player)) ||
+    if ((notifications["Player"].isNull() && (oldFlags & ANNOUNCEMENT::Player)) ||
         (notifications["Player"].isBoolean() && notifications["Player"].asBoolean()))
-      flags |= Player;
-    if ((notifications["Playlist"].isNull() && (oldFlags & Playlist)) ||
+      flags |= ANNOUNCEMENT::Player;
+    if ((notifications["Playlist"].isNull() && (oldFlags & ANNOUNCEMENT::Playlist)) ||
         (notifications["Playlist"].isBoolean() && notifications["Playlist"].asBoolean()))
-      flags |= Playlist;
-    if ((notifications["GUI"].isNull() && (oldFlags & GUI)) ||
+      flags |= ANNOUNCEMENT::Playlist;
+    if ((notifications["GUI"].isNull() && (oldFlags & ANNOUNCEMENT::GUI)) ||
         (notifications["GUI"].isBoolean() && notifications["GUI"].asBoolean()))
-      flags |= GUI;
-    if ((notifications["System"].isNull() && (oldFlags & System)) ||
+      flags |= ANNOUNCEMENT::GUI;
+    if ((notifications["System"].isNull() && (oldFlags & ANNOUNCEMENT::System)) ||
         (notifications["System"].isBoolean() && notifications["System"].asBoolean()))
-      flags |= System;
-    if ((notifications["VideoLibrary"].isNull() && (oldFlags & VideoLibrary)) ||
+      flags |= ANNOUNCEMENT::System;
+    if ((notifications["VideoLibrary"].isNull() && (oldFlags & ANNOUNCEMENT::VideoLibrary)) ||
         (notifications["VideoLibrary"].isBoolean() && notifications["VideoLibrary"].asBoolean()))
-      flags |= VideoLibrary;
-    if ((notifications["AudioLibrary"].isNull() && (oldFlags & AudioLibrary)) ||
+      flags |= ANNOUNCEMENT::VideoLibrary;
+    if ((notifications["AudioLibrary"].isNull() && (oldFlags & ANNOUNCEMENT::AudioLibrary)) ||
         (notifications["AudioLibrary"].isBoolean() && notifications["AudioLibrary"].asBoolean()))
-      flags |= AudioLibrary;
-    if ((notifications["Application"].isNull() && (oldFlags & Other)) ||
+      flags |= ANNOUNCEMENT::AudioLibrary;
+    if ((notifications["Application"].isNull() && (oldFlags & ANNOUNCEMENT::Other)) ||
         (notifications["Application"].isBoolean() && notifications["Application"].asBoolean()))
-      flags |= Application;
-    if ((notifications["Input"].isNull() && (oldFlags & Input)) ||
+      flags |= ANNOUNCEMENT::Application;
+    if ((notifications["Input"].isNull() && (oldFlags & ANNOUNCEMENT::Input)) ||
         (notifications["Input"].isBoolean() && notifications["Input"].asBoolean()))
-      flags |= Input;
-    if ((notifications["Other"].isNull() && (oldFlags & Other)) ||
+      flags |= ANNOUNCEMENT::Input;
+    if ((notifications["Other"].isNull() && (oldFlags & ANNOUNCEMENT::Other)) ||
         (notifications["Other"].isBoolean() && notifications["Other"].asBoolean()))
-      flags |= Other;
+      flags |= ANNOUNCEMENT::Other;
   }
 
   if (!client->SetAnnouncementFlags(flags))
@@ -222,12 +214,12 @@ JSONRPC_STATUS CJSONRPC::SetConfiguration(const std::string &method, ITransportL
 JSONRPC_STATUS CJSONRPC::NotifyAll(const std::string &method, ITransportLayer *transport, IClient *client, const CVariant& parameterObject, CVariant &result)
 {
   if (parameterObject["data"].isNull())
-    CAnnouncementManager::GetInstance().Announce(Other, parameterObject["sender"].asString().c_str(),  
+    CServiceBroker::GetAnnouncementManager()->Announce(ANNOUNCEMENT::Other, parameterObject["sender"].asString().c_str(),
       parameterObject["message"].asString().c_str());
   else
   {
     CVariant data = parameterObject["data"];
-    CAnnouncementManager::GetInstance().Announce(Other, parameterObject["sender"].asString().c_str(),  
+    CServiceBroker::GetAnnouncementManager()->Announce(ANNOUNCEMENT::Other, parameterObject["sender"].asString().c_str(),
       parameterObject["message"].asString().c_str(), data);
   }
 
@@ -239,8 +231,7 @@ std::string CJSONRPC::MethodCall(const std::string &inputString, ITransportLayer
   CVariant inputroot, outputroot, result;
   bool hasResponse = false;
 
-  if(g_advancedSettings.CanLogComponent(LOGJSONRPC))
-    CLog::Log(LOGDEBUG, "JSONRPC: Incoming request: %s", inputString.c_str());
+  CLog::Log(LOGDEBUG, LOGJSONRPC, "JSONRPC: Incoming request: %s", inputString.c_str());
 
   if (CJSONVariantParser::Parse(inputString, inputroot) && !inputroot.isNull())
   {
@@ -248,7 +239,7 @@ std::string CJSONRPC::MethodCall(const std::string &inputString, ITransportLayer
     {
       if (inputroot.size() <= 0)
       {
-        CLog::Log(LOGERROR, "JSONRPC: Empty batch call\n");
+        CLog::Log(LOGERROR, "JSONRPC: Empty batch call");
         BuildResponse(inputroot, InvalidRequest, CVariant(), outputroot);
         hasResponse = true;
       }
@@ -270,14 +261,14 @@ std::string CJSONRPC::MethodCall(const std::string &inputString, ITransportLayer
   }
   else
   {
-    CLog::Log(LOGERROR, "JSONRPC: Failed to parse '%s'\n", inputString.c_str());
+    CLog::Log(LOGERROR, "JSONRPC: Failed to parse '%s'", inputString.c_str());
     BuildResponse(inputroot, ParseError, CVariant(), outputroot);
     hasResponse = true;
   }
 
   std::string str;
   if (hasResponse)
-    CJSONVariantWriter::Write(outputroot, str, g_advancedSettings.m_jsonOutputCompact);
+    CJSONVariantWriter::Write(outputroot, str, CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_jsonOutputCompact);
 
   return str;
 }
@@ -308,7 +299,7 @@ bool CJSONRPC::HandleMethodCall(const CVariant& request, CVariant& response, ITr
     std::string str;
     CJSONVariantWriter::Write(request, str, true);
 
-    CLog::Log(LOGERROR, "JSONRPC: Failed to parse '%s'\n", str.c_str());
+    CLog::Log(LOGERROR, "JSONRPC: Failed to parse '%s'", str.c_str());
     errorCode = InvalidRequest;
   }
 

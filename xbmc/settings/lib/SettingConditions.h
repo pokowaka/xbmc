@@ -1,31 +1,20 @@
-#pragma once
 /*
- *      Copyright (C) 2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2013-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
+
+#include "SettingDefinitions.h"
+#include "utils/BooleanLogic.h"
 
 #include <map>
 #include <set>
 #include <string>
 #include <utility>
-
-#include "SettingDefinitions.h"
-#include "utils/BooleanLogic.h"
 
 class CSettingsManager;
 class CSetting;
@@ -35,7 +24,7 @@ using SettingConditionCheck = bool (*)(const std::string &condition, const std::
 class ISettingCondition
 {
 public:
-  ISettingCondition(CSettingsManager *settingsManager)
+  explicit ISettingCondition(CSettingsManager *settingsManager)
     : m_settingsManager(settingsManager)
   { }
   virtual ~ISettingCondition() = default;
@@ -49,11 +38,11 @@ protected:
 class CSettingConditionItem : public CBooleanLogicValue, public ISettingCondition
 {
 public:
-  CSettingConditionItem(CSettingsManager *settingsManager = nullptr)
+  explicit CSettingConditionItem(CSettingsManager *settingsManager = nullptr)
     : ISettingCondition(settingsManager)
   { }
   ~CSettingConditionItem() override = default;
-  
+
   bool Deserialize(const TiXmlNode *node) override;
   const char* GetTag() const override { return SETTING_XML_ELM_CONDITION; }
   bool Check() const override;
@@ -66,7 +55,7 @@ protected:
 class CSettingConditionCombination : public CBooleanLogicOperation, public ISettingCondition
 {
 public:
-  CSettingConditionCombination(CSettingsManager *settingsManager = nullptr)
+  explicit CSettingConditionCombination(CSettingsManager *settingsManager = nullptr)
     : ISettingCondition(settingsManager)
   { }
   ~CSettingConditionCombination() override = default;
@@ -81,7 +70,7 @@ private:
 class CSettingCondition : public CBooleanLogic, public ISettingCondition
 {
 public:
-  CSettingCondition(CSettingsManager *settingsManager = nullptr);
+  explicit CSettingCondition(CSettingsManager *settingsManager = nullptr);
   ~CSettingCondition() override = default;
 
   bool Check() const override;
@@ -96,7 +85,8 @@ public:
   virtual ~CSettingConditionsManager() = default;
 
   void AddCondition(std::string condition);
-  void AddCondition(std::string identifier, SettingConditionCheck condition, void *data = nullptr);
+  void AddDynamicCondition(std::string identifier, SettingConditionCheck condition, void *data = nullptr);
+  void RemoveDynamicCondition(std::string identifier);
 
   bool Check(std::string condition, const std::string &value = "", std::shared_ptr<const CSetting> setting = std::shared_ptr<const CSetting>()) const;
 

@@ -1,28 +1,21 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "GUIControl.h"
 #include "addons/Visualization.h"
 #include "cores/AudioEngine/Interfaces/IAudioCallback.h"
 #include "utils/rfft.h"
+
+#include <list>
+#include <string>
+#include <vector>
 
 #define AUDIO_BUFFER_SIZE 512 // MUST BE A POWER OF 2!!!
 #define MAX_AUDIO_BUFFERS 16
@@ -30,12 +23,14 @@
 class CAudioBuffer
 {
 public:
-  CAudioBuffer(int iSize);
+  explicit CAudioBuffer(int iSize);
   virtual ~CAudioBuffer();
   const float* Get() const;
   int Size() const;
   void Set(const float* psBuffer, int iSize);
 private:
+  CAudioBuffer(const CAudioBuffer&) = delete;
+  CAudioBuffer& operator=(const CAudioBuffer&) = delete;
   CAudioBuffer();
   float* m_pBuffer;
   int m_iLen;
@@ -55,7 +50,6 @@ public:
   // Child functions related to CGUIControl
   void FreeResources(bool immediately = false) override;
   void Process(unsigned int currentTime, CDirtyRegionList &dirtyregions) override;
-  virtual bool IsDirty();
   void Render() override;
   void UpdateVisibility(const CGUIListItem *item = nullptr) override;
   bool OnAction(const CAction &action) override;

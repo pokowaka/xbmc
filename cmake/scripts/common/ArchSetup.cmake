@@ -11,28 +11,14 @@
 # DEP_DEFINES - compiler definitions for system dependencies (e.g. LIRC)
 # + the results of compiler tests etc.
 
+# workaround a bug in older cmake, where binutils wouldn't be set after deleting CMakeCache.txt
+include(CMakeFindBinUtils)
+
 include(CheckCXXSourceCompiles)
 include(CheckSymbolExists)
 include(CheckFunctionExists)
 include(CheckIncludeFile)
-
-# Macro to check if a given type exists in a given header
-# Arguments:
-#   header the header to check
-#   type   the type to check for existence
-#   var    the compiler definition to set if type exists
-# On return:
-#   If type was found, the definition is added to SYSTEM_DEFINES
-macro(check_type header type var)
-  check_cxx_source_compiles("#include <${header}>
-                             int main()
-                             {
-                               ${type} s;
-                             }" ${var})
-  if(${var})
-    list(APPEND SYSTEM_DEFINES -D${var}=1)
-  endif()
-endmacro()
+include(CheckTypeSize)
 
 # Macro to check if a given builtin function exists
 # Arguments:
@@ -52,11 +38,8 @@ macro(check_builtin func var)
 endmacro()
 
 
-# -------- Main script --------- 
+# -------- Main script ---------
 message(STATUS "System type: ${CMAKE_SYSTEM_NAME}")
-if(NOT CORE_SYSTEM_NAME)
-  string(TOLOWER ${CMAKE_SYSTEM_NAME} CORE_SYSTEM_NAME)
-endif()
 
 if(WITH_CPU)
   set(CPU ${WITH_CPU})
@@ -95,17 +78,12 @@ endif()
 include(${CMAKE_SOURCE_DIR}/cmake/scripts/${CORE_SYSTEM_NAME}/ArchSetup.cmake)
 
 message(STATUS "Core system type: ${CORE_SYSTEM_NAME}")
-message(STATUS "Platform: ${PLATFORM}")
+message(STATUS "Platform: ${CORE_PLATFORM_NAME}")
 message(STATUS "CPU: ${CPU}, ARCH: ${ARCH}")
 message(STATUS "Cross-Compiling: ${CMAKE_CROSSCOMPILING}")
 message(STATUS "Execute build artefacts on host: ${CORE_HOST_IS_TARGET}")
 message(STATUS "Depends based build: ${KODI_DEPENDSBUILD}")
 
-check_type(string std::u16string HAVE_STD__U16_STRING)
-check_type(string std::u32string HAVE_STD__U32_STRING)
-check_type(string char16_t HAVE_CHAR16_T)
-check_type(string char32_t HAVE_CHAR32_T)
-check_type(stdint.h uint_least16_t HAVE_STDINT_H)
 check_symbol_exists(posix_fadvise fcntl.h HAVE_POSIX_FADVISE)
 check_symbol_exists(PRIdMAX inttypes.h HAVE_INTTYPES_H)
 check_builtin("long* temp=0; long ret=__sync_add_and_fetch(temp, 1)" HAS_BUILTIN_SYNC_ADD_AND_FETCH)
@@ -121,6 +99,10 @@ endif()
 check_function_exists(localtime_r HAVE_LOCALTIME_R)
 if(HAVE_LOCALTIME_R)
   list(APPEND SYSTEM_DEFINES -DHAVE_LOCALTIME_R=1)
+endif()
+check_function_exists(gmtime_r HAVE_GMTIME_R)
+if(HAVE_GMTIME_R)
+list(APPEND SYSTEM_DEFINES -DHAVE_GMTIME_R=1)
 endif()
 if(HAVE_INTTYPES_H)
   list(APPEND SYSTEM_DEFINES -DHAVE_INTTYPES_H=1)
@@ -153,7 +135,12 @@ if(NOT DEFINED NEON OR NEON)
   endif()
 endif()
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-  add_options (ALL_LANGUAGES DEBUG "-g" "-D_DEBUG" "-Wall")
+if(PLATFORM_DEFINES)
+  add_options(ALL_LANGUAGES ALL_BUILDS ${PLATFORM_DEFINES})
+endif()
+
+if(NOT MSVC)
+  add_options(ALL_LANGUAGES ALL_BUILDS "-Wall")
+  add_options(ALL_LANGUAGES DEBUG "-g" "-D_DEBUG")
 endif()
 

@@ -1,33 +1,38 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "Application.h"
-#include "VideoSyncPi.h"
 #include "WinSystemRpiGLESContext.h"
-#include "guilib/GUIWindowManager.h"
-#include "utils/log.h"
+
+#include "Application.h"
+#include "ServiceBroker.h"
+#include "VideoSyncPi.h"
+#include "cores/RetroPlayer/process/rbpi/RPProcessInfoPi.h"
+#include "cores/RetroPlayer/rendering/VideoRenderers/RPRendererOpenGLES.h"
 #include "cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.h"
-#include "cores/VideoPlayer/DVDCodecs/Video/MMALFFmpeg.h"
 #include "cores/VideoPlayer/DVDCodecs/Video/MMALCodec.h"
-#include "cores/VideoPlayer/VideoRenderers/RenderFactory.h"
+#include "cores/VideoPlayer/DVDCodecs/Video/MMALFFmpeg.h"
 #include "cores/VideoPlayer/Process/rbpi/ProcessInfoPi.h"
+#include "cores/VideoPlayer/VideoRenderers/RenderFactory.h"
+#include "guilib/GUIComponent.h"
+#include "guilib/GUIWindowManager.h"
+#include "rendering/gles/ScreenshotSurfaceGLES.h"
+#include "utils/log.h"
+
+#include "platform/linux/ScreenshotSurfaceRBP.h"
+
+using namespace KODI;
+
+
+std::unique_ptr<CWinSystemBase> CWinSystemBase::CreateWinSystem()
+{
+  std::unique_ptr<CWinSystemBase> winSystem(new CWinSystemRpiGLESContext());
+  return winSystem;
+}
 
 bool CWinSystemRpiGLESContext::InitWindowSystem()
 {
@@ -36,19 +41,40 @@ bool CWinSystemRpiGLESContext::InitWindowSystem()
     return false;
   }
 
-  if (!m_pGLContext.CreateDisplay(m_nativeDisplay,
-                                  EGL_OPENGL_ES2_BIT,
-                                  EGL_OPENGL_ES_API))
+  if (!m_pGLContext.CreateDisplay(m_nativeDisplay))
   {
     return false;
   }
+
+  if (!m_pGLContext.InitializeDisplay(EGL_OPENGL_ES_API))
+  {
+    return false;
+  }
+
+  if (!m_pGLContext.ChooseConfig(EGL_OPENGL_ES2_BIT))
+  {
+    return false;
+  }
+
+  CEGLAttributesVec contextAttribs;
+  contextAttribs.Add({{EGL_CONTEXT_CLIENT_VERSION, 2}});
+
+  if (!m_pGLContext.CreateContext(contextAttribs))
+  {
+    return false;
+  }
+
   CProcessInfoPi::Register();
+  RETRO::CRPProcessInfoPi::Register();
+  RETRO::CRPProcessInfoPi::RegisterRendererFactory(new RETRO::CRendererFactoryOpenGLES);
   CDVDFactoryCodec::ClearHWAccels();
   MMAL::CDecoder::Register();
   CDVDFactoryCodec::ClearHWVideoCodecs();
   MMAL::CMMALVideo::Register();
   VIDEOPLAYER::CRendererFactory::ClearRenderer();
   MMAL::CMMALRenderer::Register();
+  CScreenshotSurfaceGLES::Register();
+  CScreenshotSurfaceRBP::Register();
 
   return true;
 }
@@ -57,7 +83,7 @@ bool CWinSystemRpiGLESContext::CreateNewWindow(const std::string& name,
                                                bool fullScreen,
                                                RESOLUTION_INFO& res)
 {
-  m_pGLContext.Detach();
+  m_pGLContext.DestroySurface();
 
   if (!CWinSystemRpi::DestroyWindow())
   {
@@ -74,17 +100,7 @@ bool CWinSystemRpiGLESContext::CreateNewWindow(const std::string& name,
     return false;
   }
 
-  if (!m_pGLContext.CreateContext())
-  {
-    return false;
-  }
-
   if (!m_pGLContext.BindContext())
-  {
-    return false;
-  }
-
-  if (!m_pGLContext.SurfaceAttrib())
   {
     return false;
   }
@@ -102,30 +118,30 @@ bool CWinSystemRpiGLESContext::CreateNewWindow(const std::string& name,
 
 bool CWinSystemRpiGLESContext::ResizeWindow(int newWidth, int newHeight, int newLeft, int newTop)
 {
-  CRenderSystemGLES::ResetRenderSystem(newWidth, newHeight, true, 0);
+  CRenderSystemGLES::ResetRenderSystem(newWidth, newHeight);
   return true;
 }
 
 bool CWinSystemRpiGLESContext::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool blankOtherDisplays)
 {
   CreateNewWindow("", fullScreen, res);
-  CRenderSystemGLES::ResetRenderSystem(res.iWidth, res.iHeight, fullScreen, res.fRefreshRate);
+  CRenderSystemGLES::ResetRenderSystem(res.iWidth, res.iHeight);
   return true;
 }
 
 void CWinSystemRpiGLESContext::SetVSyncImpl(bool enable)
 {
-  m_iVSyncMode = enable ? 10:0;
   if (!m_pGLContext.SetVSync(enable))
   {
-    m_iVSyncMode = 0;
     CLog::Log(LOGERROR, "%s,Could not set egl vsync", __FUNCTION__);
   }
 }
 
 void CWinSystemRpiGLESContext::PresentRenderImpl(bool rendered)
 {
-  CWinSystemRpi::SetVisible(g_windowManager.HasVisibleControls() || g_application.m_pPlayer->IsRenderingGuiLayer());
+  CGUIComponent *gui = CServiceBroker::GetGUI();
+  if (gui)
+    CWinSystemRpi::SetVisible(gui->GetWindowManager().HasVisibleControls() || g_application.GetAppPlayer().IsRenderingGuiLayer());
 
   if (m_delayDispReset && m_dispResetTimer.IsTimePast())
   {
@@ -138,27 +154,31 @@ void CWinSystemRpiGLESContext::PresentRenderImpl(bool rendered)
   if (!rendered)
     return;
 
-  m_pGLContext.SwapBuffers();
+  if (!m_pGLContext.TrySwapBuffers())
+  {
+    CEGLUtils::Log(LOGERROR, "eglSwapBuffers failed");
+    throw std::runtime_error("eglSwapBuffers failed");
+  }
 }
 
 EGLDisplay CWinSystemRpiGLESContext::GetEGLDisplay() const
 {
-  return m_pGLContext.m_eglDisplay;
+  return m_pGLContext.GetEGLDisplay();
 }
 
 EGLSurface CWinSystemRpiGLESContext::GetEGLSurface() const
 {
-  return m_pGLContext.m_eglSurface;
+  return m_pGLContext.GetEGLSurface();
 }
 
 EGLContext CWinSystemRpiGLESContext::GetEGLContext() const
 {
-  return m_pGLContext.m_eglContext;
+  return m_pGLContext.GetEGLContext();
 }
 
 EGLConfig  CWinSystemRpiGLESContext::GetEGLConfig() const
 {
-  return m_pGLContext.m_eglConfig;
+  return m_pGLContext.GetEGLConfig();
 }
 
 std::unique_ptr<CVideoSync> CWinSystemRpiGLESContext::GetVideoSync(void *clock)

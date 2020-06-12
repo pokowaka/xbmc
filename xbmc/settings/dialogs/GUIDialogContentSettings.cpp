@@ -1,47 +1,35 @@
 /*
- *      Copyright (C) 2005-2014 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
+#include "GUIDialogContentSettings.h"
+
+#include "ServiceBroker.h"
+#include "addons/AddonSystemSettings.h"
+#include "addons/GUIWindowAddonBrowser.h"
+#include "addons/settings/GUIDialogAddonSettings.h"
+#include "dialogs/GUIDialogKaiToast.h"
+#include "dialogs/GUIDialogSelect.h"
+#include "filesystem/AddonsDirectory.h"
+#include "guilib/GUIComponent.h"
+#include "guilib/GUIWindowManager.h"
+#include "guilib/LocalizeStrings.h"
+#include "settings/lib/Setting.h"
+#include "settings/lib/SettingsManager.h"
+#include "settings/windows/GUIControlSettings.h"
+#include "utils/log.h"
+#include "video/VideoInfoScanner.h"
+
+#include <limits.h>
 #include <map>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
-
-#include <limits.h>
-
-#include "GUIDialogContentSettings.h"
-#include "addons/AddonSystemSettings.h"
-#include "addons/settings/GUIDialogAddonSettings.h"
-#include "addons/GUIWindowAddonBrowser.h"
-#include "filesystem/AddonsDirectory.h"
-#include "dialogs/GUIDialogKaiToast.h"
-#include "dialogs/GUIDialogSelect.h"
-#include "guilib/GUIWindowManager.h"
-#include "guilib/LocalizeStrings.h"
-#include "interfaces/builtins/Builtins.h"
-#include "settings/lib/Setting.h"
-#include "settings/lib/SettingsManager.h"
-#include "settings/windows/GUIControlSettings.h"
-#include "utils/log.h"
-#include "utils/StringUtils.h"
-#include "video/VideoInfoScanner.h"
 
 #define SETTING_CONTENT_TYPE          "contenttype"
 #define SETTING_SCRAPER_LIST          "scraperlist"
@@ -56,15 +44,7 @@ using namespace ADDON;
 
 
 CGUIDialogContentSettings::CGUIDialogContentSettings()
-  : CGUIDialogSettingsManualBase(WINDOW_DIALOG_CONTENT_SETTINGS, "DialogSettings.xml"),
-    m_content(CONTENT_NONE),
-    m_originalContent(CONTENT_NONE),
-    m_showScanSettings(false),
-    m_scanRecursive(false),
-    m_useDirectoryNames(false),
-    m_containsSingleItem(false),
-    m_exclude(false),
-    m_noUpdating(false)
+  : CGUIDialogSettingsManualBase(WINDOW_DIALOG_CONTENT_SETTINGS, "DialogSettings.xml")
 { }
 
 void CGUIDialogContentSettings::SetContent(CONTENT_TYPE content)
@@ -95,7 +75,7 @@ bool CGUIDialogContentSettings::Show(ADDON::ScraperPtr& scraper, CONTENT_TYPE co
 
 bool CGUIDialogContentSettings::Show(ADDON::ScraperPtr& scraper, VIDEO::SScanSettings& settings, CONTENT_TYPE content /* = CONTENT_NONE */)
 {
-  CGUIDialogContentSettings *dialog = g_windowManager.GetWindow<CGUIDialogContentSettings>(WINDOW_DIALOG_CONTENT_SETTINGS);
+  CGUIDialogContentSettings *dialog = CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogContentSettings>(WINDOW_DIALOG_CONTENT_SETTINGS);
   if (dialog == NULL)
     return false;
 
@@ -104,7 +84,7 @@ bool CGUIDialogContentSettings::Show(ADDON::ScraperPtr& scraper, VIDEO::SScanSet
     dialog->SetContent(content != CONTENT_NONE ? content : scraper->Content());
     dialog->SetScraper(scraper);
     // toast selected but disabled scrapers
-    if (CAddonMgr::GetInstance().IsAddonDisabled(scraper->ID()))
+    if (CServiceBroker::GetAddonMgr().IsAddonDisabled(scraper->ID()))
       CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Error, g_localizeStrings.Get(24024), scraper->Name(), 2000, true);
   }
 
@@ -202,18 +182,18 @@ void CGUIDialogContentSettings::OnSettingAction(std::shared_ptr<const CSetting> 
     std::vector<std::pair<std::string, int>> labels;
     if (m_content == CONTENT_ALBUMS || m_content == CONTENT_ARTISTS)
     {
-      labels.push_back(std::make_pair(ADDON::TranslateContent(m_content, true), m_content));
+      labels.emplace_back(ADDON::TranslateContent(m_content, true), m_content);
     }
     else
     {
-      labels.push_back(std::make_pair(ADDON::TranslateContent(CONTENT_NONE, true), CONTENT_NONE));
-      labels.push_back(std::make_pair(ADDON::TranslateContent(CONTENT_MOVIES, true), CONTENT_MOVIES));
-      labels.push_back(std::make_pair(ADDON::TranslateContent(CONTENT_TVSHOWS, true), CONTENT_TVSHOWS));
-      labels.push_back(std::make_pair(ADDON::TranslateContent(CONTENT_MUSICVIDEOS, true), CONTENT_MUSICVIDEOS));
+      labels.emplace_back(ADDON::TranslateContent(CONTENT_NONE, true), CONTENT_NONE);
+      labels.emplace_back(ADDON::TranslateContent(CONTENT_MOVIES, true), CONTENT_MOVIES);
+      labels.emplace_back(ADDON::TranslateContent(CONTENT_TVSHOWS, true), CONTENT_TVSHOWS);
+      labels.emplace_back(ADDON::TranslateContent(CONTENT_MUSICVIDEOS, true), CONTENT_MUSICVIDEOS);
     }
     std::sort(labels.begin(), labels.end());
 
-    CGUIDialogSelect *dialog = g_windowManager.GetWindow<CGUIDialogSelect>(WINDOW_DIALOG_SELECT);
+    CGUIDialogSelect *dialog = CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogSelect>(WINDOW_DIALOG_SELECT);
     if (dialog)
     {
       dialog->SetHeading(CVariant{ 20344 }); //Label "This directory contains"
@@ -241,13 +221,13 @@ void CGUIDialogContentSettings::OnSettingAction(std::shared_ptr<const CSetting> 
       m_content = static_cast<CONTENT_TYPE>(selected.second);
 
       AddonPtr scraperAddon;
-      if (!CAddonSystemSettings::GetInstance().GetActive(ADDON::ScraperTypeFromContent(m_content), scraperAddon))
+      if (!CAddonSystemSettings::GetInstance().GetActive(ADDON::ScraperTypeFromContent(m_content), scraperAddon) && m_content != CONTENT_NONE)
         return;
 
       m_scraper = std::dynamic_pointer_cast<CScraper>(scraperAddon);
 
       SetupView();
-      SetFocus(SETTING_CONTENT_TYPE);
+      SetFocusToSetting(SETTING_CONTENT_TYPE);
     }
   }
   else if (settingId == SETTING_SCRAPER_LIST)
@@ -262,11 +242,11 @@ void CGUIDialogContentSettings::OnSettingAction(std::shared_ptr<const CSetting> 
         && selectedAddonId != currentScraperId)
     {
       AddonPtr scraperAddon;
-      CAddonMgr::GetInstance().GetAddon(selectedAddonId, scraperAddon);
+      CServiceBroker::GetAddonMgr().GetAddon(selectedAddonId, scraperAddon);
       m_scraper = std::dynamic_pointer_cast<CScraper>(scraperAddon);
 
       SetupView();
-      SetFocus(SETTING_SCRAPER_LIST);
+      SetFocusToSetting(SETTING_SCRAPER_LIST);
     }
   }
   else if (settingId == SETTING_SCRAPER_SETTINGS)
@@ -297,7 +277,7 @@ void CGUIDialogContentSettings::SetupView()
   else
   {
     ToggleState(SETTING_SCRAPER_LIST, true);
-    if (m_scraper != NULL && !CAddonMgr::GetInstance().IsAddonDisabled(m_scraper->ID()))
+    if (m_scraper != NULL && !CServiceBroker::GetAddonMgr().IsAddonDisabled(m_scraper->ID()))
     {
       SetLabel2(SETTING_SCRAPER_LIST, m_scraper->Name());
       if (m_scraper && m_scraper->Supports(m_content) && m_scraper->HasSettings())
@@ -319,7 +299,7 @@ void CGUIDialogContentSettings::InitializeSettings()
 
   if (m_content == CONTENT_NONE)
     m_showScanSettings = false;
-  else if (m_scraper != NULL && !CAddonMgr::GetInstance().IsAddonDisabled(m_scraper->ID()))
+  else if (m_scraper != NULL && !CServiceBroker::GetAddonMgr().IsAddonDisabled(m_scraper->ID()))
     m_showScanSettings = true;
 
   std::shared_ptr<CSettingCategory> category = AddCategory("contentsettings", -1);
@@ -364,7 +344,7 @@ void CGUIDialogContentSettings::InitializeSettings()
       std::shared_ptr<CSettingBool> settingScanRecursive = AddToggle(groupDetails, SETTING_SCAN_RECURSIVE, 20346, SettingLevel::Basic, m_scanRecursive, false, m_showScanSettings);
       std::shared_ptr<CSettingBool> settingContainsSingleItem = AddToggle(groupDetails, SETTING_CONTAINS_SINGLE_ITEM, 20383, SettingLevel::Basic, m_containsSingleItem, false, m_showScanSettings);
       AddToggle(groupDetails, SETTING_NO_UPDATING, 20432, SettingLevel::Basic, m_noUpdating, false, m_showScanSettings);
-      
+
       // define an enable dependency with (m_useDirectoryNames && !m_containsSingleItem) || !m_useDirectoryNames
       CSettingDependency dependencyScanRecursive(SettingDependencyType::Enable, GetSettingsManager());
       dependencyScanRecursive.Or()
@@ -419,7 +399,7 @@ void CGUIDialogContentSettings::ToggleState(const std::string &settingid, bool e
   }
 }
 
-void CGUIDialogContentSettings::SetFocus(const std::string &settingid)
+void CGUIDialogContentSettings::SetFocusToSetting(const std::string& settingid)
 {
   BaseSettingControlPtr settingControl = GetSettingControl(settingid);
   if (settingControl != NULL && settingControl->GetControl() != NULL)

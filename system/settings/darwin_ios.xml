@@ -22,6 +22,9 @@
   <section id="system">
     <category id="display">
       <group id="1">
+        <setting id="videoscreen.resolution">
+          <default>17</default> <!-- RES_CUSTOM -->
+        </setting>
         <setting id="videoscreen.fakefullscreen">
           <visible>false</visible>
         </setting>
@@ -64,6 +67,13 @@
         </setting>
         <setting id="input.appleremotesequencetime" type="integer" label="13603" help="36418">
           <visible>false</visible>
+        </setting>
+      </group>
+    </category>
+    <category id="logging">
+      <group id="1">
+        <setting id="debug.sharelog" type="action" label="39118">
+          <control type="button" format="action" />
         </setting>
       </group>
     </category>

@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2014 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include <vector>
@@ -29,7 +17,8 @@
 #endif
 #include "pvr/PVRManager.h"
 #include "pvr/recordings/PVRRecordings.h"
-#include "profiles/ProfilesManager.h"
+#include "profiles/ProfileManager.h"
+#include "settings/SettingsComponent.h"
 #include "ServiceBroker.h"
 #include "utils/URIUtils.h"
 #include "video/VideoDatabase.h"
@@ -55,7 +44,9 @@ bool CVideoLibraryMarkWatchedJob::operator==(const CJob* job) const
 
 bool CVideoLibraryMarkWatchedJob::Work(CVideoDatabase &db)
 {
-  if (!CProfilesManager::GetInstance().GetCurrentProfile().canWriteDatabases())
+  const std::shared_ptr<CProfileManager> profileManager = CServiceBroker::GetSettingsComponent()->GetProfileManager();
+
+  if (!profileManager->GetCurrentProfile().canWriteDatabases())
     return false;
 
   CFileItemList items;
@@ -76,8 +67,16 @@ bool CVideoLibraryMarkWatchedJob::Work(CVideoDatabase &db)
       continue;
 #endif
 
-    if (item->HasPVRRecordingInfoTag() && CServiceBroker::GetPVRManager().Recordings()->MarkWatched(item, m_mark))
+    if (item->HasPVRRecordingInfoTag() &&
+        CServiceBroker::GetPVRManager().Recordings()->MarkWatched(item->GetPVRRecordingInfoTag(), m_mark))
+    {
+      if (m_mark)
+        db.IncrementPlayCount(*item);
+      else
+        db.SetPlayCount(*item, 0);
+
       continue;
+    }
 
     markItems.push_back(item);
   }
@@ -90,15 +89,16 @@ bool CVideoLibraryMarkWatchedJob::Work(CVideoDatabase &db)
   for (std::vector<CFileItemPtr>::const_iterator iter = markItems.begin(); iter != markItems.end(); ++iter)
   {
     CFileItemPtr item = *iter;
-    if (m_mark)
-    {
-      std::string path(item->GetPath());
-      if (item->HasVideoInfoTag())
-        path = item->GetVideoInfoTag()->GetPath();
 
-      db.ClearBookMarksOfFile(path, CBookmark::RESUME);
+    std::string path(item->GetPath());
+    if (item->HasVideoInfoTag() && !item->GetVideoInfoTag()->GetPath().empty())
+      path = item->GetVideoInfoTag()->GetPath();
+
+    // With both mark as watched and unwatched we want the resume bookmarks to be reset
+    db.ClearBookMarksOfFile(path, CBookmark::RESUME);
+
+    if (m_mark)
       db.IncrementPlayCount(*item);
-    }
     else
       db.SetPlayCount(*item, 0);
   }

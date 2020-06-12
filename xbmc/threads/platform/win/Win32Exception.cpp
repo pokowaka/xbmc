@@ -1,36 +1,27 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "Win32Exception.h"
-#include <dbghelp.h>
-#include <VersionHelpers.h>
+
 #include "Util.h"
 #include "WIN32Util.h"
 #include "utils/StringUtils.h"
 #include "utils/URIUtils.h"
+
 #include "platform/win32/CharsetConverter.h"
 
+#include <VersionHelpers.h>
+#include <dbghelp.h>
+
 typedef BOOL (WINAPI *MINIDUMPWRITEDUMP)(HANDLE hProcess, DWORD dwPid, HANDLE hFile, MINIDUMP_TYPE DumpType,
-                                        CONST PMINIDUMP_EXCEPTION_INFORMATION ExceptionParam,
-                                        CONST PMINIDUMP_USER_STREAM_INFORMATION UserStreamParam,
-                                        CONST PMINIDUMP_CALLBACK_INFORMATION CallbackParam);
+                                        const PMINIDUMP_EXCEPTION_INFORMATION ExceptionParam,
+                                        const PMINIDUMP_USER_STREAM_INFORMATION UserStreamParam,
+                                        const PMINIDUMP_CALLBACK_INFORMATION CallbackParam);
 
 // StackWalk64()
 typedef BOOL (__stdcall *tSW)(
@@ -74,13 +65,12 @@ bool win32_exception::write_minidump(EXCEPTION_POINTERS* pEp)
   bool returncode = false;
   std::string dumpFileName;
   std::wstring dumpFileNameW;
-  SYSTEMTIME stLocalTime;
-  GetLocalTime(&stLocalTime);
+  KODI::TIME::SystemTime stLocalTime;
+  KODI::TIME::GetLocalTime(&stLocalTime);
 
-  dumpFileName = StringUtils::Format("kodi_crashlog-%s-%04d%02d%02d-%02d%02d%02d.dmp",
-                      mVersion.c_str(),
-                      stLocalTime.wYear, stLocalTime.wMonth, stLocalTime.wDay,
-                      stLocalTime.wHour, stLocalTime.wMinute, stLocalTime.wSecond);
+  dumpFileName = StringUtils::Format(
+      "kodi_crashlog-%s-%04d%02d%02d-%02d%02d%02d.dmp", mVersion.c_str(), stLocalTime.year,
+      stLocalTime.month, stLocalTime.day, stLocalTime.hour, stLocalTime.minute, stLocalTime.second);
 
   dumpFileName = CWIN32Util::SmbToUnc(URIUtils::AddFileToFolder(CWIN32Util::GetProfilePath(), CUtil::MakeLegalFileName(dumpFileName)));
 
@@ -145,8 +135,8 @@ bool win32_exception::write_stacktrace(EXCEPTION_POINTERS* pEp)
   std::wstring dumpFileNameW;
   CHAR cTemp[STACKWALK_MAX_NAMELEN];
   DWORD dwBytes;
-  SYSTEMTIME stLocalTime;
-  GetLocalTime(&stLocalTime);
+  KODI::TIME::SystemTime stLocalTime;
+  KODI::TIME::GetLocalTime(&stLocalTime);
   bool returncode = false;
   STACKFRAME64 frame = { 0 };
   HANDLE hCurProc = GetCurrentProcess();
@@ -175,10 +165,9 @@ bool win32_exception::write_stacktrace(EXCEPTION_POINTERS* pEp)
      pSFTA == NULL || pSGMB == NULL)
     goto cleanup;
 
-  dumpFileName = StringUtils::Format("kodi_stacktrace-%s-%04d%02d%02d-%02d%02d%02d.txt",
-                                      mVersion.c_str(),
-                                      stLocalTime.wYear, stLocalTime.wMonth, stLocalTime.wDay,
-                                      stLocalTime.wHour, stLocalTime.wMinute, stLocalTime.wSecond);
+  dumpFileName = StringUtils::Format(
+      "kodi_stacktrace-%s-%04d%02d%02d-%02d%02d%02d.txt", mVersion.c_str(), stLocalTime.year,
+      stLocalTime.month, stLocalTime.day, stLocalTime.hour, stLocalTime.minute, stLocalTime.second);
 
   dumpFileName = CWIN32Util::SmbToUnc(URIUtils::AddFileToFolder(CWIN32Util::GetProfilePath(), CUtil::MakeLegalFileName(dumpFileName)));
 
@@ -291,6 +280,6 @@ bool win32_exception::ShouldHook()
 
     ::FreeLibrary(module);
   }
-  
+
   return result;
 }

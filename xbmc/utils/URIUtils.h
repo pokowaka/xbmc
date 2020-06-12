@@ -1,39 +1,29 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
 #include <string>
 #include <vector>
 
 class CURL;
+class CAdvancedSettings;
 
 class URIUtils
 {
 public:
-  URIUtils(void);
-  virtual ~URIUtils(void);
+  static void RegisterAdvancedSettings(const CAdvancedSettings& advancedSettings);
+  static void UnregisterAdvancedSettings();
 
   static std::string GetDirectory(const std::string &strFilePath);
 
-  static const std::string GetFileName(const CURL& url);
-  static const std::string GetFileName(const std::string& strFileNameAndPath);
+  static std::string GetFileName(const CURL& url);
+  static std::string GetFileName(const std::string& strFileNameAndPath);
 
   static std::string GetExtension(const CURL& url);
   static std::string GetExtension(const std::string& strFileName);
@@ -63,7 +53,7 @@ public:
   static void RemoveExtension(std::string& strFileName);
   static std::string ReplaceExtension(const std::string& strFile,
                                      const std::string& strNewExtension);
-  static void Split(const std::string& strFileNameAndPath, 
+  static void Split(const std::string& strFileNameAndPath,
                     std::string& strPath, std::string& strFileName);
   static std::vector<std::string> SplitPath(const std::string& strPath);
 
@@ -139,6 +129,7 @@ public:
   static bool IsISO9660(const std::string& strFile);
   static bool IsLiveTV(const std::string& strFile);
   static bool IsPVRRecording(const std::string& strFile);
+  static bool IsPVRRecordingFileOrFolder(const std::string& strFile);
   static bool IsMultiPath(const std::string& strPath);
   static bool IsMusicDb(const std::string& strFile);
   static bool IsNfs(const std::string& strFile);
@@ -162,10 +153,12 @@ public:
   static bool IsAndroidApp(const std::string& strFile);
   static bool IsLibraryFolder(const std::string& strFile);
   static bool IsLibraryContent(const std::string& strFile);
+  static bool IsPVR(const std::string& strFile);
   static bool IsPVRChannel(const std::string& strFile);
+  static bool IsPVRChannelGroup(const std::string& strFile);
   static bool IsPVRGuideItem(const std::string& strFile);
-  static bool IsUsingFastSwitch(const std::string& strFile);
 
+  static std::string AppendSlash(std::string strFolder);
   static void AddSlashAtEnd(std::string& strFolder);
   static bool HasSlashAtEnd(const std::string& strFile, bool checkURL = false);
   static void RemoveSlashAtEnd(std::string& strFolder);
@@ -229,5 +222,7 @@ public:
 
 private:
   static std::string resolvePath(const std::string &path);
+
+  static const CAdvancedSettings* m_advancedSettings;
 };
 

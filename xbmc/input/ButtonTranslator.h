@@ -1,34 +1,19 @@
 /*
- *      Copyright (C) 2005-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
+
+#include "input/actions/Action.h"
+#include "network/EventClient.h"
 
 #include <map>
 #include <set>
 #include <string>
-
-#include "system.h" // for HAS_EVENT_SERVER
-#include "Action.h"
-
-#ifdef HAS_EVENT_SERVER
-#include "network/EventClient.h"
-#endif
 
 class CKey;
 class TiXmlNode;
@@ -41,15 +26,13 @@ class IWindowKeymap;
 /// Warning: _not_ threadsafe!
 class CButtonTranslator
 {
-#ifdef HAS_EVENT_SERVER
   friend class EVENTCLIENT::CEventButtonState;
-#endif
 
 public:
-  CButtonTranslator();
+  CButtonTranslator() = default;
   CButtonTranslator(const CButtonTranslator&) = delete;
   CButtonTranslator const& operator=(CButtonTranslator const&) = delete;
-  virtual ~CButtonTranslator();
+  virtual ~CButtonTranslator() = default;
 
   // Add/remove a HID device with custom mappings
   bool AddDevice(const std::string& strDevice);
@@ -66,24 +49,21 @@ public:
    \param key to search a mapping for
    \return true if a longpress mapping exists
    */
-  bool HasLongpressMapping(int window, const CKey &key);
+  bool HasLongpressMapping(int window, const CKey& key);
 
   /*! \brief Obtain the action configured for a given window and key
    \param window the window id
    \param key the key to query the action for
-   \param fallback if no action is directly configured for the given window, obtain the action from fallback window, if exists or from global config as last resort
+   \param fallback if no action is directly configured for the given window, obtain the action from
+   fallback window, if exists or from global config as last resort
    \return the action matching the key
    */
-  CAction GetAction(int window, const CKey &key, bool fallback = true);
+  CAction GetAction(int window, const CKey& key, bool fallback = true);
 
-  /*! \brief Obtain the global action configured for a given key
-   \param key the key to query the action for
-   \return the global action
-   */
-  CAction GetGlobalAction(const CKey &key);
+  void RegisterMapper(const std::string& device, IButtonMapper* mapper);
+  void UnregisterMapper(IButtonMapper* mapper);
 
-  void RegisterMapper(const std::string &device, IButtonMapper *mapper);
-  void UnregisterMapper(IButtonMapper *mapper);
+  static uint32_t TranslateString(std::string strMap, std::string strButton);
 
 private:
   struct CButtonAction
@@ -100,12 +80,14 @@ private:
   // m_deviceList contains the list of connected HID devices
   std::set<std::string> m_deviceList;
 
-  unsigned int GetActionCode(int window, const CKey &key, std::string &strAction) const;
+  unsigned int GetActionCode(int window, const CKey& key, std::string& strAction) const;
 
-  void MapWindowActions(const TiXmlNode *pWindow, int wWindowID);
-  void MapAction(uint32_t buttonCode, const std::string &szAction, buttonMap &map);
+  void MapWindowActions(const TiXmlNode* pWindow, int wWindowID);
+  void MapAction(uint32_t buttonCode, const std::string& szAction, buttonMap& map);
 
-  bool LoadKeymap(const std::string &keymapPath);
+  bool LoadKeymap(const std::string& keymapPath);
+
+  bool HasLongpressMapping_Internal(int window, const CKey& key);
 
   std::map<std::string, IButtonMapper*> m_buttonMappers;
 };

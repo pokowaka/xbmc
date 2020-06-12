@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: KODI Main\n"
-"Report-Msgid-Bugs-To: http://trac.kodi.tv/\n"
+"Report-Msgid-Bugs-To: https://github.com/xbmc/xbmc/issues/\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Kodi Translation Team\n"
@@ -47,6 +47,10 @@ msgstr "Zufällige Filme"
 msgctxt "#31007"
 msgid "Unwatched movies"
 msgstr "Ungesehene Filme"
+
+msgctxt "#31008"
+msgid "Enable category widgets"
+msgstr "Kategorie-Widgets aktivieren"
 
 msgctxt "#31009"
 msgid "Download icons"
@@ -108,6 +112,10 @@ msgctxt "#31023"
 msgid "Viewtype"
 msgstr "Ansicht"
 
+msgctxt "#31024"
+msgid "Choose rating to display for media items"
+msgstr "Bewertung, die für Medien-Inhalte angezeigt werden soll"
+
 msgctxt "#31025"
 msgid "No favourites found. You can add any item from media views to this list by using the context menu."
 msgstr "Keine Favoriten gespeichert. Es kann jedes beliebige Element aus den Medienansichten via Rechtsklick zu den Favoriten hinzugefügt werden."
@@ -140,10 +148,6 @@ msgctxt "#31033"
 msgid "Your rating"
 msgstr "Persönliche Bewertung"
 
-msgctxt "#31034"
-msgid "Extended info"
-msgstr "Erweiterte Infos"
-
 msgctxt "#31035"
 msgid "Pages"
 msgstr "Seiten"
@@ -170,7 +174,7 @@ msgstr "Wiedergabelisten-Einstellungen"
 
 msgctxt "#31043"
 msgid "Set the type and add rules to create a smart playlist. These playlists are dynamic and include all media items from your database which apply to your chosen rules."
-msgstr "Typ einstellen und Regeln für die Smart Playlist hinzufügen. Diese Art von Playlisten ist dynamisch und beinhaltet alle Medien aus der Bibliothek, die die gesetzten Regeln erfüllen."
+msgstr "Typ einstellen und Regeln für die intelligente Wiedergabeliste hinzufügen. Diese Art von Wiedergabeliste ist dynamisch und beinhaltet alle Medien aus der Bibliothek, die die gesetzten Regeln erfüllen."
 
 msgctxt "#31044"
 msgid "Add group"
@@ -192,10 +196,6 @@ msgctxt "#31050"
 msgid "Press [B]OK[/B] to stop"
 msgstr "[B]OK[/B] zum Stoppen drücken"
 
-msgctxt "#31051"
-msgid "Toggle language"
-msgstr "Sprache umstellen"
-
 msgctxt "#31052"
 msgid "filtered"
 msgstr "gefiltert"
@@ -210,7 +210,7 @@ msgstr "[B]Links[/B] zum Zurückspulen, [B]Rechts[/B] zum Vorspulen drücken"
 
 msgctxt "#31056"
 msgid "Go to playlist"
-msgstr "Zur Playlist..."
+msgstr "Zur Wiedergabeliste..."
 
 msgctxt "#31057"
 msgid "Show login screen on startup"
@@ -234,11 +234,11 @@ msgstr "Sektionen"
 
 msgctxt "#31065"
 msgid "Video playlist"
-msgstr "Video-Playlist"
+msgstr "Video-Wiedergabeliste"
 
 msgctxt "#31066"
 msgid "Music playlist"
-msgstr "Musik-Playlist"
+msgstr "Musik-Wiedergabeliste"
 
 msgctxt "#31067"
 msgid "Event log"
@@ -260,13 +260,17 @@ msgctxt "#31072"
 msgid "Power Options"
 msgstr "Ausschalten"
 
+msgctxt "#31074"
+msgid "Total duration"
+msgstr "Gesamtdauer"
+
 msgctxt "#31075"
 msgid "Movie sets"
 msgstr "Filmkollektionen"
 
 msgctxt "#31079"
 msgid "Cast not available"
-msgstr "Vorhersage nicht verfügbar"
+msgstr "Besetzung nicht verfügbar"
 
 msgctxt "#31080"
 msgid "Ends at"
@@ -287,10 +291,6 @@ msgstr "Visualisierungs-Einstellungen"
 msgctxt "#31089"
 msgid "Available groups"
 msgstr "Verfügbare Gruppen"
-
-msgctxt "#31090"
-msgid "Search trailer"
-msgstr "Trailer suchen"
 
 msgctxt "#31092"
 msgid "Video menu"
@@ -372,10 +372,6 @@ msgctxt "#31114"
 msgid "Search YouTube"
 msgstr "YouTube durchsuchen"
 
-msgctxt "#31115"
-msgid "Search TheMovieDB"
-msgstr "TheMovieDB durchsuchen"
-
 msgctxt "#31116"
 msgid "Remove this main menu item"
 msgstr "Diesen Hauptmenüeintrag entfernen"
@@ -408,10 +404,6 @@ msgctxt "#31123"
 msgid "Same director"
 msgstr "Filme dieses Regisseurs"
 
-msgctxt "#31124"
-msgid "Show images on map"
-msgstr "Bilder auf Karte zeigen"
-
 msgctxt "#31125"
 msgid "Press up for actor info"
 msgstr "[B]Hoch[/B] für Schauspieler-Infos drücken"
@@ -440,9 +432,17 @@ msgctxt "#31131"
 msgid "Choose skin fanart pack"
 msgstr "Fanart-Sammlung für Skin wählen"
 
+msgctxt "#31132"
+msgid "Select Program"
+msgstr "Programm auswählen"
+
+msgctxt "#31133"
+msgid "Select Resolution"
+msgstr "Auflösung auswählen"
+
 msgctxt "#31134"
 msgid "Remaining"
-msgstr "Verbleibend"
+msgstr "Restzeit"
 
 msgctxt "#31136"
 msgid "Click here to see latest changes..."
@@ -474,7 +474,7 @@ msgstr "Wiedergabe-Geschwindigkeit"
 
 msgctxt "#31143"
 msgid "You did not set up PVR yet. In order to use PVR, choose a PVR client addon and configure it. Please visit http://kodi.wiki/view/PVR to learn more."
-msgstr "Der PVR wurde noch nicht eingerichtet. Um den PVR nutzen zu können, muß ein PVR-Client Addon ausgewählt und konfiguriert werden. Mehr Informationen unter http://kodi.wiki/view/PVR"
+msgstr "Der Personal Video Recorder wurde noch nicht eingerichtet. Um den PVR nutzen zu können, muß ein PVR-Client Addon ausgewählt und konfiguriert werden. Mehr Informationen unter http://kodi.wiki/view/PVR"
 
 msgctxt "#31144"
 msgid "Enter add-on browser"
@@ -539,3 +539,27 @@ msgstr "Medien-Flags anzeigen"
 msgctxt "#31161"
 msgid "Numeric pad"
 msgstr "Ziffern-Eingabe"
+
+msgctxt "#31162"
+msgid "Play your personal games or download one of the many game add-ons from the official repository."
+msgstr "Spielen oder eines von vielen Spiele-Addons aus dem offiziellen Repository herunterladen."
+
+msgctxt "#31163"
+msgid "Show Fanart background"
+msgstr "Fanart-Hintergrund anzeigen"
+
+msgctxt "#31164"
+msgid "Choose kind of profile identification"
+msgstr "Art der Profil-Identifikation auswählen"
+
+msgctxt "#31165"
+msgid "Profile name"
+msgstr "Profil-Name"
+
+msgctxt "#31166"
+msgid "Profile avatar"
+msgstr "Profil-Avatar"
+
+msgctxt "#31167"
+msgid "Animate background"
+msgstr "Hintergrund animieren"

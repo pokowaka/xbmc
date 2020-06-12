@@ -1,25 +1,26 @@
 @ECHO OFF
 
-SETLOCAL
-
 SET EXITCODE=0
 
 SET install=false
 SET clean=false
 SET package=false
 SET addon=
+SET store=
 
 SETLOCAL EnableDelayedExpansion
 FOR %%b IN (%*) DO (
-  IF %%b == install (
+  IF %%~b == install (
     SET install=true
-  ) ELSE ( IF %%b == clean (
+  ) ELSE ( IF %%~b == clean (
     SET clean=true
-  ) ELSE ( IF %%b == package (
+  ) ELSE ( IF %%~b == package (
     SET package=true
+  ) ELSE ( IF %%~b == win10 (
+    SET store=store
   ) ELSE (
-    SET addon=!addon! %%b
-  )))
+    SET addon=!addon! %%~b
+  ))))
 )
 SETLOCAL DisableDelayedExpansion
 
@@ -30,11 +31,10 @@ POPD
 rem setup some paths that we need later
 SET CUR_PATH=%CD%
 SET BASE_PATH=%WORKDIR%\cmake
-SET SCRIPTS_PATH=%BASE_PATH%\scripts\windows
+SET SCRIPTS_PATH=%BASE_PATH%\scripts\windows%store%
 SET ADDONS_PATH=%BASE_PATH%\addons
 SET ADDON_DEPENDS_PATH=%ADDONS_PATH%\output
 SET ADDONS_BUILD_PATH=%ADDONS_PATH%\build
-SET ADDONS_DEFINITION_PATH=%ADDONS_PATH%\addons
 
 SET ADDONS_SUCCESS_FILE=%ADDONS_PATH%\.success
 SET ADDONS_FAILURE_FILE=%ADDONS_PATH%\.failure
@@ -81,15 +81,20 @@ ECHO --------------------------------------------------
 ECHO Building addons
 ECHO --------------------------------------------------
 
-SET ADDONS_TO_BUILD=
 IF "%addon%" NEQ "" (
-  SET ADDONS_TO_BUILD=%addon%
-) ELSE (
-  SETLOCAL EnableDelayedExpansion
-  FOR /D %%a IN (%ADDONS_DEFINITION_PATH%\*) DO (
-    SET ADDONS_TO_BUILD=!ADDONS_TO_BUILD! %%~nxa
-  )
-  SETLOCAL DisableDelayedExpansion
+  SET CMAKE_EXTRA=%CMAKE_EXTRA% -DADDONS_TO_BUILD="%addon%"
+)
+
+IF "%ADDON_SRC_PREFIX%" NEQ "" (
+  SET CMAKE_EXTRA=%CMAKE_EXTRA% -DADDON_SRC_PREFIX=%ADDON_SRC_PREFIX%
+)
+
+IF "%ADDONS_DEFINITION_DIR" NEQ "" (
+  SET CMAKE_EXTRA=%CMAKE_EXTRA% -DADDONS_DEFINITION_DIR=%ADDONS_DEFINITION_DIR%
+)
+
+IF "%store%" NEQ "" (
+  SET CMAKE_EXTRA=%CMAKE_EXTRA% -DCMAKE_SYSTEM_NAME=WindowsStore -DCMAKE_SYSTEM_VERSION=%UCRTVersion%
 )
 
 rem execute cmake to generate makefiles processable by nmake
@@ -102,7 +107,8 @@ cmake "%ADDONS_PATH%" -G "NMake Makefiles" ^
       -DBUILD_DIR=%ADDONS_BUILD_PATH% ^
       -DADDON_DEPENDS_PATH=%ADDON_DEPENDS_PATH% ^
       -DPACKAGE_ZIP=ON ^
-      -DADDONS_TO_BUILD="%ADDONS_TO_BUILD%"
+      %CMAKE_EXTRA%
+
 IF ERRORLEVEL 1 (
   ECHO cmake error level: %ERRORLEVEL% > %ERRORFILE%
   GOTO ERROR
@@ -111,7 +117,7 @@ IF ERRORLEVEL 1 (
 rem get the list of addons that can actually be built
 SET ADDONS_TO_MAKE=
 SETLOCAL EnableDelayedExpansion
-FOR /f "delims=" %%i IN ('nmake supported_addons') DO (
+FOR /f "delims=" %%i IN ('cmake --build . --target supported_addons') DO (
   SET line="%%i"
   SET addons=!line:ALL_ADDONS_BUILDING=!
   IF NOT "!addons!" == "!line!" (
@@ -123,8 +129,8 @@ SETLOCAL DisableDelayedExpansion
 rem loop over all addons to build
 FOR %%a IN (%ADDONS_TO_MAKE%) DO (
   ECHO Building %%a...
-  rem execute nmake to build the addons
-  nmake %%a
+  rem execute cmake to build the addons
+  cmake --build . --target %%a
   IF ERRORLEVEL 1 (
     ECHO nmake %%a error level: %ERRORLEVEL% > %ERRORFILE%
     ECHO %%a >> %ADDONS_FAILURE_FILE%

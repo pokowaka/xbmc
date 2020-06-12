@@ -1,7 +1,7 @@
 set(SOURCES AdvancedSettings.cpp
-            AudioDSPSettings.cpp
             DisplaySettings.cpp
             GameSettings.cpp
+            LibExportSettings.cpp
             MediaSettings.cpp
             MediaSourceSettings.cpp
             SettingAddon.cpp
@@ -12,15 +12,18 @@ set(SOURCES AdvancedSettings.cpp
             SettingPath.cpp
             Settings.cpp
             SettingsBase.cpp
+            SettingsValueFlatJsonSerializer.cpp
+            SettingsValueXmlSerializer.cpp
             SettingUtils.cpp
             SkinSettings.cpp
-            VideoSettings.cpp)
+            SettingsComponent.cpp)
 
 set(HEADERS AdvancedSettings.h
-            AudioDSPSettings.h
             DiscSettings.h
             DisplaySettings.h
             GameSettings.h
+            ISubSettings.h
+            LibExportSettings.h
             MediaSettings.h
             MediaSourceSettings.h
             SettingAddon.h
@@ -31,9 +34,11 @@ set(HEADERS AdvancedSettings.h
             SettingPath.h
             Settings.h
             SettingsBase.h
+            SettingsValueFlatJsonSerializer.h
+            SettingsValueXmlSerializer.h
             SettingUtils.h
             SkinSettings.h
-            VideoSettings.h)
+            SettingsComponent.h)
 
 if(BLURAY_FOUND)
   list(APPEND SOURCES DiscSettings.cpp)

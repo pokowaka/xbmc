@@ -1,31 +1,19 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
 #include "CodecFactory.h"
+
+#include "ServiceBroker.h"
 #include "URL.h"
 #include "VideoPlayerCodec.h"
-#include "utils/StringUtils.h"
 #include "addons/AudioDecoder.h"
 #include "addons/binary-addons/BinaryAddonBase.h"
-#include "ServiceBroker.h"
+#include "utils/StringUtils.h"
 
 using namespace ADDON;
 
@@ -38,7 +26,8 @@ ICodec* CodecFactory::CreateCodec(const std::string &strFileType)
   CServiceBroker::GetBinaryAddonManager().GetAddonInfos(addonInfos, true, ADDON_AUDIODECODER);
   for (const auto& addonInfo : addonInfos)
   {
-    if (CAudioDecoder::GetExtensions(addonInfo).find("."+fileType) != std::string::npos)
+    auto exts = StringUtils::Split(CAudioDecoder::GetExtensions(addonInfo), "|");
+    if (std::find(exts.begin(), exts.end(), "." + fileType) != exts.end())
     {
       CAudioDecoder* result = new CAudioDecoder(addonInfo);
       if (!result->CreateDecoder())
@@ -56,7 +45,7 @@ ICodec* CodecFactory::CreateCodec(const std::string &strFileType)
 
 ICodec* CodecFactory::CreateCodecDemux(const CFileItem& file, unsigned int filecache)
 {
-  CURL urlFile(file.GetPath());
+  CURL urlFile(file.GetDynPath());
   std::string content = file.GetMimeType();
   StringUtils::ToLower(content);
   if (!content.empty())
@@ -65,7 +54,8 @@ ICodec* CodecFactory::CreateCodecDemux(const CFileItem& file, unsigned int filec
     CServiceBroker::GetBinaryAddonManager().GetAddonInfos(addonInfos, true, ADDON_AUDIODECODER);
     for (const auto& addonInfo : addonInfos)
     {
-      if (CAudioDecoder::GetMimetypes(addonInfo).find(content) != std::string::npos)
+      auto types = StringUtils::Split(CAudioDecoder::GetMimetypes(addonInfo), "|");
+      if (std::find(types.begin(), types.end(), content) != types.end())
       {
         CAudioDecoder* result = new CAudioDecoder(addonInfo);
         if (!result->CreateDecoder())
@@ -89,8 +79,8 @@ ICodec* CodecFactory::CreateCodecDemux(const CFileItem& file, unsigned int filec
       content == "application/ogg"  ||
       content == "audio/ogg"        ||
       content == "audio/x-xbmc-pcm" ||
-      content == "audio/flac"       || 
-      content == "audio/x-flac"     || 
+      content == "audio/flac"       ||
+      content == "audio/x-flac"     ||
       content == "application/x-flac"
       )
   {

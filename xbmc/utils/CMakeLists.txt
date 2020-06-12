@@ -11,15 +11,18 @@ set(SOURCES ActorProtocol.cpp
             BooleanLogic.cpp
             CharsetConverter.cpp
             CharsetDetection.cpp
+            ColorUtils.cpp
             CPUInfo.cpp
             Crc32.cpp
+            CryptThreading.cpp
             DatabaseUtils.cpp
+            Digest.cpp
             EndianSwap.cpp
-            Environment.cpp
+            EmbeddedArt.cpp
+            FileExtensionProvider.cpp
             Fanart.cpp
             FileOperationJob.cpp
             FileUtils.cpp
-            fstrcmp.c
             GroupUtils.cpp
             HTMLUtil.cpp
             HttpHeader.cpp
@@ -35,11 +38,8 @@ set(SOURCES ActorProtocol.cpp
             LegacyPathTranslation.cpp
             Locale.cpp
             log.cpp
-            md5.cpp
             Mime.cpp
             Observer.cpp
-            PerformanceSample.cpp
-            PerformanceStats.cpp
             POUtils.cpp
             RecentlyAddedJob.cpp
             RegExp.cpp
@@ -52,16 +52,14 @@ set(SOURCES ActorProtocol.cpp
             ScraperParser.cpp
             ScraperUrl.cpp
             Screenshot.cpp
-            SeekHandler.cpp
             SortUtils.cpp
             Speed.cpp
-            Splash.cpp
+            StaticLoggerBase.cpp
             Stopwatch.cpp
             StreamDetails.cpp
             StreamUtils.cpp
             StringUtils.cpp
             StringValidation.cpp
-            SysfsUtils.cpp
             SystemInfo.cpp
             Temperature.cpp
             TextSearch.cpp
@@ -72,7 +70,6 @@ set(SOURCES ActorProtocol.cpp
             Variant.cpp
             VC1BitstreamParser.cpp
             Vector.cpp
-            Weather.cpp
             XBMCTinyXML.cpp
             XMLUtils.cpp)
 
@@ -90,16 +87,20 @@ set(HEADERS ActorProtocol.h
             CharsetConverter.h
             CharsetDetection.h
             CPUInfo.h
+            Color.h
+            ColorUtils.h
             Crc32.h
+            CryptThreading.h
             DatabaseUtils.h
+            Digest.h
             EndianSwap.h
-            Environment.h
             EventStream.h
             EventStreamDetail.h
+            FileExtensionProvider.h
             Fanart.h
             FileOperationJob.h
             FileUtils.h
-            fstrcmp.h
+            Geometry.h
             GlobalsHandling.h
             GroupUtils.h
             HTMLUtil.h
@@ -108,9 +109,12 @@ set(HEADERS ActorProtocol.h
             HttpRangeUtils.h
             HttpResponse.h
             IArchivable.h
+            IBufferObject.h
             ILocalizer.h
             InfoLoader.h
+            IPlatformLog.h
             IRssObserver.h
+            IScreenshotSurface.h
             ISerializable.h
             ISortable.h
             IXmlDeserializable.h
@@ -123,13 +127,12 @@ set(HEADERS ActorProtocol.h
             LegacyPathTranslation.h
             Locale.h
             log.h
+            logtypes.h
             MathUtils.h
-            md5.h
+            MemUtils.h
             Mime.h
             Observer.h
             params_check_macros.h
-            PerformanceSample.h
-            PerformanceStats.h
             POUtils.h
             ProgressJob.h
             RecentlyAddedJob.h
@@ -143,27 +146,25 @@ set(HEADERS ActorProtocol.h
             ScraperParser.h
             ScraperUrl.h
             Screenshot.h
-            SeekHandler.h
             SortUtils.h
             Speed.h
-            Splash.h
+            StaticLoggerBase.h
             Stopwatch.h
             StreamDetails.h
             StreamUtils.h
             StringUtils.h
             StringValidation.h
-            SysfsUtils.h
             SystemInfo.h
             Temperature.h
             TextSearch.h
             TimeUtils.h
+            TransformMatrix.h
             URIUtils.h
             UrlOptions.h
             Utf8Utils.h
             Variant.h
             VC1BitstreamParser.h
             Vector.h
-            Weather.h
             XBMCTinyXML.h
             XMLUtils.h)
 
@@ -171,29 +172,55 @@ if(XSLT_FOUND)
   list(APPEND SOURCES XSLTUtils.cpp)
   list(APPEND HEADERS XSLTUtils.h)
 endif()
+if(EGL_FOUND)
+  list(APPEND SOURCES EGLUtils.cpp
+                      EGLFence.cpp)
+  list(APPEND HEADERS EGLUtils.h
+                      EGLFence.h)
+endif()
 
 # The large map trips the clang optimizer
 if(CMAKE_CXX_COMPILER_ID STREQUAL Clang)
   set_source_files_properties(Mime.cpp PROPERTIES COMPILE_FLAGS -O0)
 endif()
 
-if(NOT CORE_SYSTEM_NAME STREQUAL windows)
-  list(APPEND SOURCES CryptThreading.cpp
-                      GLUtils.cpp)
-  list(APPEND HEADERS CryptThreading.h
-                      GLUtils.h)
+if(NOT CORE_SYSTEM_NAME STREQUAL windows AND NOT CORE_SYSTEM_NAME STREQUAL windowsstore)
+  list(APPEND SOURCES GLUtils.cpp)
+  list(APPEND HEADERS GLUtils.h)
 endif()
 
-if(CORE_SYSTEM_NAME STREQUAL android OR AML_FOUND)
-  list(APPEND SOURCES AMLUtils.cpp
-                      ScreenshotAML.cpp)
-  list(APPEND HEADERS AMLUtils.h
-                      ScreenshotAML.h)
+if(CORE_PLATFORM_NAME_LC STREQUAL gbm OR CORE_PLATFORM_NAME_LC STREQUAL wayland)
+  list(APPEND SOURCES BufferObject.cpp
+                      BufferObjectFactory.cpp
+                      EGLImage.cpp)
+  list(APPEND HEADERS BufferObject.h
+                      BufferObjectFactory.h
+                      EGLImage.h)
+
+  if(CORE_PLATFORM_NAME_LC STREQUAL gbm)
+    list(APPEND SOURCES DumbBufferObject.cpp)
+    list(APPEND SOURCES DumbBufferObject.h)
+  endif()
+
+  if(HAVE_LINUX_MEMFD AND HAVE_LINUX_UDMABUF)
+    list(APPEND SOURCES UDMABufferObject.cpp)
+    list(APPEND HEADERS UDMABufferObject.h)
+  endif()
+
+  if(HAVE_LINUX_DMA_HEAP)
+    list(APPEND SOURCES DMAHeapBufferObject.cpp)
+    list(APPEND HEADERS DMAHeapBufferObject.h)
+  endif()
+
+  if(GBM_HAS_BO_MAP)
+    list(APPEND SOURCES GBMBufferObject.cpp)
+    list(APPEND HEADERS GBMBufferObject.h)
+  endif()
 endif()
 
 core_add_library(utils)
 
-if(NOT CORE_SYSTEM_NAME STREQUAL windows)
+if(NOT CORE_SYSTEM_NAME STREQUAL windows AND NOT CORE_SYSTEM_NAME STREQUAL windowsstore)
   if(HAVE_SSE2)
     target_compile_options(${CORE_LIBRARY} PRIVATE -msse2)
   endif()

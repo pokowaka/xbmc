@@ -1,45 +1,37 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "WinSystemRpi.h"
 
-#include <string.h>
-#include <float.h>
-
-#include "linux/DllBCM.h"
-#include "linux/RBP.h"
 #include "ServiceBroker.h"
-#include "guilib/GraphicContext.h"
-#include "guilib/Resolution.h"
-#include "settings/Settings.h"
-#include "settings/DisplaySettings.h"
+#include "cores/AudioEngine/AESinkFactory.h"
+#include "cores/AudioEngine/Sinks/AESinkPi.h"
 #include "guilib/DispResource.h"
+#include "settings/DisplaySettings.h"
+#include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
 #include "utils/log.h"
+#include "windowing/GraphicContext.h"
+#include "windowing/Resolution.h"
+
+#include "platform/linux/DllBCM.h"
+#include "platform/linux/RBP.h"
+#include "platform/linux/powermanagement/LinuxPowerSyscall.h"
+
+#include <float.h>
+#include <string.h>
 
 #include <EGL/egl.h>
 #include <EGL/eglplatform.h>
 
-CWinSystemRpi::CWinSystemRpi()
+CWinSystemRpi::CWinSystemRpi() :
+  m_libinput(new CLibInputHandler)
 {
-  m_eWindowSystem = WINDOW_SYSTEM_RPI;
-
   m_nativeDisplay = EGL_NO_DISPLAY;
   m_nativeWindow = EGL_NO_SURFACE;
 
@@ -50,6 +42,31 @@ CWinSystemRpi::CWinSystemRpi()
   m_delayDispReset = false;
 
   m_rpi = new CRPIUtils();
+
+  AE::CAESinkFactory::ClearSinks();
+
+  CAESinkPi::Register();
+  std::string envSink;
+  if (getenv("KODI_AE_SINK"))
+    envSink = getenv("KODI_AE_SINK");
+
+  if (StringUtils::EqualsNoCase(envSink, "PULSE"))
+  {
+    OPTIONALS::PulseAudioRegister();
+  }
+  else if (StringUtils::EqualsNoCase(envSink, "ALSA+PULSE"))
+  {
+    OPTIONALS::ALSARegister();
+    OPTIONALS::PulseAudioRegister();
+  }
+  else
+  {
+    OPTIONALS::ALSARegister();
+  }
+
+  CLinuxPowerSyscall::Register();
+  m_lirc.reset(OPTIONALS::LircRegister());
+  m_libinput->Start();
 }
 
 CWinSystemRpi::~CWinSystemRpi()
@@ -81,7 +98,7 @@ bool CWinSystemRpi::CreateNewWindow(const std::string& name,
 {
   RESOLUTION_INFO current_resolution;
   current_resolution.iWidth = current_resolution.iHeight = 0;
-  RENDER_STEREO_MODE stereo_mode = g_graphicsContext.GetStereoMode();
+  RENDER_STEREO_MODE stereo_mode = CServiceBroker::GetWinSystem()->GetGfxContext().GetStereoMode();
 
   m_nWidth        = res.iWidth;
   m_nHeight       = res.iHeight;
@@ -100,7 +117,7 @@ bool CWinSystemRpi::CreateNewWindow(const std::string& name,
     return true;
   }
 
-  int delay = CServiceBroker::GetSettings().GetInt("videoscreen.delayrefreshchange");
+  int delay = CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt("videoscreen.delayrefreshchange");
   if (delay > 0)
   {
     m_delayDispReset = true;
@@ -176,17 +193,13 @@ void CWinSystemRpi::UpdateResolutions()
       CDisplaySettings::GetInstance().AddResolutionInfo(res);
     }
 
-    g_graphicsContext.ResetOverscan(resolutions[i]);
+    CServiceBroker::GetWinSystem()->GetGfxContext().ResetOverscan(resolutions[i]);
     CDisplaySettings::GetInstance().GetResolutionInfo(res_index) = resolutions[i];
 
-    CLog::Log(LOGNOTICE, "Found resolution %d x %d for display %d with %d x %d%s @ %f Hz\n",
-      resolutions[i].iWidth,
-      resolutions[i].iHeight,
-      resolutions[i].iScreen,
-      resolutions[i].iScreenWidth,
-      resolutions[i].iScreenHeight,
-      resolutions[i].dwFlags & D3DPRESENTFLAG_INTERLACED ? "i" : "",
-      resolutions[i].fRefreshRate);
+    CLog::Log(LOGINFO, "Found resolution %d x %d with %d x %d%s @ %f Hz", resolutions[i].iWidth,
+              resolutions[i].iHeight, resolutions[i].iScreenWidth, resolutions[i].iScreenHeight,
+              resolutions[i].dwFlags & D3DPRESENTFLAG_INTERLACED ? "i" : "",
+              resolutions[i].fRefreshRate);
 
     if(resDesktop.iWidth == resolutions[i].iWidth &&
        resDesktop.iHeight == resolutions[i].iHeight &&
@@ -201,18 +214,14 @@ void CWinSystemRpi::UpdateResolutions()
     res_index = (RESOLUTION)((int)res_index + 1);
   }
 
-  // swap desktop index for desktop res if available
+  // set RES_DESKTOP
   if (ResDesktop != RES_INVALID)
   {
-    CLog::Log(LOGNOTICE, "Found (%dx%d%s@%f) at %d, setting to RES_DESKTOP at %d",
-      resDesktop.iWidth, resDesktop.iHeight,
-      resDesktop.dwFlags & D3DPRESENTFLAG_INTERLACED ? "i" : "",
-      resDesktop.fRefreshRate,
-      (int)ResDesktop, (int)RES_DESKTOP);
+    CLog::Log(LOGINFO, "Found (%dx%d%s@%f) at %d, setting to RES_DESKTOP at %d", resDesktop.iWidth,
+              resDesktop.iHeight, resDesktop.dwFlags & D3DPRESENTFLAG_INTERLACED ? "i" : "",
+              resDesktop.fRefreshRate, (int)ResDesktop, (int)RES_DESKTOP);
 
-    RESOLUTION_INFO desktop = CDisplaySettings::GetInstance().GetResolutionInfo(RES_DESKTOP);
     CDisplaySettings::GetInstance().GetResolutionInfo(RES_DESKTOP) = CDisplaySettings::GetInstance().GetResolutionInfo(ResDesktop);
-    CDisplaySettings::GetInstance().GetResolutionInfo(ResDesktop) = desktop;
   }
 }
 

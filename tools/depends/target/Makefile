@@ -6,19 +6,16 @@ endif
 
 DEPENDS = \
 	pcre expat gettext sqlite3 libgpg-error \
-	libgcrypt bzip2 liblzo2 libzip freetype2 fontconfig \
-	openssl gmp nettle gnutls curl \
+	libgcrypt bzip2 libfstrcmp liblzo2 freetype2 fontconfig \
+	openssl gmp nettle gnutls googletest curl nghttp2 \
 	libjpeg-turbo libpng fribidi libass \
-	libxml2 rapidjson libmicrohttpd mysql libffi \
-	python27 libshairplay libfmt \
-	libplist libcec libbluray tinyxml dummy-libxbmc \
-	libssh taglib libusb libnfs \
+	libxml2 rapidjson libmicrohttpd mariadb libffi \
+	python3 libshairplay libfmt libspdlog \
+	libplist libcec libbluray tinyxml \
+	taglib libusb libnfs meson-cross-file \
 	pythonmodule-pil pythonmodule-pycryptodome pythonmodule-setuptools \
-	libxslt ffmpeg platform crossguid \
-        libdvdread libdvdnav libdvdcss p8-platform
-
-
-FFMPEG_DEPENDS = gnutls
+	libxslt ffmpeg crossguid libudfread \
+	libdvdread libdvdnav libdvdcss p8-platform flatbuffers dav1d
 
 ifeq ($(ENABLE_GPLV3),yes)
   DEPENDS+=samba-gplv3 libcdio-gplv3
@@ -26,13 +23,13 @@ else
   DEPENDS+=samba libcdio
 endif
 
-ifeq ($(OS),ios)
-  EXCLUDED_DEPENDS = libcec libusb libdvdcss
+ifeq ($(OS),darwin_embedded)
+  EXCLUDED_DEPENDS = libcec libusb
   ifeq ($(TARGET_PLATFORM),appletvos)
     DEPENDS += boblight
+    EXCLUDED_DEPENDS += libshairplay libplist
   endif
-else
-  DVDREAD_DEPS = libdvdcss
+  DEPENDS += iosentitlements
 endif
 
 ifeq ($(OS),osx)
@@ -42,8 +39,9 @@ endif
 
 ifeq ($(OS),android)
   EXCLUDED_DEPENDS = libcec libusb
-  DEPENDS += mdnsresponder libuuid libandroidjni
-  CROSSGUID_DEPS = libuuid
+  DEPENDS += dummy-libxbmc libuuid libandroidjni libzip
+  PYMODULE_DEPS = dummy-libxbmc
+  LIBUUID = libuuid
 endif
 
 DEPENDS := $(filter-out $(EXCLUDED_DEPENDS),$(DEPENDS))
@@ -60,16 +58,25 @@ ifeq ($(NEED_LIBICONV),1)
   ICONV = libiconv
 endif
 
+WAYLANDPP_DEPS=
 ALSA_LIB=
 ifeq ($(OS),linux)
-  DEPENDS += libuuid
+  DEPENDS += dbus libuuid
   #not for raspberry pi
   ifneq ($(TARGET_PLATFORM),raspberry-pi)
     DEPENDS += linux-system-libs
+    WAYLANDPP_DEPS += linux-system-libs
   endif
   DEPENDS += alsa-lib
   ALSA_LIB = alsa-lib
-  CROSSGUID_DEPS = libuuid
+  LIBUUID = libuuid
+  ifeq ($(TARGET_PLATFORM),$(filter $(TARGET_PLATFORM),raspberry-pi gbm))
+    DEPENDS += libxkbcommon libinput libudev libevdev mtdev
+  endif
+endif
+
+ifeq ($(TARGET_PLATFORM),wayland)
+  DEPENDS += wayland waylandpp wayland-protocols
 endif
 
 .PHONY: $(DEPENDS)
@@ -78,31 +85,39 @@ all: .installed-$(PLATFORM)
 
 gettext: $(ICONV)
 libgcrypt: libgpg-error
-fontconfig: freetype2 expat $(ICONV)
-curl: openssl
-libass: fontconfig libpng freetype2 expat $(ICONV)
+fontconfig: freetype2 expat $(ICONV) $(LIBUUID)
+curl: openssl nghttp2
+libass: fontconfig fribidi libpng freetype2 expat $(ICONV)
 libmicrohttpd: gnutls libgcrypt libgpg-error
-python27: expat gettext libxml2 sqlite3 openssl libffi
+python3: expat gettext libxml2 sqlite3 openssl libffi
 libcdio: $(ICONV)
-libplist: libxml2 $(ZLIB)
-libbluray: $(ICONV) libxml2
-libssh: libgcrypt openssl $(ZLIB)
-mysql: openssl $(ZLIB)
-libzip: $(ZLIB)
+libcdio-gplv3: $(ICONV)
+libplist: $(ZLIB)
+libbluray: fontconfig freetype2 $(ICONV) libxml2
+mariadb: openssl $(ICONV) $(ZLIB)
+libzip: bzip2 gnutls $(ZLIB)
 libpng: $(ZLIB)
 openssl: $(ZLIB)
 gnutls: nettle $(ZLIB)
 nettle: gmp
-pythonmodule-pycryptodome: python27 pythonmodule-setuptools
-pythonmodule-pil: $(ZLIB) libjpeg-turbo libpng freetype2 python27 pythonmodule-setuptools
-pythonmodule-setuptools: python27
+pythonmodule-pycryptodome: $(PYMODULE_DEPS) python3 pythonmodule-setuptools
+pythonmodule-pil: bzip2 $(PYMODULE_DEPS) $(ZLIB) libjpeg-turbo libpng freetype2 python3 pythonmodule-setuptools
+pythonmodule-setuptools: $(PYMODULE_DEPS) python3
 libxslt: libgcrypt libxml2
-ffmpeg: $(ICONV) $(ZLIB) bzip2 $(FFMPEG_DEPENDS)
-platform: p8-platform
+ffmpeg: $(ICONV) $(ZLIB) bzip2 gnutls dav1d
 libcec: p8-platform
-crossguid: $(CROSSGUID_DEPS)
+crossguid: $(LIBUUID)
 libdvdnav: libdvdread
-libdvdread: $(DVDREAD_DEPS)
+libdvdread: libdvdcss
+wayland: expat libffi
+waylandpp: wayland $(WAYLANDPP_DEPS)
+dbus: expat
+libinput: mtdev libevdev meson-cross-file
+libevdev: libudev
+samba-gplv3: gnutls
+taglib: $(ZLIB)
+dav1d: meson-cross-file
+libspdlog: libfmt
 
 .installed-$(PLATFORM): $(DEPENDS)
 	touch $@
@@ -129,6 +144,7 @@ distclean::
 
 linux-system-libs-egl:
 	[ -f $(PREFIX)/lib/pkgconfig/egl.pc ] || ln -sf /usr/lib/$(HOST)/pkgconfig/egl.pc $(PREFIX)/lib/pkgconfig/egl.pc
+	[ -f $(PREFIX)/lib/pkgconfig/wayland-egl.pc ] || ln -sf /usr/lib/$(HOST)/pkgconfig/wayland-egl.pc $(PREFIX)/lib/pkgconfig/wayland-egl.pc
 	[ -f $(PREFIX)/lib/pkgconfig/damageproto.pc ] || ln -sf  /usr/share/pkgconfig/damageproto.pc $(PREFIX)/lib/pkgconfig/damageproto.pc
 	[ -f $(PREFIX)/lib/pkgconfig/fixesproto.pc ] || ln -sf  /usr/share/pkgconfig/fixesproto.pc $(PREFIX)/lib/pkgconfig/fixesproto.pc
 	[ -f $(PREFIX)/lib/pkgconfig/x11-xcb.pc ] || ln -sf  /usr/lib/$(HOST)/pkgconfig/x11-xcb.pc $(PREFIX)/lib/pkgconfig/x11-xcb.pc
@@ -166,3 +182,21 @@ linux-system-libs: linux-system-libs-egl
 	[ -f $(PREFIX)/lib/pkgconfig/sm.pc ] || ln -sf /usr/lib/$(HOST)/pkgconfig/sm.pc $(PREFIX)/lib/pkgconfig/sm.pc
 	[ -f $(PREFIX)/lib/pkgconfig/xmu.pc ] || ln -sf /usr/lib/$(HOST)/pkgconfig/xmu.pc $(PREFIX)/lib/pkgconfig/xmu.pc
 	[ -f $(PREFIX)/lib/pkgconfig/libdrm.pc ] || ln -sf /usr/lib/$(HOST)/pkgconfig/libdrm.pc $(PREFIX)/lib/pkgconfig/libdrm.pc
+	[ -f $(PREFIX)/lib/pkgconfig/xkbcommon.pc ] || ln -sf /usr/lib/$(HOST)/pkgconfig/xkbcommon.pc $(PREFIX)/lib/pkgconfig/xkbcommon.pc
+	[ -f $(PREFIX)/lib/pkgconfig/libva.pc ] || ln -sf /usr/lib/$(HOST)/pkgconfig/libva.pc $(PREFIX)/lib/pkgconfig/libva.pc
+
+meson-cross-file:
+	PREFIX="$(PREFIX)" \
+	NATIVEPREFIX="$(NATIVEPREFIX)" \
+	CC="$(CC)" \
+	CXX="$(CXX)" \
+	AR="$(AR)" \
+	STRIP="$(STRIP)" \
+	MESON_SYSTEM="$(MESON_SYSTEM)" \
+	MESON_CPU="$(MESON_CPU)" \
+	CPU="$(CPU)" \
+	CFLAGS="$(CFLAGS)" \
+	CXXFLAGS="$(CXXFLAGS)" \
+	LDFLAGS="$(LDFLAGS)" \
+	./meson-cross-setup.sh
+

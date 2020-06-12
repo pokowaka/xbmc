@@ -1,25 +1,15 @@
 /*
- *      Copyright (C) 2012-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
-#include "addons/kodi-addon-dev-kit/include/kodi/kodi_game_types.h"
+#include "addons/Addon.h"
+#include "addons/kodi-addon-dev-kit/include/kodi/addon-instance/Game.h"
 #include "games/GameTypes.h"
 
 #include <string>
@@ -36,15 +26,17 @@ class CGameClient;
 
 /**
  * \ingroup games
- * \brief C++ wrapper for game client properties declared in kodi_game_types.h
+ * \brief C++ wrapper for properties to pass to the DLL
+ *
+ * Game client properties declared in addon-instance/Game.h.
  */
 class CGameClientProperties
 {
 public:
-  CGameClientProperties(const CGameClient* parent, AddonProps_Game& props);
+  CGameClientProperties(const CGameClient& parent, AddonProps_Game& props);
   ~CGameClientProperties(void) { ReleaseResources(); }
 
-  void InitializeProperties(void);
+  bool InitializeProperties(void);
 
 private:
   // Release mutable resources
@@ -54,16 +46,16 @@ private:
   const char* GetLibraryPath(void);
 
   // List of proxy DLLs needed to load the game client
-  const char** GetProxyDllPaths(void);
+  const char** GetProxyDllPaths(const ADDON::VECADDONS& addons);
 
   // Number of proxy DLLs needed to load the game client
-  unsigned int GetProxyDllCount(void) const { return m_proxyDllPaths.size(); }
+  unsigned int GetProxyDllCount(void) const;
 
   // Paths to game resources
   const char** GetResourceDirectories(void);
 
   // Number of resource directories
-  unsigned int GetResourceDirectoryCount(void) const { return m_resourceDirectories.size(); }
+  unsigned int GetResourceDirectoryCount(void) const;
 
   // Equal to special://profile/addon_data/<parent's id>
   const char* GetProfileDirectory(void);
@@ -72,20 +64,22 @@ private:
   const char** GetExtensions(void);
 
   // Number of extensions
-  unsigned int GetExtensionCount(void) const { return m_extensions.size(); }
+  unsigned int GetExtensionCount(void) const;
 
   // Helper functions
+  bool GetProxyAddons(ADDON::VECADDONS& addons);
   void AddProxyDll(const GameClientPtr& gameClient);
   bool HasProxyDll(const std::string& strLibPath) const;
 
-  const CGameClient* const  m_parent;
-  AddonProps_Game&          m_properties;
+  // Construction parameters
+  const CGameClient& m_parent;
+  AddonProps_Game& m_properties;
 
   // Buffers to hold the strings
-  std::string        m_strLibraryPath;
+  std::string m_strLibraryPath;
   std::vector<char*> m_proxyDllPaths;
   std::vector<char*> m_resourceDirectories;
-  std::string        m_strProfileDirectory;
+  std::string m_strProfileDirectory;
   std::vector<char*> m_extensions;
 };
 

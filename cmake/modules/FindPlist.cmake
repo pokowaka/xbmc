@@ -3,7 +3,7 @@
 # ---------
 # Finds the Plist library
 #
-# This will will define the following variables::
+# This will define the following variables::
 #
 # PLIST_FOUND - system has Plist library
 # PLIST_INCLUDE_DIRS - the Plist library include directory
@@ -23,25 +23,18 @@ find_path(PLIST_INCLUDE_DIR plist/plist.h
 
 set(PLIST_VERSION ${PC_PLIST_VERSION})
 
-include(FindPackageHandleStandardArgs)
-if(NOT WIN32)
-  find_library(PLIST_LIBRARY NAMES plist
-                                   PATHS ${PC_PLIST_LIBDIR})
+find_library(PLIST_LIBRARY NAMES plist libplist
+                                 PATHS ${PC_PLIST_LIBDIR})
 
-  find_package_handle_standard_args(Plist
-                                    REQUIRED_VARS PLIST_LIBRARY PLIST_INCLUDE_DIR
-                                    VERSION_VAR PLIST_VERSION)
-else()
-  # Dynamically loaded DLL
-  find_package_handle_standard_args(Plist
-                                    REQUIRED_VARS PLIST_INCLUDE_DIR
-                                    VERSION_VAR PLIST_VERSION)
-endif()
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(Plist
+                                  REQUIRED_VARS PLIST_LIBRARY PLIST_INCLUDE_DIR
+                                  VERSION_VAR PLIST_VERSION)
 
 if(PLIST_FOUND)
   set(PLIST_LIBRARIES ${PLIST_LIBRARY})
   set(PLIST_INCLUDE_DIRS ${PLIST_INCLUDE_DIR})
-  set(PLIST_DEFINITIONS -DHAVE_LIBPLIST=1)
+  set(PLIST_DEFINITIONS -DHAS_AIRPLAY=1)
 
   if(NOT TARGET Plist::Plist)
     add_library(Plist::Plist UNKNOWN IMPORTED)
@@ -51,7 +44,7 @@ if(PLIST_FOUND)
     endif()
     set_target_properties(Plist::Plist PROPERTIES
                                        INTERFACE_INCLUDE_DIRECTORIES "${PLIST_INCLUDE_DIR}"
-                                       INTERFACE_COMPILE_DEFINITIONS HAVE_LIBPLIST=1)
+                                       INTERFACE_COMPILE_DEFINITIONS HAS_AIRPLAY=1)
   endif()
 endif()
 

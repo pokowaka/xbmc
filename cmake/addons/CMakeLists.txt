@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.5)
 project(kodi-addons)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
@@ -75,6 +75,13 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT OR NOT CMAKE_INSTALL_PREFIX)
 endif()
 list(APPEND CMAKE_PREFIX_PATH ${CMAKE_INSTALL_PREFIX})
 
+if (CMAKE_SYSTEM_NAME STREQUAL WindowsStore)
+  set(BUILD_ARGS_ext -DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}
+                     -DCMAKE_SYSTEM_VERSION=${CMAKE_SYSTEM_VERSION})
+endif()
+
+include(${CORE_SOURCE_DIR}/cmake/scripts/common/CompilerSettings.cmake)
+
 set(BUILD_ARGS -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
                -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
                -DPACKAGE_CONFIG_PATH=${ADDON_DEPENDS_PATH}/lib/pkgconfig
@@ -86,7 +93,8 @@ set(BUILD_ARGS -DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}
                -DCORE_SYSTEM_NAME=${CORE_SYSTEM_NAME}
                -DBUILD_SHARED_LIBS=1
                -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS}
-               -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS})
+               -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}
+               ${BUILD_ARGS_ext})
 
 if(MSVC)
   # move cmake specific targets to a CMakePredefinedTargets folder in Visual Studio
@@ -113,6 +121,17 @@ if(CMAKE_TOOLCHAIN_FILE)
   list(APPEND BUILD_ARGS -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE})
   message(STATUS "Toolchain specified")
   message(STATUS ${BUILD_ARGS})
+endif()
+
+# used for addons where need special folders to store there content (if
+# not set the addon define it byself).
+# e.g. Google Chromium addon where his git bring:
+# - "unable to create file" ... "Filename too long"
+# see also WARNING by Windows on: https://bitbucket.org/chromiumembedded/cef/wiki/MasterBuildQuickStart
+if(THIRD_PARTY_PATH)
+  message(STATUS "Third party lib path specified")
+  message(STATUS ${THIRD_PARTY_PATH})
+  list(APPEND BUILD_ARGS -DTHIRD_PARTY_PATH=${THIRD_PARTY_PATH})
 endif()
 
 if(NOT ADDONS_TO_BUILD)
@@ -237,9 +256,14 @@ foreach(addon ${addons})
     if(idx GREATER -1 OR "${ADDONS_TO_BUILD}" STREQUAL "all")
       set(ADDON_FOUND TRUE)
     # Maybe we have a regex
-    elseif(id MATCHES "${ADDONS_TO_BUILD}")
-      message(STATUS "Pattern ${ADDONS_TO_BUILD} matches ${id}, building addon")
-      set(ADDON_FOUND TRUE)
+    else()
+      foreach(ADDONLISTITEM ${ADDONS_TO_BUILD})
+        if(id MATCHES "${ADDONLISTITEM}")
+          message(STATUS "Pattern ${ADDONLISTITEM} matches ${id}, building addon")
+          set(ADDON_FOUND TRUE)
+          break()
+        endif()
+      endforeach()
     endif()
 
     if(ADDON_FOUND)
@@ -370,9 +394,6 @@ foreach(addon ${addons})
                                    DEPENDERS build
                                    ALWAYS 1)
 
-          # add "kodi-platform" as a dependency to every addon
-          add_dependencies(${id} kodi-platform)
-
           set(${id}_DEPENDS_DIR ${SOURCE_DIR}/depends)
 
           if(EXISTS ${${id}_DEPENDS_DIR})
@@ -397,8 +418,12 @@ foreach(addon ${addons})
           endif()
 
           # create a forwarding target to the addon-package target
+          get_property(_isMultiConfig GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+          if(_isMultiConfig)
+            set(config --config $<CONFIG>)
+          endif()
           add_custom_target(package-${id}
-                    COMMAND ${CMAKE_COMMAND} --build ${id}-prefix/src/${id}-build --target addon-package
+                    COMMAND ${CMAKE_COMMAND} --build ${id}-prefix/src/${id}-build ${config} --target addon-package
                     DEPENDS ${id})
           add_dependencies(package-addons package-${id})
 

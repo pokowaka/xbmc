@@ -1,55 +1,35 @@
 /*
- *      Copyright (C) 2005-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "ButtonTranslator.h"
 
+#include "AppTranslator.h"
+#include "CustomControllerTranslator.h"
+#include "FileItem.h"
+#include "GamepadTranslator.h"
+#include "IButtonMapper.h"
+#include "IRTranslator.h"
+#include "Key.h"
+#include "KeyboardTranslator.h"
+#include "Util.h"
+#include "WindowTranslator.h"
+#include "filesystem/Directory.h"
+#include "guilib/WindowIDs.h"
+#include "input/actions/ActionIDs.h"
+#include "input/actions/ActionTranslator.h"
+#include "input/mouse/MouseTranslator.h"
+#include "utils/XBMCTinyXML.h"
+#include "utils/log.h"
+
 #include <algorithm>
 #include <utility>
 
-#include "ActionIDs.h"
-#include "ActionTranslator.h"
-#include "AppTranslator.h"
-#include "CustomControllerTranslator.h"
-#include "GamepadTranslator.h"
-#include "IRTranslator.h"
-#include "IButtonMapper.h"
-#include "Key.h"
-#include "KeyboardTranslator.h"
-#include "MouseTranslator.h"
-#include "WindowTranslator.h"
-#include "FileItem.h"
-#include "filesystem/Directory.h"
-#include "guilib/WindowIDs.h"
-#include "Util.h"
-#include "utils/log.h"
-#include "utils/XBMCTinyXML.h"
-
 using namespace KODI;
-
-CButtonTranslator::CButtonTranslator()
-{
-}
-
-CButtonTranslator::~CButtonTranslator()
-{
-}
 
 // Add the supplied device name to the list of connected devices
 bool CButtonTranslator::AddDevice(const std::string& strDevice)
@@ -89,11 +69,9 @@ bool CButtonTranslator::Load()
 
   // Directories to search for keymaps. They're applied in this order,
   // so keymaps in profile/keymaps/ override e.g. system/keymaps
-  static std::vector<std::string> DIRS_TO_CHECK = {
-    "special://xbmc/system/keymaps/",
-    "special://masterprofile/keymaps/",
-    "special://profile/keymaps/"
-  };
+  static std::vector<std::string> DIRS_TO_CHECK = {"special://xbmc/system/keymaps/",
+                                                   "special://masterprofile/keymaps/",
+                                                   "special://profile/keymaps/"};
 
   bool success = false;
 
@@ -102,17 +80,16 @@ bool CButtonTranslator::Load()
     if (XFILE::CDirectory::Exists(dir))
     {
       CFileItemList files;
-      XFILE::CDirectory::GetDirectory(dir, files, ".xml");
+      XFILE::CDirectory::GetDirectory(dir, files, ".xml", XFILE::DIR_FLAG_DEFAULTS);
       // Sort the list for filesystem based priorities, e.g. 01-keymap.xml, 02-keymap-overrides.xml
       files.Sort(SortByFile, SortOrderAscending);
-      for(int fileIndex = 0; fileIndex<files.Size(); ++fileIndex)
+      for (int fileIndex = 0; fileIndex < files.Size(); ++fileIndex)
       {
         if (!files[fileIndex]->m_bIsFolder)
           success |= LoadKeymap(files[fileIndex]->GetPath());
       }
 
       // Load mappings for any HID devices we have connected
-      std::list<std::string>::iterator it;
       for (const auto& device : m_deviceList)
       {
         std::string devicedir = dir;
@@ -121,10 +98,11 @@ bool CButtonTranslator::Load()
         if (XFILE::CDirectory::Exists(devicedir))
         {
           CFileItemList files;
-          XFILE::CDirectory::GetDirectory(devicedir, files, ".xml");
-          // Sort the list for filesystem based priorities, e.g. 01-keymap.xml, 02-keymap-overrides.xml
+          XFILE::CDirectory::GetDirectory(devicedir, files, ".xml", XFILE::DIR_FLAG_DEFAULTS);
+          // Sort the list for filesystem based priorities, e.g. 01-keymap.xml,
+          // 02-keymap-overrides.xml
           files.Sort(SortByFile, SortOrderAscending);
-          for(int fileIndex = 0; fileIndex<files.Size(); ++fileIndex)
+          for (int fileIndex = 0; fileIndex < files.Size(); ++fileIndex)
           {
             if (!files[fileIndex]->m_bIsFolder)
               success |= LoadKeymap(files[fileIndex]->GetPath());
@@ -136,8 +114,8 @@ bool CButtonTranslator::Load()
 
   if (!success)
   {
-    CLog::Log(LOGERROR, "Error loading keymaps from: %s or %s or %s",
-      DIRS_TO_CHECK[0].c_str(), DIRS_TO_CHECK[1].c_str(), DIRS_TO_CHECK[2].c_str());
+    CLog::Log(LOGERROR, "Error loading keymaps from: %s or %s or %s", DIRS_TO_CHECK[0].c_str(),
+              DIRS_TO_CHECK[1].c_str(), DIRS_TO_CHECK[2].c_str());
     return false;
   }
 
@@ -145,14 +123,15 @@ bool CButtonTranslator::Load()
   return true;
 }
 
-bool CButtonTranslator::LoadKeymap(const std::string &keymapPath)
+bool CButtonTranslator::LoadKeymap(const std::string& keymapPath)
 {
   CXBMCTinyXML xmlDoc;
 
   CLog::Log(LOGINFO, "Loading %s", keymapPath.c_str());
   if (!xmlDoc.LoadFile(keymapPath))
   {
-    CLog::Log(LOGERROR, "Error loading keymap: %s, Line %d\n%s", keymapPath.c_str(), xmlDoc.ErrorRow(), xmlDoc.ErrorDesc());
+    CLog::Log(LOGERROR, "Error loading keymap: %s, Line %d\n%s", keymapPath.c_str(),
+              xmlDoc.ErrorRow(), xmlDoc.ErrorDesc());
     return false;
   }
 
@@ -177,10 +156,10 @@ bool CButtonTranslator::LoadKeymap(const std::string &keymapPath)
     if (pWindow->Type() == TiXmlNode::TINYXML_ELEMENT)
     {
       int windowID = WINDOW_INVALID;
-      const char *szWindow = pWindow->Value();
+      const char* szWindow = pWindow->Value();
       if (szWindow != nullptr)
       {
-        if (strcmpi(szWindow, "global") == 0)
+        if (StringUtils::CompareNoCase(szWindow, "global") == 0)
           windowID = -1;
         else
           windowID = CWindowTranslator::TranslateWindow(szWindow);
@@ -193,37 +172,37 @@ bool CButtonTranslator::LoadKeymap(const std::string &keymapPath)
   return true;
 }
 
-CAction CButtonTranslator::GetAction(int window, const CKey &key, bool fallback)
+CAction CButtonTranslator::GetAction(int window, const CKey& key, bool fallback)
 {
   std::string strAction;
+
+  // handle virtual windows
+  window = CWindowTranslator::GetVirtualWindow(window);
 
   // try to get the action from the current window
   unsigned int actionID = GetActionCode(window, key, strAction);
 
-  // if it's invalid, try to get it from the global map
-  if (actionID == ACTION_NONE && fallback)
+  if (fallback)
   {
-    //! @todo Refactor fallback logic
-    int fallbackWindow = CWindowTranslator::GetFallbackWindow(window);
-    if (fallbackWindow > -1)
-      actionID = GetActionCode(fallbackWindow, key, strAction);
-
-    // still no valid action? use global map
-    if (actionID == ACTION_NONE)
-      actionID = GetActionCode(-1, key, strAction);
+    // if it's invalid, try to get it from fallback windows or the global map (window == -1)
+    while (actionID == ACTION_NONE && window > -1)
+    {
+      window = CWindowTranslator::GetFallbackWindow(window);
+      actionID = GetActionCode(window, key, strAction);
+    }
   }
 
-  // Now fill our action structure
-  CAction action(actionID, strAction, key);
-  return action;
+  return CAction(actionID, strAction, key);
 }
 
-CAction CButtonTranslator::GetGlobalAction(const CKey &key)
+bool CButtonTranslator::HasLongpressMapping(int window, const CKey& key)
 {
-  return GetAction(-1, key, true);
+  // handle virtual windows
+  window = CWindowTranslator::GetVirtualWindow(window);
+  return HasLongpressMapping_Internal(window, key);
 }
 
-bool CButtonTranslator::HasLongpressMapping(int window, const CKey &key)
+bool CButtonTranslator::HasLongpressMapping_Internal(int window, const CKey& key)
 {
   std::map<int, buttonMap>::const_iterator it = m_translatorMap.find(window);
   if (it != m_translatorMap.end())
@@ -252,17 +231,19 @@ bool CButtonTranslator::HasLongpressMapping(int window, const CKey &key)
   {
     // first check if we have a fallback for the window
     int fallbackWindow = CWindowTranslator::GetFallbackWindow(window);
-    if (fallbackWindow > -1 && HasLongpressMapping(fallbackWindow, key))
+    if (fallbackWindow > -1 && HasLongpressMapping_Internal(fallbackWindow, key))
       return true;
 
     // fallback to default section
-    return HasLongpressMapping(-1, key);
+    return HasLongpressMapping_Internal(-1, key);
   }
 
   return false;
 }
 
-unsigned int CButtonTranslator::GetActionCode(int window, const CKey &key, std::string &strAction) const
+unsigned int CButtonTranslator::GetActionCode(int window,
+                                              const CKey& key,
+                                              std::string& strAction) const
 {
   uint32_t code = key.GetButtonCode();
 
@@ -272,7 +253,8 @@ unsigned int CButtonTranslator::GetActionCode(int window, const CKey &key, std::
 
   buttonMap::const_iterator it2 = (*it).second.find(code);
   unsigned int action = ACTION_NONE;
-  if (it2 == (*it).second.end() && code & CKey::MODIFIER_LONG) // If long action not found, try short one
+  if (it2 == (*it).second.end() &&
+      code & CKey::MODIFIER_LONG) // If long action not found, try short one
   {
     code &= ~CKey::MODIFIER_LONG;
     it2 = (*it).second.find(code);
@@ -302,11 +284,11 @@ unsigned int CButtonTranslator::GetActionCode(int window, const CKey &key, std::
   return action;
 }
 
-void CButtonTranslator::MapAction(uint32_t buttonCode, const std::string &szAction, buttonMap &map)
+void CButtonTranslator::MapAction(uint32_t buttonCode, const std::string& szAction, buttonMap& map)
 {
   unsigned int action = ACTION_NONE;
   if (!CActionTranslator::TranslateString(szAction, action) || buttonCode == 0)
-    return;   // no valid action, or an invalid buttoncode
+    return; // no valid action, or an invalid buttoncode
 
   // have a valid action, and a valid button - map it.
   // check to see if we've already got this (button,action) pair defined
@@ -324,19 +306,19 @@ void CButtonTranslator::MapAction(uint32_t buttonCode, const std::string &szActi
   }
 }
 
-void CButtonTranslator::MapWindowActions(const TiXmlNode *pWindow, int windowID)
+void CButtonTranslator::MapWindowActions(const TiXmlNode* pWindow, int windowID)
 {
-  if (pWindow == nullptr || windowID == WINDOW_INVALID) 
+  if (pWindow == nullptr || windowID == WINDOW_INVALID)
     return;
 
-  const TiXmlNode *pDevice;
+  const TiXmlNode* pDevice;
 
-  static const std::vector<std::string> types = {"gamepad", "remote", "universalremote", "keyboard", "mouse", "appcommand"};
+  static const std::vector<std::string> types = {"gamepad",  "remote", "universalremote",
+                                                 "keyboard", "mouse",  "appcommand"};
 
   for (const auto& type : types)
   {
-    for (pDevice = pWindow->FirstChild(type);
-         pDevice != nullptr;
+    for (pDevice = pWindow->FirstChild(type); pDevice != nullptr;
          pDevice = pDevice->NextSiblingElement(type))
     {
       buttonMap map;
@@ -347,24 +329,24 @@ void CButtonTranslator::MapWindowActions(const TiXmlNode *pWindow, int windowID)
         m_translatorMap.erase(it);
       }
 
-      const TiXmlElement *pButton = pDevice->FirstChildElement();
+      const TiXmlElement* pButton = pDevice->FirstChildElement();
 
       while (pButton != nullptr)
       {
         uint32_t buttonCode = 0;
 
         if (type == "gamepad")
-            buttonCode = CGamepadTranslator::TranslateString(pButton->Value());
+          buttonCode = CGamepadTranslator::TranslateString(pButton->Value());
         else if (type == "remote")
-            buttonCode = CIRTranslator::TranslateString(pButton->Value());
+          buttonCode = CIRTranslator::TranslateString(pButton->Value());
         else if (type == "universalremote")
-            buttonCode = CIRTranslator::TranslateUniversalRemoteString(pButton->Value());
+          buttonCode = CIRTranslator::TranslateUniversalRemoteString(pButton->Value());
         else if (type == "keyboard")
-            buttonCode = CKeyboardTranslator::TranslateButton(pButton);
+          buttonCode = CKeyboardTranslator::TranslateButton(pButton);
         else if (type == "mouse")
-            buttonCode = CMouseTranslator::TranslateCommand(pButton);
+          buttonCode = CMouseTranslator::TranslateCommand(pButton);
         else if (type == "appcommand")
-            buttonCode = CAppTranslator::TranslateAppCommand(pButton->Value());
+          buttonCode = CAppTranslator::TranslateAppCommand(pButton->Value());
 
         if (buttonCode != 0)
         {
@@ -391,8 +373,8 @@ void CButtonTranslator::MapWindowActions(const TiXmlNode *pWindow, int windowID)
 
   for (auto it : m_buttonMappers)
   {
-    const std::string &device = it.first;
-    IButtonMapper *mapper = it.second;
+    const std::string& device = it.first;
+    IButtonMapper* mapper = it.second;
 
     // Map device actions
     pDevice = pWindow->FirstChild(device);
@@ -412,12 +394,12 @@ void CButtonTranslator::Clear()
     it.second->Clear();
 }
 
-void CButtonTranslator::RegisterMapper(const std::string &device, IButtonMapper *mapper)
+void CButtonTranslator::RegisterMapper(const std::string& device, IButtonMapper* mapper)
 {
   m_buttonMappers[device] = mapper;
 }
 
-void CButtonTranslator::UnregisterMapper(IButtonMapper *mapper)
+void CButtonTranslator::UnregisterMapper(IButtonMapper* mapper)
 {
   for (auto it = m_buttonMappers.begin(); it != m_buttonMappers.end(); ++it)
   {
@@ -426,5 +408,29 @@ void CButtonTranslator::UnregisterMapper(IButtonMapper *mapper)
       m_buttonMappers.erase(it);
       break;
     }
+  }
+}
+
+uint32_t CButtonTranslator::TranslateString(std::string strMap, std::string strButton)
+{
+  if (strMap == "KB") // standard keyboard map
+  {
+    return CKeyboardTranslator::TranslateString(strButton);
+  }
+  else if (strMap == "XG") // xbox gamepad map
+  {
+    return CGamepadTranslator::TranslateString(strButton);
+  }
+  else if (strMap == "R1") // xbox remote map
+  {
+    return CIRTranslator::TranslateString(strButton);
+  }
+  else if (strMap == "R2") // xbox universal remote map
+  {
+    return CIRTranslator::TranslateUniversalRemoteString(strButton);
+  }
+  else
+  {
+    return 0;
   }
 }

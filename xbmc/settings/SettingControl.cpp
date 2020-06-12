@@ -1,31 +1,20 @@
 /*
- *      Copyright (C) 2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2013-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <vector>
-
 #include "SettingControl.h"
+
 #include "settings/lib/SettingDefinitions.h"
-#include "utils/log.h"
 #include "utils/StringUtils.h"
 #include "utils/XBMCTinyXML.h"
 #include "utils/XMLUtils.h"
+#include "utils/log.h"
+
+#include <vector>
 
 const char* SHOW_ADDONS_ALL = "all";
 const char* SHOW_ADDONS_INSTALLED = "installed";
@@ -145,11 +134,20 @@ bool CSettingControlButton::Deserialize(const TiXmlNode *node, bool update /* = 
 {
   if (!ISettingControl::Deserialize(node, update))
     return false;
-  
+
   XMLUtils::GetInt(node, SETTING_XML_ELM_CONTROL_HEADING, m_heading);
   XMLUtils::GetBoolean(node, SETTING_XML_ELM_CONTROL_HIDEVALUE, m_hideValue);
 
-  if (m_format == "addon")
+  if (m_format == "action")
+  {
+    bool closeDialog = false;
+    if (XMLUtils::GetBoolean(node, "close", closeDialog))
+      m_closeDialog = closeDialog;
+    std::string strActionData;
+    if (XMLUtils::GetString(node, SETTING_XML_ELM_DATA, strActionData))
+      m_actionData = strActionData;
+  }
+  else if (m_format == "addon")
   {
     std::string strShowAddons;
     if (XMLUtils::GetString(node, "show", strShowAddons) && !strShowAddons.empty())
@@ -224,7 +222,7 @@ bool CSettingControlList::Deserialize(const TiXmlNode *node, bool update /* = fa
 {
   if (!CSettingControlFormattedRange::Deserialize(node, update))
     return false;
-  
+
   XMLUtils::GetInt(node, SETTING_XML_ELM_CONTROL_HEADING, m_heading);
   XMLUtils::GetBoolean(node, SETTING_XML_ELM_CONTROL_MULTISELECT, m_multiselect);
   XMLUtils::GetBoolean(node, SETTING_XML_ELM_CONTROL_HIDEVALUE, m_hideValue);
@@ -265,19 +263,28 @@ bool CSettingControlSlider::Deserialize(const TiXmlNode *node, bool update /* = 
 
 bool CSettingControlSlider::SetFormat(const std::string &format)
 {
-  if (StringUtils::EqualsNoCase(format, "percentage"))
-    m_formatString = "%i %%";
-  else if (StringUtils::EqualsNoCase(format, "integer"))
-    m_formatString = "%d";
-  else if (StringUtils::EqualsNoCase(format, "number"))
-    m_formatString = "%.1f";
-  else
+  if (!StringUtils::EqualsNoCase(format, "percentage") &&
+      !StringUtils::EqualsNoCase(format, "integer") &&
+      !StringUtils::EqualsNoCase(format, "number"))
     return false;
 
   m_format = format;
   StringUtils::ToLower(m_format);
+  m_formatString = GetDefaultFormatString();
 
   return true;
+}
+
+std::string CSettingControlSlider::GetDefaultFormatString() const
+{
+  if (m_format == "percentage")
+    return "{} %";
+  if (m_format == "integer")
+    return "{:d}";
+  if (m_format == "number")
+    return "{:.1f}";
+
+  return "{}";
 }
 
 bool CSettingControlRange::Deserialize(const TiXmlNode *node, bool update /* = false */)

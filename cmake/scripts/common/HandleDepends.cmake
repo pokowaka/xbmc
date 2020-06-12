@@ -7,6 +7,10 @@ function(add_addon_depends addon searchpath)
   set(OUTPUT_DIR ${ADDON_DEPENDS_PATH})
   # look for platform-specific dependencies
   file(GLOB_RECURSE cmake_input_files ${searchpath}/${CORE_SYSTEM_NAME}/*.txt)
+  # backward compatibility
+  if(NOT cmake_input_files AND CORE_SYSTEM_NAME STREQUAL windowsstore)
+    file(GLOB_RECURSE cmake_input_files ${searchpath}/windows/*.txt)
+  endif()
   file(GLOB_RECURSE cmake_input_files2 ${searchpath}/common/*.txt)
   list(APPEND cmake_input_files ${cmake_input_files2})
 
@@ -50,9 +54,6 @@ function(add_addon_depends addon searchpath)
         if(EXISTS ${dir}/flags.txt)
           set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${dir}/flags.txt)
           file(STRINGS ${dir}/flags.txt extraflags)
-
-          # replace some custom placeholders
-          string(REPLACE "@MINGW_TOOLCHAIN_FILE@" "${OUTPUT_DIR}/Toolchain_mingw32.cmake" extraflags "${extraflags}")
           string(REPLACE " " ";" extraflags ${extraflags})
 
           message(STATUS "${id} extraflags: ${extraflags}")
@@ -67,13 +68,20 @@ function(add_addon_depends addon searchpath)
                        -DCORE_SYSTEM_NAME=${CORE_SYSTEM_NAME}
                        -DENABLE_STATIC=1
                        -DBUILD_SHARED_LIBS=0)
+        # windows args
+        if (CMAKE_SYSTEM_NAME STREQUAL WindowsStore OR CMAKE_SYSTEM_NAME STREQUAL Windows)
+          list(APPEND BUILD_ARGS -DCMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}
+                                 -DCMAKE_SYSTEM_VERSION=${CMAKE_SYSTEM_VERSION})
+        endif()
         # if there are no make rules override files available take care of manually passing on ARCH_DEFINES
         if(NOT CMAKE_USER_MAKE_RULES_OVERRIDE AND NOT CMAKE_USER_MAKE_RULES_OVERRIDE_CXX)
           # make sure we create strings, not lists
           set(TMP_C_FLAGS "${CMAKE_C_FLAGS} ${ARCH_DEFINES}")
           set(TMP_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARCH_DEFINES}")
+          set(TMP_EXE_LINKER_FLAGS "-L${OUTPUT_DIR}/lib ${CMAKE_EXE_LINKER_FLAGS}")
           list(APPEND BUILD_ARGS -DCMAKE_C_FLAGS=${TMP_C_FLAGS}
-                                 -DCMAKE_CXX_FLAGS=${TMP_CXX_FLAGS})
+                                 -DCMAKE_CXX_FLAGS=${TMP_CXX_FLAGS}
+                                 -DCMAKE_EXE_LINKER_FLAGS=${TMP_EXE_LINKER_FLAGS})
         endif()
 
         if(CMAKE_TOOLCHAIN_FILE)
@@ -82,16 +90,23 @@ function(add_addon_depends addon searchpath)
           message(${BUILD_ARGS})
         endif()
 
-        # prepare patchfile. ensure we have a clean file after reconfiguring
-        set(PATCH_FILE ${BUILD_DIR}/${id}/tmp/patch.cmake)
-        file(REMOVE ${PATCH_FILE})
+        # used for addons where need special folders to store there content (if
+        # not set the addon define it byself).
+        # e.g. Google Chromium addon where his git bring:
+        # - "unable to create file" ... "Filename too long"
+        # see also WARNING by Windows on: https://bitbucket.org/chromiumembedded/cef/wiki/MasterBuildQuickStart
+        if(THIRD_PARTY_PATH)
+          message(STATUS "Third party lib path specified")
+          message(STATUS ${THIRD_PARTY_PATH})
+          list(APPEND BUILD_ARGS -DTHIRD_PARTY_PATH=${THIRD_PARTY_PATH})
+        endif()
+
+        set(PATCH_COMMAND)
 
         # if there's a CMakeLists.txt use it to prepare the build
         if(EXISTS ${dir}/CMakeLists.txt)
           set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${dir}/CMakeLists.txt)
-          file(APPEND ${PATCH_FILE}
-               "file(COPY ${dir}/CMakeLists.txt
-                     DESTINATION ${BUILD_DIR}/${id}/src/${id})\n")
+          list(APPEND PATCH_COMMAND COMMAND ${CMAKE_COMMAND} -E copy_if_different ${dir}/CMakeLists.txt ${BUILD_DIR}/${id}/src/${id})
         endif()
 
         # check if we have patches to apply
@@ -118,14 +133,13 @@ function(add_addon_depends addon searchpath)
               file(READ ${patch} patch_content_hex HEX)
               # Force handle LF-only line endings
               if(NOT patch_content_hex MATCHES "0d0a")
-                set(PATCH_PROGRAM "\"${PATCH_PROGRAM}\" --binary")
+                list(APPEND PATCH_PROGRAM --binary)
               endif()
             endif()
           endif()
 
           set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${patch})
-          file(APPEND ${PATCH_FILE}
-               "execute_process(COMMAND ${PATCH_PROGRAM} -p1 -i \"${patch}\")\n")
+          list(APPEND PATCH_COMMAND COMMAND ${PATCH_PROGRAM} -p1 -i ${patch})
         endforeach()
 
 
@@ -147,6 +161,10 @@ function(add_addon_depends addon searchpath)
         if(EXISTS ${dir}/${CORE_SYSTEM_NAME}-deps.txt)
           file(STRINGS ${dir}/${CORE_SYSTEM_NAME}-deps.txt deps)
           message(STATUS "${id} depends: ${deps}")
+        # backward compatibility
+        elseif(CORE_SYSTEM_NAME STREQUAL windowsstore AND EXISTS ${dir}/windows-deps.txt)
+          file(STRINGS ${dir}/windows-deps.txt deps)
+          message(STATUS "${id} depends: ${deps}")
         elseif(EXISTS ${dir}/deps.txt)
           set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${dir}/deps.txt)
           file(STRINGS ${dir}/deps.txt deps)
@@ -158,16 +176,9 @@ function(add_addon_depends addon searchpath)
         if(CROSS_AUTOCONF AND AUTOCONF_FILES)
           foreach(afile ${AUTOCONF_FILES})
             set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${afile})
-            file(APPEND ${PATCH_FILE}
-                 "message(STATUS \"AUTOCONF: copying ${afile} to ${BUILD_DIR}/${id}/src/${id}\")\n
-                 file(COPY ${afile} DESTINATION ${BUILD_DIR}/${id}/src/${id})\n")
+            list(APPEND PATCH_COMMAND COMMAND ${CMAKE_COMMAND} -E echo "AUTOCONF: copying ${afile} to ${BUILD_DIR}/${id}/src/${id}")
+            list(APPEND PATCH_COMMAND COMMAND ${CMAKE_COMMAND} -E copy_if_different ${afile} ${BUILD_DIR}/${id}/src/${id})
           endforeach()
-        endif()
-
-        # if the patch file exists we need to set the PATCH_COMMAND
-        set(PATCH_COMMAND "")
-        if(EXISTS ${PATCH_FILE})
-          set(PATCH_COMMAND ${CMAKE_COMMAND} -P ${PATCH_FILE})
         endif()
 
         # prepare the setup of the call to externalproject_add()
@@ -217,13 +228,26 @@ function(add_addon_depends addon searchpath)
                                     -DOUTPUT_DIR=${OUTPUT_DIR}
                                     -DCMAKE_PREFIX_PATH=${OUTPUT_DIR}
                                     -DCMAKE_INSTALL_PREFIX=${OUTPUT_DIR}
-                                    -DCMAKE_EXE_LINKER_FLAGS=-L${OUTPUT_DIR}/lib
                                     -DCMAKE_INCLUDE_PATH=${OUTPUT_DIR}/include)
+            endif()
+
+            set(DOWNLOAD_DIR ${BUILD_DIR}/download)
+            if(EXISTS ${dir}/${id}.sha256)
+              file(STRINGS ${dir}/${id}.sha256 sha256sum)
+              list(GET sha256sum 0 sha256sum)
+              set(URL_HASH_COMMAND URL_HASH SHA256=${sha256sum})
+              if(TARBALL_DIR)
+                set(DOWNLOAD_DIR ${TARBALL_DIR})
+              endif()
+            else()
+              unset(URL_HASH_COMMAND)
+              message(AUTHOR_WARNING "${dir}/${id}.sha256 is missing")
             endif()
 
             externalproject_add(${id}
                                 URL ${url}
-                                DOWNLOAD_DIR ${BUILD_DIR}/download
+                                "${URL_HASH_COMMAND}"
+                                DOWNLOAD_DIR ${DOWNLOAD_DIR}
                                 CONFIGURE_COMMAND ${CONFIGURE_COMMAND}
                                 "${EXTERNALPROJECT_SETUP}")
           endif()

@@ -1,23 +1,12 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with KODI; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "../AddonBase.h"
 #include "ListItem.h"
@@ -25,7 +14,7 @@
 #ifdef BUILD_KODI_ADDON
 #include "../ActionIDs.h"
 #else
-#include "input/ActionIDs.h"
+#include "input/actions/ActionIDs.h"
 #endif
 
 namespace kodi
@@ -98,7 +87,7 @@ namespace gui
       if (!m_controlHandle)
         kodi::Log(ADDON_LOG_FATAL, "kodi::gui::CWindow can't create window class from Kodi !!!");
       m_interface->kodi_gui->window->set_callbacks(m_interface->kodiBase, m_controlHandle, this,
-                                                   CBOnInit, CBOnFocus, CBOnClick, CBOnAction, 
+                                                   CBOnInit, CBOnFocus, CBOnClick, CBOnAction,
                                                    CBGetContextButtons, CBOnContextButton);
     }
     //--------------------------------------------------------------------------
@@ -127,6 +116,10 @@ namespace gui
     ///
     /// @note If your Add-On ends this window will be closed to. To show it forever,
     /// make a loop at the end of your Add-On or use doModal() instead.
+    ///
+    /// @warning If used must be the class be global present until Kodi becomes
+    /// closed. The creation can be done after before "Show" becomes called, but
+    /// not delete class after them.
     ///
     /// @return                         Return true if call and show is successed,
     ///                                 if false was something failed to get needed
@@ -206,6 +199,36 @@ namespace gui
     void SetControlLabel(int controlId, const std::string& label)
     {
       m_interface->kodi_gui->window->set_control_label(m_interface->kodiBase, m_controlHandle, controlId, label.c_str());
+    }
+    //--------------------------------------------------------------------------
+
+    //==========================================================================
+    ///
+    /// \ingroup cpp_kodi_gui_CWindow
+    /// @brief To set the visibility on given control id
+    ///
+    /// @param[in] controlId            Control id where visibility is changed
+    /// @param[in] visible              Boolean value with `true` for visible, `false` for hidden
+    ///
+    ///
+    void SetControlVisible(int controlId, bool visible)
+    {
+      m_interface->kodi_gui->window->set_control_visible(m_interface->kodiBase, m_controlHandle, controlId, visible);
+    }
+    //--------------------------------------------------------------------------
+
+    //==========================================================================
+    ///
+    /// \ingroup cpp_kodi_gui_CWindow
+    /// @brief To set the selection on given control id
+    ///
+    /// @param[in] controlId            Control id where selection is changed
+    /// @param[in] selected             Boolean value with `true` for selected, `false` for not
+    ///
+    ///
+    void SetControlSelected(int controlId, bool selected)
+    {
+      m_interface->kodi_gui->window->set_control_selected(m_interface->kodiBase, m_controlHandle, controlId, selected);
     }
     //--------------------------------------------------------------------------
 
@@ -712,7 +735,7 @@ namespace gui
     /// ..
     /// ~~~~~~~~~~~~~
     ///
-    virtual bool OnAction(int actionId)
+    virtual bool OnAction(int actionId, uint32_t buttoncode, wchar_t unicode)
     {
       switch (actionId)
       {
@@ -818,7 +841,7 @@ namespace gui
       bool (*CBOnInit)            (GUIHANDLE cbhdl),
       bool (*CBOnFocus)           (GUIHANDLE cbhdl, int controlId),
       bool (*CBOnClick)           (GUIHANDLE cbhdl, int controlId),
-      bool (*CBOnAction)          (GUIHANDLE cbhdl, int actionId),
+      bool (*CBOnAction)          (GUIHANDLE cbhdl, int actionId, uint32_t buttoncode, wchar_t unicode),
       void (*CBGetContextButtons) (GUIHANDLE cbhdl, int itemNumber, gui_context_menu_pair* buttons, unsigned int* size) = nullptr,
       bool (*CBOnContextButton)   (GUIHANDLE cbhdl, int itemNumber, unsigned int button) = nullptr)
     {
@@ -852,9 +875,9 @@ namespace gui
       return static_cast<CWindow*>(cbhdl)->OnClick(controlId);
     }
 
-    static bool CBOnAction(GUIHANDLE cbhdl, int actionId)
+    static bool CBOnAction(GUIHANDLE cbhdl, int actionId, uint32_t buttoncode, wchar_t unicode)
     {
-      return static_cast<CWindow*>(cbhdl)->OnAction(actionId);
+      return static_cast<CWindow*>(cbhdl)->OnAction(actionId, buttoncode, unicode);
     }
 
     static void CBGetContextButtons(GUIHANDLE cbhdl, int itemNumber, gui_context_menu_pair* buttons, unsigned int* size)
@@ -863,7 +886,7 @@ namespace gui
       static_cast<CWindow*>(cbhdl)->GetContextButtons(itemNumber, buttonList);
       if (!buttonList.empty())
       {
-        unsigned int presentSize = buttonList.size();
+        unsigned int presentSize = static_cast<unsigned int>(buttonList.size());
         if (presentSize > *size)
           kodi::Log(ADDON_LOG_WARNING, "GetContextButtons: More as allowed '%i' entries present!", *size);
         else

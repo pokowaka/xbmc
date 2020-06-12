@@ -1,22 +1,9 @@
 /*
- *      Copyright (C) 2005-2007 Team XboxMediaCenter
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with GNU Make; see the file COPYING.  If not, write to
- *  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
- *  http://www.gnu.org/copyleft/gpl.html
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 //--------------------------------------------------------------------------
@@ -30,15 +17,17 @@
 // pairs (where both description and value fields are of CStdString types).
 //--------------------------------------------------------------------------
 
+#include "JpegParse.h"
+
 #include "filesystem/File.h"
-#ifndef _LINUX
+
+#ifdef TARGET_WINDOWS
 #include <windows.h>
 #else
 #include <memory.h>
 #include <cstring>
 typedef unsigned char BYTE;
 #endif
-#include "JpegParse.h"
 
 #ifndef min
 #define min(a,b) (a)>(b)?(b):(a)
@@ -288,9 +277,9 @@ bool CJpegParse::Process (const char *picFileName)
   CURL url(picFileName);
   url.GetURLWithoutUserDetails(urlFName);
   CUtil::Split(urlFName, path, tmp);
-  m_JpegInfo[SLIDE_FILE_NAME] = tmp;
+  m_JpegInfo[SLIDESHOW_FILE_NAME] = tmp;
   // ...then path...
-  m_JpegInfo[SLIDE_FILE_PATH] = path;
+  m_JpegInfo[SLIDESHOW_FILE_PATH] = path;
 
   // ...then size...
   __stat64 fileStat;
@@ -313,17 +302,15 @@ bool CJpegParse::Process (const char *picFileName)
     tmp = "GB";
   }
   tmp.Format("%.2f %s", fileSize, tmp);
-  m_JpegInfo[SLIDE_FILE_SIZE] = tmp;
+  m_JpegInfo[SLIDESHOW_FILE_SIZE] = tmp;
 
   // ...then date and time...
   CDateTime date((time_t)fileStat.st_mtime);
   tmp.Format("%s %s", date.GetAsLocalizedDate(), date.GetAsLocalizedTime());
-  m_JpegInfo[SLIDE_FILE_DATE] = tmp;*/
+  m_JpegInfo[SLIDESHOW_FILE_DATE] = tmp;*/
 
   bool result = ExtractInfo(file);
   file.Close();
-  if (result == false)
-    printf("JpgParse: Not a JPEG file %s", picFileName);
   return result;
 }
 

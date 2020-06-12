@@ -1,22 +1,11 @@
 /*
- *      Copyright (C) 2014-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
 #include "JoystickTypes.h"
@@ -64,21 +53,58 @@ public:
    * \brief Create a key name used to index an action in the keymap
    *
    * \param feature  The feature name
-   * \param dir      The direction for analog sticks, or ignored otherwise
    *
    * \return A valid name for a key in the joystick keymap
-   *
-   * \sa ParseKeyName()
    */
-  static std::string MakeKeyName(const FeatureName &feature, ANALOG_STICK_DIRECTION dir = ANALOG_STICK_DIRECTION::UNKNOWN);
+  static std::string MakeKeyName(const FeatureName& feature);
 
   /*!
-    * \brief Return a vector of the four cardinal directions
-    */
-  static const std::vector<ANALOG_STICK_DIRECTION> &GetDirections();
+   * \brief Create a key name used to index an action in the keymap
+   *
+   * \param feature  The feature name
+   * \param dir      The direction for analog sticks
+   *
+   * \return A valid name for a key in the joystick keymap
+   */
+  static std::string MakeKeyName(const FeatureName& feature, ANALOG_STICK_DIRECTION dir);
+
+  /*!
+   * \brief Create a key name used to index an action in the keymap
+   *
+   * \param feature  The feature name
+   * \param dir      The direction for a wheel to turn
+   *
+   * \return A valid name for a key in the joystick keymap
+   */
+  static std::string MakeKeyName(const FeatureName& feature, WHEEL_DIRECTION dir);
+
+  /*!
+   * \brief Create a key name used to index an action in the keymap
+   *
+   * \param feature  The feature name
+   * \param dir      The direction for a throttle to move
+   *
+   * \return A valid name for a key in the joystick keymap
+   */
+  static std::string MakeKeyName(const FeatureName& feature, THROTTLE_DIRECTION dir);
+
+  /*!
+   * \brief Return a vector of the four cardinal directions
+   */
+  static const std::vector<ANALOG_STICK_DIRECTION>& GetAnalogStickDirections();
+
+  /*!
+   * \brief Return a vector of the two wheel directions
+   */
+  static const std::vector<WHEEL_DIRECTION>& GetWheelDirections();
+
+  /*!
+   * \brief Return a vector of the two throttle directions
+   */
+  static const std::vector<THROTTLE_DIRECTION>& GetThrottleDirections();
 };
 
-}
-}
+} // namespace JOYSTICK
+} // namespace KODI
 
 /// \}

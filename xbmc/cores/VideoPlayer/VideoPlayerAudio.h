@@ -1,35 +1,24 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
-#include <list>
-#include <utility>
 
 #include "AudioSinkAE.h"
 #include "DVDClock.h"
 #include "DVDMessageQueue.h"
 #include "DVDStreamInfo.h"
 #include "IVideoPlayer.h"
-#include "TimingConstants.h"
+#include "cores/VideoPlayer/Interface/Addon/TimingConstants.h"
 #include "threads/Thread.h"
 #include "utils/BitstreamStats.h"
+
+#include <list>
+#include <utility>
 
 
 class CVideoPlayer;
@@ -79,6 +68,7 @@ protected:
   //! Switch codec if needed. Called when the sample rate gotten from the
   //! codec changes, in which case we may want to switch passthrough on/off.
   bool SwitchCodecIfNeeded();
+  void SetSyncType(bool passthrough);
 
   CDVDMessageQueue m_messageQueue;
   CDVDMessageQueue& m_messageParent;
@@ -99,29 +89,20 @@ protected:
   IDVDStreamPlayer::ESyncState m_syncState;
   XbmcThreads::EndTime m_syncTimer;
 
-  //SYNC_DISCON, SYNC_SKIPDUP, SYNC_RESAMPLE
-  int    m_synctype;
-  int    m_setsynctype;
-  int    m_prevsynctype; //so we can print to the log
-
-  void   SetSyncType(bool passthrough);
+  int m_synctype;
+  int m_prevsynctype;
 
   bool   m_prevskipped;
   double m_maxspeedadjust;
 
   struct SInfo
   {
-    SInfo()
-    : pts(DVD_NOPTS_VALUE)
-    , passthrough(false)
-    {}
-
     std::string      info;
-    double           pts;
-    bool             passthrough;
+    double           pts = DVD_NOPTS_VALUE;
+    bool             passthrough = false;
   };
 
-  CCriticalSection m_info_section;
+  mutable CCriticalSection m_info_section;
   SInfo            m_info;
 };
 

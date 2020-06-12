@@ -23,9 +23,6 @@ set(SOURCES AddonsDirectory.cpp
             IDirectory.cpp
             IFile.cpp
             ImageFile.cpp
-            iso9660.cpp
-            ISO9660Directory.cpp
-            ISOFile.cpp
             LibraryDirectory.cpp
             MultiPathDirectory.cpp
             MultiPathFile.cpp
@@ -33,8 +30,6 @@ set(SOURCES AddonsDirectory.cpp
             MusicDatabaseFile.cpp
             MusicFileDirectory.cpp
             MusicSearchDirectory.cpp
-            NFSDirectory.cpp
-            NFSFile.cpp
             OverrideDirectory.cpp
             OverrideFile.cpp
             PipeFile.cpp
@@ -42,12 +37,11 @@ set(SOURCES AddonsDirectory.cpp
             PlaylistDirectory.cpp
             PlaylistFileDirectory.cpp
             PluginDirectory.cpp
+            PluginFile.cpp
             PVRDirectory.cpp
             ResourceDirectory.cpp
             ResourceFile.cpp
             RSSDirectory.cpp
-            SFTPDirectory.cpp
-            SFTPFile.cpp
             ShoutcastFile.cpp
             SmartPlaylistDirectory.cpp
             SourcesDirectory.cpp
@@ -55,9 +49,6 @@ set(SOURCES AddonsDirectory.cpp
             SpecialProtocolDirectory.cpp
             SpecialProtocolFile.cpp
             StackDirectory.cpp
-            udf25.cpp
-            UDFDirectory.cpp
-            UDFFile.cpp
             VideoDatabaseDirectory.cpp
             VideoDatabaseFile.cpp
             VirtualDirectory.cpp
@@ -82,7 +73,6 @@ set(HEADERS AddonsDirectory.h
             DirectoryFactory.h
             DirectoryHistory.h
             DllLibCurl.h
-            DllLibNfs.h
             EventsDirectory.h
             FTPDirectory.h
             FTPParse.h
@@ -97,9 +87,6 @@ set(HEADERS AddonsDirectory.h
             IFileDirectory.h
             IFileTypes.h
             ImageFile.h
-            ISO9660Directory.h
-            ISOFile.h
-            iso9660.h
             LibraryDirectory.h
             MultiPathDirectory.h
             MultiPathFile.h
@@ -107,8 +94,6 @@ set(HEADERS AddonsDirectory.h
             MusicDatabaseFile.h
             MusicFileDirectory.h
             MusicSearchDirectory.h
-            NFSDirectory.h
-            NFSFile.h
             OverrideDirectory.h
             OverrideFile.h
             PVRDirectory.h
@@ -117,11 +102,10 @@ set(HEADERS AddonsDirectory.h
             PlaylistDirectory.h
             PlaylistFileDirectory.h
             PluginDirectory.h
+            PluginFile.h
             RSSDirectory.h
             ResourceDirectory.h
             ResourceFile.h
-            SFTPDirectory.h
-            SFTPFile.h
             ShoutcastFile.h
             SmartPlaylistDirectory.h
             SourcesDirectory.h
@@ -129,9 +113,6 @@ set(HEADERS AddonsDirectory.h
             SpecialProtocolDirectory.h
             SpecialProtocolFile.h
             StackDirectory.h
-            udf25.h
-            UDFDirectory.h
-            UDFFile.h
             VideoDatabaseDirectory.h
             VirtualDirectory.h
             XbtDirectory.h
@@ -142,28 +123,28 @@ set(HEADERS AddonsDirectory.h
             ZipFile.h
             ZipManager.h)
 
-if(CORE_SYSTEM_NAME STREQUAL android)
-  list(APPEND SOURCES APKDirectory.cpp
-                      APKFile.cpp
-                      AndroidAppDirectory.cpp
-                      AndroidAppFile.cpp)
-  list(APPEND HEADERS APKDirectory.h
-                      APKFile.h
-                      AndroidAppDirectory.h
-                      AndroidAppFile.h)
+if(ISO9660PP_FOUND)
+  list(APPEND SOURCES ISO9660Directory.cpp
+                      ISO9660File.cpp)
+  list(APPEND HEADERS ISO9660Directory.h
+                      ISO9660File.h)
 endif()
 
-if(NOT CORE_SYSTEM_NAME STREQUAL windows AND ENABLE_SMBCLIENT)
-  list(APPEND SOURCES SMBDirectory.cpp
-                      SMBFile.cpp)
-  list(APPEND HEADERS SMBDirectory.h
-                      SMBFile.h)
+if(UDFREAD_FOUND)
+  list(APPEND SOURCES UDFBlockInput.cpp
+                      UDFDirectory.cpp
+                      UDFFile.cpp)
+  list(APPEND HEADERS UDFBlockInput.h
+                      UDFDirectory.h
+                      UDFFile.h)
 endif()
 
 if(BLURAY_FOUND)
-  list(APPEND SOURCES BlurayDirectory.cpp
+  list(APPEND SOURCES BlurayCallback.cpp
+                      BlurayDirectory.cpp
                       BlurayFile.cpp)
-  list(APPEND HEADERS BlurayDirectory.h
+  list(APPEND HEADERS BlurayCallback.h
+                      BlurayDirectory.h
                       BlurayFile.h)
 endif()
 
@@ -172,6 +153,13 @@ if(ENABLE_OPTICAL)
                       CDDAFile.cpp)
   list(APPEND HEADERS CDDADirectory.h
                       CDDAFile.h)
+endif()
+
+if(NFS_FOUND)
+  list(APPEND SOURCES NFSDirectory.cpp
+                      NFSFile.cpp)
+  list(APPEND HEADERS NFSDirectory.h
+                      NFSFile.h)
 endif()
 
 if(ENABLE_UPNP)

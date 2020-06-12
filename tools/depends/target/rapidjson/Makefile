@@ -36,18 +36,18 @@ $(TARBALLS_LOCATION)/$(ARCHIVE):
 $(PLATFORM): $(TARBALLS_LOCATION)/$(ARCHIVE) $(DEPS)
 ifeq ($(PREFIX),)
 	@echo
-	@echo "ERROR: please set PREFIX to the kodi install path e.g. make PREFIX=/usr/local"
+	@echo "ERROR: please set PREFIX to the kodi install path e.g. $(MAKE) PREFIX=/usr/local"
 	@exit 1
 endif
 	rm -rf $(PLATFORM); mkdir -p $(PLATFORM)
 	cd $(PLATFORM); $(ARCHIVE_TOOL) $(ARCHIVE_TOOL_FLAGS) $(TARBALLS_LOCATION)/$(ARCHIVE)
 	cd $(PLATFORM); rm -rf build; mkdir -p build
-	cd $(PLATFORM); patch -p1 < ../0001-remove_custom_cxx_flags.patch
+	cd $(PLATFORM); patch -p1 -i ../0001-remove_custom_cxx_flags.patch
 	cd $(PLATFORM)/build; $(CMAKE) $(CMAKE_OPTIONS) ..
 
 .installed-$(PLATFORM): $(PLATFORM)
-	make -C $(PLATFORM)/build
-	make -C $(PLATFORM)/build install
+	$(MAKE) -C $(PLATFORM)/build
+	$(MAKE) -C $(PLATFORM)/build install
 	rm -rf $(PREFIX)/share/doc/RapidJSON
 	touch $@
 

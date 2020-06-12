@@ -1,28 +1,20 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include <stdio.h>
 #include "dataset.h"
-#include "mysql/mysql.h"
+#ifdef HAS_MYSQL
+#include <mysql/mysql.h>
+#elif defined(HAS_MARIADB)
+#include <mariadb/mysql.h>
+#endif
 
 namespace dbiplus {
 /***************** Class MysqlDatabase definition ******************
@@ -97,7 +89,7 @@ private:
   char * mysqlStrAccumFinish(StrAccum *p);
   void mysqlStrAccumReset(StrAccum *p);
   void mysqlStrAccumInit(StrAccum *p, char *zBase, int n, int mx);
-  char *mysql_vmprintf(const char *zFormat, va_list ap);
+  std::string mysql_vmprintf(const char *zFormat, va_list ap);
 };
 
 
@@ -131,12 +123,12 @@ protected:
 public:
 /* constructor */
   MysqlDataset();
-  MysqlDataset(MysqlDatabase *newDb);
+  explicit MysqlDataset(MysqlDatabase *newDb);
 
 /* destructor */
   ~MysqlDataset() override;
 
-/* set autorefresh boolean value (if true - refresh the data after edit() 
+/* set autorefresh boolean value (if true - refresh the data after edit()
 or insert() operations default = false) */
   void set_autorefresh(bool val);
 

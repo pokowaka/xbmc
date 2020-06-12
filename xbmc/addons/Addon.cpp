@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "Addon.h"
@@ -27,31 +15,19 @@
 #include <vector>
 
 #include "AddonManager.h"
-#include "addons/Service.h"
 #include "addons/settings/AddonSettings.h"
 #include "filesystem/Directory.h"
 #include "filesystem/File.h"
-#include "guilib/LocalizeStrings.h"
 #include "RepositoryUpdater.h"
 #include "settings/Settings.h"
 #include "ServiceBroker.h"
-#include "system.h"
-#include "URL.h"
-#include "Util.h"
 #include "utils/log.h"
 #include "utils/StringUtils.h"
 #include "utils/URIUtils.h"
-#include "utils/Variant.h"
 #include "utils/XMLUtils.h"
 
 #ifdef HAS_PYTHON
 #include "interfaces/python/XBPython.h"
-#endif
-#if defined(TARGET_DARWIN)
-#include "../platform/darwin/OSXGNUReplacements.h"
-#endif
-#ifdef TARGET_FREEBSD
-#include "freebsd/FreeBSDGNUReplacements.h"
 #endif
 
 using XFILE::CDirectory;
@@ -60,13 +36,14 @@ using XFILE::CFile;
 namespace ADDON
 {
 
-CAddon::CAddon(CAddonInfo addonInfo)
-  : m_addonInfo(std::move(addonInfo))
+CAddon::CAddon(const AddonInfoPtr& addonInfo, TYPE addonType)
+  : m_addonInfo(addonInfo)
   , m_userSettingsPath()
   , m_loadSettingsFailed(false)
   , m_hasUserSettings(false)
-  , m_profilePath(StringUtils::Format("special://profile/addon_data/%s/", m_addonInfo.ID().c_str()))
+  , m_profilePath(StringUtils::Format("special://profile/addon_data/%s/", m_addonInfo->ID().c_str()))
   , m_settings(nullptr)
+  , m_type(addonType == ADDON_UNKNOWN ? addonInfo->MainType() : addonType)
 {
   m_userSettingsPath = URIUtils::AddFileToFolder(m_profilePath, "settings.xml");
 }
@@ -76,7 +53,7 @@ CAddon::CAddon(CAddonInfo addonInfo)
  */
 bool CAddon::HasSettings()
 {
-  return LoadSettings(false);
+  return LoadSettings(false) && m_settings->HasSettings();
 }
 
 bool CAddon::SettingsInitialized() const
@@ -105,7 +82,7 @@ bool CAddon::LoadSettings(bool bForce, bool loadUserSettings /* = true */)
     GetSettings()->Uninitialize();
 
   // load the settings definition XML file
-  auto addonSettingsDefinitionFile = URIUtils::AddFileToFolder(m_addonInfo.Path(), "resources", "settings.xml");
+  auto addonSettingsDefinitionFile = URIUtils::AddFileToFolder(m_addonInfo->Path(), "resources", "settings.xml");
   CXBMCTinyXML addonSettingsDefinitionDoc;
   if (!addonSettingsDefinitionDoc.LoadFile(addonSettingsDefinitionFile))
   {
@@ -185,9 +162,7 @@ void CAddon::SaveSettings(void)
 
   // break down the path into directories
   std::string strAddon = URIUtils::GetDirectory(m_userSettingsPath);
-  URIUtils::RemoveSlashAtEnd(strAddon);
   std::string strRoot = URIUtils::GetDirectory(strAddon);
-  URIUtils::RemoveSlashAtEnd(strRoot);
 
   // create the individual folders
   if (!CDirectory::Exists(strRoot))
@@ -201,11 +176,11 @@ void CAddon::SaveSettings(void)
     doc.SaveFile(m_userSettingsPath);
 
   m_hasUserSettings = true;
-  
+
   //push the settings changes to the running addon instance
-  CAddonMgr::GetInstance().ReloadSettings(ID());
+  CServiceBroker::GetAddonMgr().ReloadSettings(ID());
 #ifdef HAS_PYTHON
-  g_pythonParser.OnSettingsChanged(ID());
+  CServiceBroker::GetXBPython().OnSettingsChanged(ID());
 #endif
 }
 
@@ -379,28 +354,21 @@ CAddonSettings* CAddon::GetSettings() const
 
 std::string CAddon::LibPath() const
 {
-  if (m_addonInfo.LibName().empty())
-    return "";
-  return URIUtils::AddFileToFolder(m_addonInfo.Path(), m_addonInfo.LibName());
+  // Get library related to given type on construction
+  std::string libName = m_addonInfo->Type(m_type)->LibName();
+  if (libName.empty())
+  {
+    // If not present fallback to master library
+    libName = m_addonInfo->LibName();
+    if (libName.empty())
+      return "";
+  }
+  return URIUtils::AddFileToFolder(m_addonInfo->Path(), libName);
 }
 
 AddonVersion CAddon::GetDependencyVersion(const std::string &dependencyID) const
 {
-  const ADDON::ADDONDEPS &deps = GetDeps();
-  ADDONDEPS::const_iterator it = deps.find(dependencyID);
-  if (it != deps.end())
-    return it->second.first;
-  return AddonVersion("0.0.0");
-}
-
-void OnEnabled(const AddonPtr& addon)
-{
-  addon->OnEnabled();
-}
-
-void OnDisabled(const AddonPtr& addon)
-{
-  addon->OnDisabled();
+  return m_addonInfo->DependencyVersion(dependencyID);
 }
 
 void OnPreInstall(const AddonPtr& addon)

@@ -1,34 +1,22 @@
+/*
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
 #pragma once
 
-/*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
- *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- */
+#include "XBDateTime.h"
+#include "utils/Fanart.h"
+#include "utils/ScraperUrl.h"
+#include "utils/StringUtils.h"
 
 #include <map>
 #include <string>
 #include <utility>
 #include <vector>
-
-#include "utils/StringUtils.h"
-#include "utils/Fanart.h"
-#include "utils/ScraperUrl.h"
-#include "XBDateTime.h"
 
 class TiXmlNode;
 class CAlbum;
@@ -37,7 +25,7 @@ class CMusicDatabase;
 class CArtist
 {
 public:
-  long idArtist;
+  long idArtist = -1;
   bool operator<(const CArtist& a) const
   {
     if (strMusicBrainzArtistID.empty() && a.strMusicBrainzArtistID.empty())
@@ -51,13 +39,16 @@ public:
     if (strMusicBrainzArtistID > a.strMusicBrainzArtistID) return false;
     return false;
   }
-  
+
   void MergeScrapedArtist(const CArtist& source, bool override = true);
 
   void Reset()
   {
     strArtist.clear();
     strSortName.clear();
+    strType.clear();
+    strGender.clear();
+    strDisambiguation.clear();
     genre.clear();
     strBiography.clear();
     styles.clear();
@@ -69,11 +60,13 @@ public:
     strDisbanded.clear();
     yearsActive.clear();
     thumbURL.Clear();
+    art.clear();
     discography.clear();
     idArtist = -1;
     strPath.clear();
     dateAdded.Reset();
     bScrapedMBID = false;
+    strLastScraped.clear();
   }
 
   /*! \brief Load artist information from an XML file.
@@ -91,6 +84,9 @@ public:
   std::string strArtist;
   std::string strSortName;
   std::string strMusicBrainzArtistID;
+  std::string strType;
+  std::string strGender;
+  std::string strDisambiguation;
   std::vector<std::string> genre;
   std::string strBiography;
   std::vector<std::string> styles;
@@ -102,11 +98,13 @@ public:
   std::string strDisbanded;
   std::vector<std::string> yearsActive;
   std::string strPath;
-  CScraperUrl thumbURL;
-  CFanart fanart;
+  CScraperUrl thumbURL; // Data for available thumbs
+  CFanart fanart;  // Data for available fanart, urls etc.
+  std::map<std::string, std::string> art;  // Current artwork - thumb, fanart etc.
   std::vector<std::pair<std::string,std::string> > discography;
   CDateTime dateAdded;
-  bool bScrapedMBID;
+  bool bScrapedMBID = false;
+  std::string strLastScraped;
 };
 
 class CArtistCredit
@@ -115,8 +113,8 @@ class CArtistCredit
   friend class CMusicDatabase;
 
 public:
-  CArtistCredit() : idArtist(-1), m_bScrapedMBID(false) { }
-  CArtistCredit(std::string strArtist) : m_strArtist(strArtist) { }
+  CArtistCredit() = default;
+  explicit CArtistCredit(std::string strArtist) : m_strArtist(strArtist) { }
   CArtistCredit(std::string strArtist, std::string strMusicBrainzArtistID)
     : m_strArtist(strArtist), m_strMusicBrainzArtistID(strMusicBrainzArtistID) {  }
   CArtistCredit(std::string strArtist, std::string strSortName, std::string strMusicBrainzArtistID)
@@ -148,11 +146,11 @@ public:
   void SetScrapedMBID(bool scrapedMBID) { this->m_bScrapedMBID = scrapedMBID; }
 
 private:
-  long idArtist;
+  long idArtist = -1;
   std::string m_strArtist;
   std::string m_strSortName;
   std::string m_strMusicBrainzArtistID;
-  bool m_bScrapedMBID; // Flag that mbid is from album merge of scarper results not derived from tags
+  bool m_bScrapedMBID = false; // Flag that mbid is from album merge of scarper results not derived from tags
 };
 
 typedef std::vector<CArtist> VECARTISTS;
@@ -161,6 +159,7 @@ typedef std::vector<CArtistCredit> VECARTISTCREDITS;
 const std::string BLANKARTIST_FAKEMUSICBRAINZID = "Artist Tag Missing";
 const std::string BLANKARTIST_NAME = "[Missing Tag]";
 const long BLANKARTIST_ID = 1;
+const std::string VARIOUSARTISTS_MBID = "89ad4ac3-39f7-470e-963a-56509c546377";
 
 #define ROLE_ARTIST 1  //Default role
 

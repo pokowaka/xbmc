@@ -1,41 +1,31 @@
 /*
-*      Copyright (C) 2005-2013 Team Kodi
-*      http://kodi.tv
-*
-*  This Program is free software; you can redistribute it and/or modify
-*  it under the terms of the GNU General Public License as published by
-*  the Free Software Foundation; either version 2, or (at your option)
-*  any later version.
-*
-*  This Program is distributed in the hope that it will be useful,
-*  but WITHOUT ANY WARRANTY; without even the implied warranty of
-*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-*  GNU General Public License for more details.
-*
-*  You should have received a copy of the GNU General Public License
-*  along with XBMC; see the file COPYING.  If not, see
-*  <http://www.gnu.org/licenses/>.
-*
-*/
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
 
 #include "InputCodingTableBaiduPY.h"
+
+#include "ServiceBroker.h"
+#include "filesystem/CurlFile.h"
+#include "guilib/GUIComponent.h"
+#include "guilib/GUIMessage.h"
+#include "guilib/GUIWindowManager.h"
+#include "utils/RegExp.h"
+#include "utils/StringUtils.h"
 
 #include <stdlib.h>
 #include <utility>
 
-#include "filesystem/CurlFile.h"
-#include "utils/StringUtils.h"
-#include "utils/RegExp.h"
-#include "guilib/GUIMessage.h"
-#include "guilib/GUIWindowManager.h"
-
-CInputCodingTableBaiduPY::CInputCodingTableBaiduPY(const std::string& strUrl) :
-  CThread("BaiduPYApi"),
-  m_messageCounter{ 0 },
-  m_api_begin{ 0 },
-  m_api_end{ 20 },
-  m_api_nomore{ false },
-  m_initialized{ false }
+CInputCodingTableBaiduPY::CInputCodingTableBaiduPY(const std::string& strUrl)
+  : CThread("BaiduPYApi"),
+    m_messageCounter{0},
+    m_api_begin{0},
+    m_api_end{20},
+    m_api_nomore{false},
+    m_initialized{false}
 {
   m_url = strUrl;
   m_codechars = "abcdefghijklmnopqrstuvwxyz";
@@ -45,10 +35,10 @@ CInputCodingTableBaiduPY::CInputCodingTableBaiduPY(const std::string& strUrl) :
 void CInputCodingTableBaiduPY::Process()
 {
   m_initialized = true;
-  while (!m_bStop) //Make sure we don't exit the thread
+  while (!m_bStop) // Make sure we don't exit the thread
   {
-    AbortableWait(m_Event, -1); //Wait for work to appear
-    while (!m_bStop) //Process all queued work before going back to wait on the event
+    AbortableWait(m_Event, -1); // Wait for work to appear
+    while (!m_bStop) // Process all queued work before going back to wait on the event
     {
       CSingleLock lock(m_CS);
       if (m_work.empty())
@@ -69,7 +59,8 @@ void CInputCodingTableBaiduPY::Process()
   }
 }
 
-void CInputCodingTableBaiduPY::HandleResponse(const std::string& strCode, const std::string& response)
+void CInputCodingTableBaiduPY::HandleResponse(const std::string& strCode,
+                                              const std::string& response)
 {
   if (strCode != m_code) // don't handle obsolete response
     return;
@@ -99,7 +90,8 @@ void CInputCodingTableBaiduPY::HandleResponse(const std::string& strCode, const 
   CGUIMessage msg(GUI_MSG_CODINGTABLE_LOOKUP_COMPLETED, 0, 0, m_messageCounter);
   msg.SetStringParam(strCode);
   lock.Leave();
-  g_windowManager.SendThreadMessage(msg, g_windowManager.GetActiveWindowID());
+  CServiceBroker::GetGUI()->GetWindowManager().SendThreadMessage(
+      msg, CServiceBroker::GetGUI()->GetWindowManager().GetActiveWindowOrDialog());
 }
 
 std::wstring CInputCodingTableBaiduPY::UnicodeToWString(const std::string& unicode)

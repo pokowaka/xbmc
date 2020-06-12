@@ -1,24 +1,12 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "DVDDemux.h"
 
@@ -38,7 +26,7 @@ public:
   bool Open(const std::string& filename, int source, const std::string& subfilename);
 
   // implementation of CDVDDemux
-  void Reset() override;
+  bool Reset() override;
   void Flush() override;
   DemuxPacket* Read() override;
   bool SeekTime(double time, bool backwards, double* startpts = NULL) override;
@@ -53,7 +41,7 @@ private:
     : public CDemuxStreamSubtitle
   {
   public:
-    CStream(CDVDDemuxVobsub* parent)
+    explicit CStream(CDVDDemuxVobsub* parent)
       : m_discard(false), m_parent(parent)
     {}
 
@@ -69,7 +57,7 @@ private:
   } STimestamp;
 
   std::string m_Filename;
-  std::unique_ptr<CDVDInputStream> m_Input;
+  std::shared_ptr<CDVDInputStream> m_Input;
   std::unique_ptr<CDVDDemuxFFmpeg> m_Demuxer;
   std::vector<STimestamp> m_Timestamps;
   std::vector<STimestamp>::iterator m_Timestamp;

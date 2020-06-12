@@ -5,6 +5,8 @@
 	<include file="Includes_Animations.xml" />
 	<include file="Includes_MediaMenu.xml" />
 	<include file="Includes_Buttons.xml" />
+	<include file="Includes_DialogSelect.xml" />
+	<include file="Includes_MusicInfo.xml" />
 	<include file="Includes_PVR.xml" />
 	<include file="View_50_List.xml" />
 	<include file="View_51_Poster.xml" />
@@ -12,6 +14,7 @@
 	<include file="View_53_Shift.xml" />
 	<include file="View_54_InfoWall.xml" />
 	<include file="View_55_WideList.xml" />
+	<include file="View_503_NowPlaying.xml" />
 	<include file="View_500_Wall.xml" />
 	<include file="View_501_Banner.xml" />
 	<include file="View_502_FanArt.xml" />
@@ -31,8 +34,8 @@
 	<constant name="dialogbuttons_itemgap">-20</constant>
 	<constant name="list_y_offset">0</constant>
 	<constant name="list_item_height">80</constant>
-	<expression name="infodialog_active">Window.IsActive(musicinformation) | Window.IsActive(songinformation) | Window.IsActive(movieinformation) | Window.IsActive(addoninformation) | Window.IsActive(pvrguideinfo) | Window.IsActive(pvrrecordinginfo) | Window.IsActive(pictureinfo) | Window.IsVisible(script-script.extendedinfo-DialogVideoInfo.xml) | Window.IsVisible(script-script.extendedinfo-DialogInfo.xml) | Window.IsVisible(script-script.extendedinfo-VideoList.xml)</expression>
-	<expression name="sidebar_visible">ControlGroup(9000).HasFocus | Control.HasFocus(6130) | Control.HasFocus(6131) | Window.IsActive(MyPlaylist.xml)</expression>
+	<expression name="infodialog_active">Window.IsActive(musicinformation) | Window.IsActive(songinformation) | Window.IsActive(movieinformation) | Window.IsActive(addoninformation) | Window.IsActive(pvrguideinfo) | Window.IsActive(pvrrecordinginfo) | Window.IsActive(pictureinfo) | Window.IsVisible(script-embuary-video.xml) | Window.IsVisible(script-embuary-person.xml) | Window.IsVisible(script-embuary-image.xml)</expression>
+	<expression name="sidebar_visible">ControlGroup(9000).HasFocus | Control.HasFocus(6130) | Control.HasFocus(6131)</expression>
 	<include name="CommonScrollbars">
 		<control type="group">
 			<animation effect="fade" start="100" end="0" time="150">WindowClose</animation>
@@ -48,15 +51,16 @@
 					<top>0</top>
 					<bottom>0</bottom>
 					<width>13</width>
-					<onleft>50</onleft>
-					<onright>50</onright>
+					<onleft condition="![Window.IsVisible(musicplaylist) | Window.IsVisible(videoplaylist)]">50</onleft>
+					<onleft condition="Window.IsVisible(musicplaylist) | Window.IsVisible(videoplaylist)">55</onleft>
+					<onright condition="![Window.IsVisible(musicplaylist) | Window.IsVisible(videoplaylist)]">50</onright>
+					<onright condition="Window.IsVisible(musicplaylist) | Window.IsVisible(videoplaylist)">55</onright>
 					<orientation>vertical</orientation>
 					<texturesliderbackground />
 					<animation effect="fade" start="0" end="100" time="200" delay="300">Visible</animation>
 					<animation effect="fade" start="100" end="0" time="200">Hidden</animation>
 					<animation effect="slide" end="6,0" time="300" tween="sine" easing="inout" condition="!Control.HasFocus(531)">conditional</animation>
 					<visible>Control.IsVisible(52) | Control.IsVisible(500) | Control.IsVisible(55) | Control.IsVisible(501) | Control.IsVisible(54)</visible>
-					<hitrect x="-20" y="0" w="80" bottom="0r" />
 				</control>
 			</control>
 			<control type="group">
@@ -173,114 +177,6 @@
 			</control>
 		</definition>
 	</include>
-	<include name="AudioDSPModeList">
-		<control type="label">
-			<left>10</left>
-			<top>2</top>
-			<width>470</width>
-			<height>30</height>
-			<font>font25_title</font>
-			<label>$PARAM[sublabel]</label>
-			<align>center</align>
-			<aligny>center</aligny>
-			<textcolor>button_focus</textcolor>
-			<shadowcolor>black</shadowcolor>
-		</control>
-		<control type="image">
-			<left>-5</left>
-			<top>15</top>
-			<width>510</width>
-			<height>570</height>
-			<texture border="40">buttons/dialogbutton-nofo.png</texture>
-		</control>
-		<control type="scrollbar" id="$PARAM[scrollbar_id]">
-			<left>542</left>
-			<top>30</top>
-			<width>25</width>
-			<height>350</height>
-			<onleft>$PARAM[list_id]</onleft>
-			<onright>$PARAM[onright]</onright>
-			<orientation>vertical</orientation>
-		</control>
-		<control type="list" id="$PARAM[list_id]">
-			<left>15</left>
-			<top>35</top>
-			<width>470</width>
-			<height>345</height>
-			<onup>9000</onup>
-			<ondown>9001</ondown>
-			<onleft>$PARAM[onleft]</onleft>
-			<onright>$PARAM[scrollbar_id]</onright>
-			<pagecontrol>$PARAM[scrollbar_id]</pagecontrol>
-			<scrolltime>200</scrolltime>
-			<itemlayout height="80" width="470">
-				<control type="image">
-					<left>8</left>
-					<top>8</top>
-					<width>64</width>
-					<height>64</height>
-					<texture>$INFO[ListItem.Icon]</texture>
-					<aspectratio aligny="center" align="left">keep</aspectratio>
-				</control>
-				<control type="label">
-					<left>82</left>
-					<top>3</top>
-					<right>20</right>
-					<height>40</height>
-					<font>font12</font>
-					<aligny>center</aligny>
-					<label>$INFO[ListItem.Label]</label>
-				</control>
-				<control type="label">
-					<left>82</left>
-					<top>37</top>
-					<right>20</right>
-					<height>30</height>
-					<font>font12</font>
-					<aligny>center</aligny>
-					<textcolor>grey</textcolor>
-					<label>$INFO[ListItem.Label2]</label>
-				</control>
-			</itemlayout>
-			<focusedlayout height="80" width="470">
-				<control type="image">
-					<left>0</left>
-					<top>0</top>
-					<right>0</right>
-					<bottom>0</bottom>
-					<texture colordiffuse="button_focus">lists/focus.png</texture>
-					<visible>Control.HasFocus($PARAM[list_id])</visible>
-				</control>
-				<control type="image">
-					<left>8</left>
-					<top>8</top>
-					<width>64</width>
-					<height>64</height>
-					<texture>$INFO[ListItem.Icon]</texture>
-					<aspectratio aligny="center" align="left">keep</aspectratio>
-				</control>
-				<control type="label">
-					<left>82</left>
-					<top>3</top>
-					<right>20</right>
-					<height>40</height>
-					<font>font12</font>
-					<aligny>center</aligny>
-					<label>$INFO[ListItem.Label]</label>
-				</control>
-				<control type="label">
-					<left>82</left>
-					<top>37</top>
-					<right>20</right>
-					<height>30</height>
-					<font>font12</font>
-					<aligny>center</aligny>
-					<textcolor>grey</textcolor>
-					<label>$INFO[ListItem.Label2]</label>
-				</control>
-			</focusedlayout>
-		</control>
-	</include>
 	<include name="PicsInfoLine">
 		<control type="grouplist">
 			<visible>!String.IsEmpty($PARAM[value])</visible>
@@ -392,13 +288,12 @@
 				<top>0</top>
 				<height>70</height>
 				<align>right</align>
-				<itemgap>28</itemgap>
+				<itemgap>10</itemgap>
 				<width>1900</width>
 				<usecontrolcoords>true</usecontrolcoords>
 				<control type="group">
 					<width>150</width>
-					<top>-5</top>
-					<visible>String.IsEqual($PARAM[infolabel_prefix]ListItem.DBtype,tvshow)</visible>
+					<visible>System.HasAddon(resource.images.studios.white) + !String.IsEmpty($PARAM[infolabel_prefix]ListItem.Studio)</visible>
 					<include content="MediaFlag">
 						<param name="texture" value="$INFO[$PARAM[infolabel_prefix]ListItem.Studio,resource://resource.images.studios.white/,.png]" />
 					</include>
@@ -406,8 +301,8 @@
 				<control type="group">
 					<top>10</top>
 					<width>200</width>
+					<visible>!String.IsEmpty($PARAM[infolabel_prefix]ListItem.Premiered)</visible>
 					<include content="InfoFlag">
-						<param name="visible" value="[String.IsEqual($PARAM[infolabel_prefix]ListItem.DBtype,tvshow) | String.IsEqual($PARAM[infolabel_prefix]ListItem.DBtype,episode)] + !String.IsEmpty($PARAM[infolabel_prefix]ListItem.Premiered)" />
 						<param name="icon" value="lists/year.png" />
 						<param name="label" value="$INFO[$PARAM[infolabel_prefix]ListItem.Premiered]" />
 					</include>
@@ -428,19 +323,24 @@
 					</include>
 				</control>
 				<include content="MediaFlag">
-					<param name="texture" value="$INFO[$PARAM[infolabel_prefix]ListItem.AudioChannels,flags/audiochannel/,.png]" />
-					<param name="visible" value="!String.IsEmpty($PARAM[infolabel_prefix]ListItem.AudioChannels)" />
+					<param name="texture" value="$INFO[ListItem.VideoCodec,flags/videocodec/,.png]" />
+					<param name="visible" value="!String.IsEmpty($PARAM[infolabel_prefix]ListItem.VideoCodec)" />
+				</include>
+				<include content="MediaFlag">
+					<param name="texture" value="$PARAM[resolution_var]" />
+					<param name="visible" value="!String.IsEmpty($PARAM[infolabel_prefix]ListItem.VideoResolution)" />
+				</include>
+				<include content="MediaFlag">
+					<param name="texture" value="$INFO[ListItem.VideoAspect,flags/aspectratio/,.png]" />
+					<param name="visible" value="!String.IsEmpty($PARAM[infolabel_prefix]ListItem.VideoAspect)" />
 				</include>
 				<include content="MediaFlag">
 					<param name="texture" value="$INFO[$PARAM[infolabel_prefix]ListItem.AudioCodec,flags/audiocodec/,.png]" />
 					<param name="visible" value="!String.IsEmpty($PARAM[infolabel_prefix]ListItem.AudioCodec)" />
 				</include>
-				<!-- 			<include content="MediaFlag">
-																														<param name="texture" value="$INFO[ListItem.VideoAspect,flags/aspectratio/,.png]" />
-																													</include> -->
 				<include content="MediaFlag">
-					<param name="texture" value="$PARAM[resolution_var]" />
-					<param name="visible" value="!String.IsEmpty($PARAM[infolabel_prefix]ListItem.VideoResolution)" />
+					<param name="texture" value="$INFO[$PARAM[infolabel_prefix]ListItem.AudioChannels,flags/audiochannel/,.png]" />
+					<param name="visible" value="!String.IsEmpty($PARAM[infolabel_prefix]ListItem.AudioChannels)" />
 				</include>
 			</control>
 		</definition>
@@ -852,9 +752,9 @@
 				<texturenofocus />
 				<label></label>
 				<textureradioofffocus colordiffuse="EEFFFFFF">dialogs/close.png</textureradioofffocus>
-				<textureradiooffnofocus colordiffuse="EEFFFFFF">icons/logo.png</textureradiooffnofocus>
+				<textureradiooffnofocus colordiffuse="EEFFFFFF">special://xbmc/media/vendor_icon.png</textureradiooffnofocus>
 				<textureradioonfocus colordiffuse="EEFFFFFF">dialogs/close.png</textureradioonfocus>
-				<textureradioonnofocus colordiffuse="EEFFFFFF">icons/logo.png</textureradioonnofocus>
+				<textureradioonnofocus colordiffuse="EEFFFFFF">special://xbmc/media/vendor_icon.png</textureradioonnofocus>
 				<onclick>Action(close)</onclick>
 				<visible>!Skin.HasSetting(touchmode)</visible>
 			</control>
@@ -896,7 +796,7 @@
 					<animation effect="fade" start="0" end="100" time="300">WindowOpen</animation>
 					<animation effect="fade" start="100" end="0" time="200">WindowClose</animation>
 					<animation effect="slide" end="0,16" time="200" reversible="true" condition="String.IsEmpty(Control.GetLabel(18900))">Conditional</animation>
-					<animation effect="slide" end="70,0" time="200" reversible="true" condition="Control.IsVisible(701)">Conditional</animation>
+					<animation effect="slide" end="70,0" time="200" reversible="true" condition="Control.IsVisible(799)">Conditional</animation>
 					<control type="label">
 						<label>$PARAM[breadcrumbs_label]</label>
 						<include>BreadcrumbsLabel</include>
@@ -935,6 +835,7 @@
 					<height>100</height>
 					<label></label>
 					<onclick>Action(Back)</onclick>
+					<visible>!Window.IsActive(home)</visible>
 					<texturefocus />
 					<texturenofocus />
 				</control>
@@ -947,7 +848,7 @@
 					<width>900</width>
 					<animation effect="fade" start="0" end="100" time="300">WindowOpen</animation>
 					<animation effect="fade" start="100" end="0" time="200">WindowClose</animation>
-					<animation effect="slide" end="70,0" time="200" reversible="true" condition="Control.IsVisible(701)">Conditional</animation>
+					<animation effect="slide" end="70,0" time="200" reversible="true" condition="Control.IsVisible(799)">Conditional</animation>
 				</control>
 				<control type="grouplist">
 					<top>0</top>
@@ -961,7 +862,7 @@
 					<animation effect="fade" time="150">VisibleChange</animation>
 					<control type="group">
 						<width>600</width>
-						<visible>Player.HasMedia + String.IsEmpty(Window(Videos).Property(PlayingBackgroundMedia))</visible>
+						<visible>!Control.IsVisible(503) + Player.HasMedia + String.IsEmpty(Window(Videos).Property(PlayingBackgroundMedia))</visible>
 						<animation effect="fade" time="200">VisibleChange</animation>
 						<control type="grouplist">
 							<left>-75</left>
@@ -997,6 +898,31 @@
 							<height>25</height>
 							<width>630</width>
 							<align>right</align>
+						</control>
+					</control>
+					<control type="group">
+						<visible>Integer.IsGreater(System.ProfileCount,1) + !Player.HasMedia</visible>
+						<control type="image">
+							<visible>Skin.HasSetting(show_profileavatar)</visible>
+							<top>25</top>
+							<left>-70</left>
+							<width>50</width>
+							<height>50</height>
+							<animation effect="fade" start="100" end="0" time="300" condition="Window.Next(screencalibration)">WindowClose</animation>
+							<texture>$INFO[System.ProfileThumb]</texture>
+							<aspectratio>scale</aspectratio>
+						</control>
+						<control type="label">
+							<visible>Skin.HasSetting(show_profilename)</visible>
+							<font>font45</font>
+							<align>right</align>
+							<left>-630</left>
+							<shadowcolor>text_shadow</shadowcolor>
+							<aligny>center</aligny>
+							<height>110</height>
+							<width max="600">auto</width>
+							<animation effect="fade" start="100" end="0" time="300" condition="Window.Next(screencalibration)">WindowClose</animation>
+							<label>$INFO[System.ProfileName]</label>
 						</control>
 					</control>
 					<control type="label">
@@ -1072,7 +998,7 @@
 					<visible>!System.HasActiveModalDialog</visible>
 					<visible>Container.Scrolling</visible>
 					<visible>!Container.Content(seasons)</visible>
-					<visible>String.IsEqual(Container.SortMethod,$LOCALIZE[551]) | String.IsEqual(Container.SortMethod,$LOCALIZE[561]) | String.IsEqual(Container.SortMethod,$LOCALIZE[558]) | String.IsEqual(Container.SortMethod,$LOCALIZE[557]) | String.IsEqual(Container.SortMethod,$LOCALIZE[556]) | String.IsEqual(Container.SortMethod,$LOCALIZE[563])</visible>
+					<visible>Container.SortMethod(1) | Container.SortMethod(4) | Container.SortMethod(12) | Container.SortMethod(10) | Container.SortMethod(7) | Container.SortMethod(29) | Container.SortMethod(17)</visible>
 					<animation effect="fade" start="0" end="100" time="200" reversible="true">VisibleChange</animation>
 					<animation effect="fade" start="100" end="0" time="200">WindowClose</animation>
 				</control>
@@ -1119,7 +1045,7 @@
 				<animation effect="zoom" center="auto" end="102,102" time="0" condition="Integer.IsGreater(System.StereoscopicMode,0)">conditional</animation>
 				<control type="group">
 					<animation effect="fade" start="100" end="bg_alpha" time="0" condition="!Control.IsVisible(31111)">Conditional</animation>
-					<animation effect="fade" start="0" end="100" time="300" condition="Window.Previous(fullscreenvideo) | Window.Previous(startup)">WindowOpen</animation>
+					<animation effect="fade" start="0" end="100" time="300" condition="Window.Previous(fullscreenvideo) | Window.Previous(FullscreenGame) | Window.Previous(startup)">WindowOpen</animation>
 					<include>ColoredBackgroundImages</include>
 				</control>
 				<control type="group" id="31111">
@@ -1409,7 +1335,7 @@
 		</control>
 	</include>
 	<include name="TouchBackButton">
-		<control type="radiobutton" id="701">
+		<control type="radiobutton" id="799">
 			<left>-10</left>
 			<top>-10</top>
 			<width>120</width>

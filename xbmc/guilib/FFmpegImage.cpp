@@ -1,22 +1,9 @@
 /*
- *      Copyright (C) 2012-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, write to
- *  the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
- *  http://www.gnu.org/copyleft/gpl.html
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 #include "FFmpegImage.h"
 #include "utils/log.h"
@@ -27,25 +14,15 @@
 
 extern "C"
 {
-#include "libavformat/avformat.h"
-#include "libavutil/imgutils.h"
-#include "libavcodec/avcodec.h"
-#include "libavutil/avutil.h"
-#include "libswscale/swscale.h"
-#include "libavutil/pixdesc.h"
+#include <libavformat/avformat.h>
+#include <libavutil/imgutils.h>
+#include <libavcodec/avcodec.h>
+#include <libavutil/avutil.h>
+#include <libswscale/swscale.h>
+#include <libavutil/pixdesc.h>
 }
 
-Frame::Frame() :
-  m_pImage(nullptr),
-  m_delay(0),
-  m_imageSize(0),
-  m_height(0),
-  m_width(0)
-{}
-
-
 Frame::Frame(const Frame& src) :
-  m_pImage(nullptr),
   m_delay(src.m_delay),
   m_imageSize(src.m_imageSize),
   m_height(src.m_height),
@@ -102,12 +79,12 @@ static int mem_file_read(void *h, uint8_t* buf, int size)
   MemBuffer* mbuf = static_cast<MemBuffer*>(h);
   int64_t unread = mbuf->size - mbuf->pos;
   if (unread <= 0)
-    return 0;
-  
+    return AVERROR_EOF;
+
   size_t tocopy = std::min((size_t)size, (size_t)unread);
   memcpy(buf, mbuf->data + mbuf->pos, tocopy);
   mbuf->pos += tocopy;
-  return tocopy;
+  return static_cast<int>(tocopy);
 }
 
 static int64_t mem_file_seek(void *h, int64_t pos, int whence)
@@ -128,7 +105,7 @@ static int64_t mem_file_seek(void *h, int64_t pos, int whence)
     mbuf->pos = Clamp(((int64_t)mbuf->pos) + pos, mbuf->size);
   }
   else
-    CLog::LogFunction(LOGERROR, __FUNCTION__, "Unknown seek mode: %i", whence);
+    CLog::LogF(LOGERROR, "Unknown seek mode: %i", whence);
 
   return mbuf->pos;
 }
@@ -161,7 +138,7 @@ CFFmpegImage::~CFFmpegImage()
 bool CFFmpegImage::LoadImageFromMemory(unsigned char* buffer, unsigned int bufSize,
                                       unsigned int width, unsigned int height)
 {
-    
+
   if (!Initialize(buffer, bufSize))
   {
     //log
@@ -174,13 +151,13 @@ bool CFFmpegImage::LoadImageFromMemory(unsigned char* buffer, unsigned int bufSi
   return !(m_pFrame == nullptr);
 }
 
-bool CFFmpegImage::Initialize(unsigned char* buffer, unsigned int bufSize)
+bool CFFmpegImage::Initialize(unsigned char* buffer, size_t bufSize)
 {
   int bufferSize = 4096;
-  uint8_t* fbuffer = (uint8_t*)av_malloc(bufferSize + FF_INPUT_BUFFER_PADDING_SIZE);
+  uint8_t* fbuffer = (uint8_t*)av_malloc(bufferSize + AV_INPUT_BUFFER_PADDING_SIZE);
   if (!fbuffer)
   {
-    CLog::LogFunction(LOGERROR, __FUNCTION__, "Could not allocate buffer");
+    CLog::LogF(LOGERROR, "Could not allocate buffer");
     return false;
   }
   m_buf.data = buffer;
@@ -193,15 +170,18 @@ bool CFFmpegImage::Initialize(unsigned char* buffer, unsigned int bufSize)
   if (!m_ioctx)
   {
     av_free(fbuffer);
-    CLog::LogFunction(LOGERROR, __FUNCTION__, "Could not allocate AVIOContext");
+    CLog::LogF(LOGERROR, "Could not allocate AVIOContext");
     return false;
   }
+
+  // signal to ffmepg this is not streaming protocol
+  m_ioctx->max_packet_size = bufferSize;
 
   m_fctx = avformat_alloc_context();
   if (!m_fctx)
   {
     FreeIOCtx(&m_ioctx);
-    CLog::LogFunction(LOGERROR, __FUNCTION__, "Could not allocate AVFormatContext");
+    CLog::LogF(LOGERROR, "Could not allocate AVFormatContext");
     return false;
   }
 
@@ -284,7 +264,7 @@ AVFrame* CFFmpegImage::ExtractFrame()
 {
   if (!m_fctx || !m_fctx->streams[0])
   {
-    CLog::LogFunction(LOGERROR, __FUNCTION__, "No valid format context or stream");
+    CLog::LogF(LOGERROR, "No valid format context or stream");
     return nullptr;
   }
 
@@ -295,7 +275,7 @@ AVFrame* CFFmpegImage::ExtractFrame()
   ret = av_read_frame(m_fctx, &pkt);
   if (ret < 0)
   {
-    CLog::Log(LOGDEBUG, "Error [%d] while reading frame: %s\n", ret, strerror(AVERROR(ret)));
+    CLog::Log(LOGDEBUG, "Error [%d] while reading frame: %s", ret, strerror(AVERROR(ret)));
     av_frame_free(&frame);
     av_packet_unref(&pkt);
     return nullptr;
@@ -304,13 +284,13 @@ AVFrame* CFFmpegImage::ExtractFrame()
   ret = DecodeFFmpegFrame(m_codec_ctx, frame, &frame_decoded, &pkt);
   if (ret < 0 || frame_decoded == 0 || !frame)
   {
-    CLog::Log(LOGDEBUG, "Error [%d] while decoding frame: %s\n", ret, strerror(AVERROR(ret)));
+    CLog::Log(LOGDEBUG, "Error [%d] while decoding frame: %s", ret, strerror(AVERROR(ret)));
     av_frame_free(&frame);
     av_packet_unref(&pkt);
     return nullptr;
   }
   //we need milliseconds
-  av_frame_set_pkt_duration(frame, av_rescale_q(frame->pkt_duration, m_fctx->streams[0]->time_base, AVRational{ 1, 1000 }));
+  frame->pkt_duration = av_rescale_q(frame->pkt_duration, m_fctx->streams[0]->time_base, AVRational{ 1, 1000 });
   m_height = frame->height;
   m_width = frame->width;
   m_originalWidth = m_width;
@@ -320,7 +300,7 @@ AVFrame* CFFmpegImage::ExtractFrame()
   if (pixDescriptor && ((pixDescriptor->flags & (AV_PIX_FMT_FLAG_ALPHA | AV_PIX_FMT_FLAG_PAL)) != 0))
     m_hasAlpha = true;
 
-  AVDictionary* dic = av_frame_get_metadata(frame);
+  AVDictionary* dic = frame->metadata;
   AVDictionaryEntry* entry = NULL;
   if (dic)
   {
@@ -379,7 +359,7 @@ bool CFFmpegImage::Decode(unsigned char * const pixels, unsigned int width, unsi
 
   if (!m_pFrame || !m_pFrame->data[0])
   {
-    CLog::LogFunction(LOGERROR, __FUNCTION__, "AVFrame member not allocated");
+    CLog::LogF(LOGERROR, "AVFrame member not allocated");
     return false;
   }
 
@@ -441,7 +421,7 @@ bool CFFmpegImage::DecodeFrame(AVFrame* frame, unsigned int width, unsigned int 
   AVFrame* pictureRGB = av_frame_alloc();
   if (!pictureRGB)
   {
-    CLog::LogFunction(LOGERROR, __FUNCTION__, "AVFrame could not be allocated");
+    CLog::LogF(LOGERROR, "AVFrame could not be allocated");
     return false;
   }
 
@@ -449,7 +429,7 @@ bool CFFmpegImage::DecodeFrame(AVFrame* frame, unsigned int width, unsigned int 
   int size = av_image_fill_arrays(pictureRGB->data, pictureRGB->linesize, NULL, AV_PIX_FMT_RGB32, width, height, 16);
   if (size < 0)
   {
-    CLog::LogFunction(LOGERROR, __FUNCTION__, "Could not allocate AVFrame member with %i x %i pixes", width, height);
+    CLog::LogF(LOGERROR, "Could not allocate AVFrame member with %i x %i pixes", width, height);
     av_frame_free(&pictureRGB);
     return false;
   }
@@ -474,7 +454,7 @@ bool CFFmpegImage::DecodeFrame(AVFrame* frame, unsigned int width, unsigned int 
     // we copy the data manually later so give a chance to intrinsics (e.g. mmx, neon)
     if (av_frame_get_buffer(pictureRGB, 32) < 0)
     {
-      CLog::LogFunction(LOGERROR, __FUNCTION__, "Could not allocate temp buffer of size %i bytes", size);
+      CLog::LogF(LOGERROR, "Could not allocate temp buffer of size %i bytes", size);
       av_frame_free(&pictureRGB);
       return false;
     }
@@ -483,7 +463,7 @@ bool CFFmpegImage::DecodeFrame(AVFrame* frame, unsigned int width, unsigned int 
 
   // Especially jpeg formats are full range this we need to take care here
   // Input Formats like RGBA are handled correctly automatically
-  AVColorRange range = av_frame_get_color_range(frame);
+  AVColorRange range = frame->color_range;
   AVPixelFormat pixFormat = ConvertFormats(frame);
 
   // assumption quadratic maximums e.g. 2048x2048
@@ -523,7 +503,7 @@ bool CFFmpegImage::DecodeFrame(AVFrame* frame, unsigned int width, unsigned int 
     int minPitch = std::min((int)pitch, pictureRGB->linesize[0]);
     if (minPitch < 0)
     {
-      CLog::LogFunction(LOGERROR, __FUNCTION__, "negative pitch or height");
+      CLog::LogF(LOGERROR, "negative pitch or height");
       av_frame_free(&pictureRGB);
       return false;
     }
@@ -582,7 +562,7 @@ bool CFFmpegImage::CreateThumbnailFromSurface(unsigned char* bufferin, unsigned 
   tdm.codec = avcodec_find_encoder(jpg_output ? AV_CODEC_ID_MJPEG : AV_CODEC_ID_PNG);
   if (!tdm.codec)
   {
-    CLog::Log(LOGERROR, "Your are missing a working encoder for format: %d", jpg_output ? AV_CODEC_ID_MJPEG : AV_CODEC_ID_PNG);
+    CLog::Log(LOGERROR, "You are missing a working encoder for format: %s", jpg_output ? "JPEG" : "PNG");
     return false;
   }
 
@@ -598,7 +578,7 @@ bool CFFmpegImage::CreateThumbnailFromSurface(unsigned char* bufferin, unsigned 
   tdm.avOutctx->time_base.num = 1;
   tdm.avOutctx->time_base.den = 1;
   tdm.avOutctx->pix_fmt = jpg_output ? AV_PIX_FMT_YUVJ420P : AV_PIX_FMT_RGBA;
-  tdm.avOutctx->flags = CODEC_FLAG_QSCALE;
+  tdm.avOutctx->flags = AV_CODEC_FLAG_QSCALE;
   tdm.avOutctx->mb_lmin = tdm.avOutctx->qmin * FF_QP2LAMBDA;
   tdm.avOutctx->mb_lmax = tdm.avOutctx->qmax * FF_QP2LAMBDA;
   tdm.avOutctx->global_quality = tdm.avOutctx->qmin * FF_QP2LAMBDA;
@@ -696,9 +676,9 @@ bool CFFmpegImage::CreateThumbnailFromSurface(unsigned char* bufferin, unsigned 
   }
   tdm.frame_input->pts = 1;
   tdm.frame_input->quality = tdm.avOutctx->global_quality;
-  tdm.frame_input->data[0] = (uint8_t*) tdm.frame_temporary->data[0];
-  tdm.frame_input->data[1] = (uint8_t*) tdm.frame_temporary->data[1];
-  tdm.frame_input->data[2] = (uint8_t*) tdm.frame_temporary->data[2];
+  tdm.frame_input->data[0] = tdm.frame_temporary->data[0];
+  tdm.frame_input->data[1] = tdm.frame_temporary->data[1];
+  tdm.frame_input->data[2] = tdm.frame_temporary->data[2];
   tdm.frame_input->height = height;
   tdm.frame_input->width = width;
   tdm.frame_input->linesize[0] = tdm.frame_temporary->linesize[0];
@@ -759,7 +739,7 @@ std::shared_ptr<Frame> CFFmpegImage::ReadFrame()
   if (avframe == nullptr)
     return nullptr;
   std::shared_ptr<Frame> frame(new Frame());
-  frame->m_delay = (unsigned int)av_frame_get_pkt_duration(avframe);
+  frame->m_delay = (unsigned int)avframe->pkt_duration;
   frame->m_pitch = avframe->width * 4;
   frame->m_pImage = (unsigned char*) av_malloc(avframe->height * frame->m_pitch);
   DecodeFrame(avframe, avframe->width, avframe->height, frame->m_pitch, frame->m_pImage);

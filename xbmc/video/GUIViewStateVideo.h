@@ -1,43 +1,32 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "view/GUIViewState.h"
 
 class CGUIViewStateWindowVideo : public CGUIViewState
 {
 public:
-  CGUIViewStateWindowVideo(const CFileItemList& items) : CGUIViewState(items) {}
+  explicit CGUIViewStateWindowVideo(const CFileItemList& items) : CGUIViewState(items) {}
 
 protected:
   VECSOURCES& GetSources() override;
   std::string GetLockType() override;
-  int GetPlaylist() override;
+  int GetPlaylist() const override;
   std::string GetExtensions() override;
+  bool AutoPlayNextItem() override;
 };
 
 class CGUIViewStateWindowVideoNav : public CGUIViewStateWindowVideo
 {
 public:
-  CGUIViewStateWindowVideoNav(const CFileItemList& items);
+  explicit CGUIViewStateWindowVideoNav(const CFileItemList& items);
   bool AutoPlayNextItem() override;
 
 protected:
@@ -48,19 +37,20 @@ protected:
 class CGUIViewStateWindowVideoPlaylist : public CGUIViewStateWindowVideo
 {
 public:
-  CGUIViewStateWindowVideoPlaylist(const CFileItemList& items);
+  explicit CGUIViewStateWindowVideoPlaylist(const CFileItemList& items);
 
 protected:
   void SaveViewState() override;
   bool HideExtensions() override;
   bool HideParentDirItems() override;
   VECSOURCES& GetSources() override;
+  bool AutoPlayNextItem() override { return false; }
 };
 
 class CGUIViewStateVideoMovies : public CGUIViewStateWindowVideo
 {
 public:
-  CGUIViewStateVideoMovies(const CFileItemList& items);
+  explicit CGUIViewStateVideoMovies(const CFileItemList& items);
 protected:
   void SaveViewState() override;
 };
@@ -68,7 +58,7 @@ protected:
 class CGUIViewStateVideoMusicVideos : public CGUIViewStateWindowVideo
 {
 public:
-  CGUIViewStateVideoMusicVideos(const CFileItemList& items);
+  explicit CGUIViewStateVideoMusicVideos(const CFileItemList& items);
 protected:
   void SaveViewState() override;
 };
@@ -76,7 +66,7 @@ protected:
 class CGUIViewStateVideoTVShows : public CGUIViewStateWindowVideo
 {
 public:
-  CGUIViewStateVideoTVShows(const CFileItemList& items);
+  explicit CGUIViewStateVideoTVShows(const CFileItemList& items);
 protected:
   void SaveViewState() override;
 };
@@ -84,7 +74,7 @@ protected:
 class CGUIViewStateVideoEpisodes : public CGUIViewStateWindowVideo
 {
 public:
-  CGUIViewStateVideoEpisodes(const CFileItemList& items);
+  explicit CGUIViewStateVideoEpisodes(const CFileItemList& items);
 protected:
   void SaveViewState() override;
 };

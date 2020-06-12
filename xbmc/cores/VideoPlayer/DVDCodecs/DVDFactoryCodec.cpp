@@ -1,51 +1,30 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
-#include "utils/log.h"
-
 #include "DVDFactoryCodec.h"
-#include "Video/AddonVideoCodec.h"
-#include "Video/DVDVideoCodec.h"
+
 #include "Audio/DVDAudioCodec.h"
-#include "Overlay/DVDOverlayCodec.h"
-#include "cores/VideoPlayer/DVDCodecs/DVDCodecs.h"
-
-#include "addons/AddonProvider.h"
-
-#include "Video/DVDVideoCodecFFmpeg.h"
-
 #include "Audio/DVDAudioCodecFFmpeg.h"
 #include "Audio/DVDAudioCodecPassthrough.h"
-#include "Overlay/DVDOverlayCodecSSA.h"
-#include "Overlay/DVDOverlayCodecText.h"
-#include "Overlay/DVDOverlayCodecTX3G.h"
-#include "Overlay/DVDOverlayCodecFFmpeg.h"
-
-
 #include "DVDStreamInfo.h"
-#include "settings/AdvancedSettings.h"
-#include "settings/Settings.h"
-#include "settings/VideoSettings.h"
+#include "Overlay/DVDOverlayCodec.h"
+#include "Overlay/DVDOverlayCodecFFmpeg.h"
+#include "Overlay/DVDOverlayCodecSSA.h"
+#include "Overlay/DVDOverlayCodecTX3G.h"
+#include "Overlay/DVDOverlayCodecText.h"
+#include "Video/AddonVideoCodec.h"
+#include "Video/DVDVideoCodec.h"
+#include "Video/DVDVideoCodecFFmpeg.h"
+#include "addons/AddonProvider.h"
+#include "cores/VideoPlayer/DVDCodecs/DVDCodecs.h"
 #include "threads/SingleLock.h"
 #include "utils/StringUtils.h"
+#include "utils/log.h"
 
 
 //------------------------------------------------------------------------------
@@ -71,7 +50,7 @@ CDVDVideoCodec* CDVDFactoryCodec::CreateVideoCodec(CDVDStreamInfo &hint, CProces
   if (hint.externalInterfaces)
   {
     ADDON::BinaryAddonBasePtr addonInfo;
-    kodi::addon::IAddonInstance* parentInstance;
+    KODI_HANDLE parentInstance;
     hint.externalInterfaces->getAddonInstance(ADDON::IAddonProvider::INSTANCE_VIDEOCODEC, addonInfo, parentInstance);
     if (addonInfo && parentInstance)
     {
@@ -186,6 +165,12 @@ CDVDAudioCodec* CDVDFactoryCodec::CreateAudioCodec(CDVDStreamInfo &hint, CProces
   std::unique_ptr<CDVDAudioCodec> pCodec;
   CDVDCodecOptions options;
 
+  if (allowpassthrough && ptStreamType != CAEStreamInfo::STREAM_TYPE_NULL)
+    options.m_keys.emplace_back("ptstreamtype", StringUtils::SizeToString(ptStreamType));
+
+  if (!allowdtshddecode)
+    options.m_keys.emplace_back("allowdtshddecode", "0");
+
   // platform specifig audio decoders
   for (auto &codec : m_hwAudioCodecs)
   {
@@ -195,9 +180,6 @@ CDVDAudioCodec* CDVDFactoryCodec::CreateAudioCodec(CDVDStreamInfo &hint, CProces
       return pCodec.release();
     }
   }
-
-  if (!allowdtshddecode)
-    options.m_keys.push_back(CDVDCodecOption("allowdtshddecode", "0"));
 
   // we don't use passthrough if "sync playback to display" is enabled
   if (allowpassthrough && ptStreamType != CAEStreamInfo::STREAM_TYPE_NULL)

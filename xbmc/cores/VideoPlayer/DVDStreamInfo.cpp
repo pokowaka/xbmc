@@ -1,26 +1,15 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "DVDStreamInfo.h"
 
 #include "DVDDemuxers/DVDDemux.h"
+#include "cores/VideoPlayer/Interface/Addon/DemuxCrypto.h"
 
 CDVDStreamInfo::CDVDStreamInfo()                                                     { extradata = NULL; Clear(); }
 CDVDStreamInfo::CDVDStreamInfo(const CDVDStreamInfo &right, bool withextradata )     { extradata = NULL; Clear(); Assign(right, withextradata); }
@@ -40,7 +29,6 @@ void CDVDStreamInfo::Clear()
   codec = AV_CODEC_ID_NONE;
   type = STREAM_NONE;
   uniqueId = -1;
-  realtime = false;
   codecOptions = 0;
   codec_tag  = 0;
   flags = 0;
@@ -67,6 +55,12 @@ void CDVDStreamInfo::Clear()
   ptsinvalid = false;
   forced_aspect = false;
   bitsperpixel = 0;
+  colorSpace = AVCOL_SPC_UNSPECIFIED;
+  colorRange = AVCOL_RANGE_UNSPECIFIED;
+  colorPrimaries = AVCOL_PRI_UNSPECIFIED;
+  colorTransferCharacteristic = AVCOL_TRC_UNSPECIFIED;
+  masteringMetadata = nullptr;
+  contentLightMetadata = nullptr;
   stereo_mode.clear();
 
   channels   = 0;
@@ -80,17 +74,15 @@ void CDVDStreamInfo::Clear()
   workaround_bugs = 0;
 }
 
-bool CDVDStreamInfo::Equal(const CDVDStreamInfo& right, bool withextradata)
+bool CDVDStreamInfo::Equal(const CDVDStreamInfo& right, int compare)
 {
-  if( codec     != right.codec
-  ||  type      != right.type
-  ||  uniqueId  != right.uniqueId
-  ||  realtime  != right.realtime
-  ||  codec_tag != right.codec_tag
-  ||  flags     != right.flags)
+  if (codec != right.codec || type != right.type ||
+      ((compare & COMPARE_ID) && uniqueId != right.uniqueId) ||
+      ((compare & COMPARE_ID) && demuxerId != right.demuxerId) || codec_tag != right.codec_tag ||
+      flags != right.flags)
     return false;
 
-  if( withextradata )
+  if (compare & COMPARE_EXTRADATA)
   {
     if( extrasize != right.extrasize ) return false;
     if( extrasize )
@@ -111,7 +103,47 @@ bool CDVDStreamInfo::Equal(const CDVDStreamInfo& right, bool withextradata)
   ||  forced_aspect != right.forced_aspect
   ||  bitsperpixel != right.bitsperpixel
   ||  vfr      != right.vfr
+  ||  colorSpace != right.colorSpace
+  ||  colorRange != right.colorRange
+  ||  colorPrimaries != right.colorPrimaries
+  ||  colorTransferCharacteristic != right.colorTransferCharacteristic
   ||  stereo_mode != right.stereo_mode ) return false;
+
+  if (masteringMetadata && right.masteringMetadata)
+  {
+    if (masteringMetadata->has_luminance != right.masteringMetadata->has_luminance
+      || masteringMetadata->has_primaries != right.masteringMetadata->has_primaries)
+      return false;
+
+    if (masteringMetadata->has_primaries)
+    {
+      for (unsigned int i(0); i < 3; ++i)
+        for (unsigned int j(0); j < 2; ++j)
+          if (av_cmp_q(masteringMetadata->display_primaries[i][j], right.masteringMetadata->display_primaries[i][j]))
+            return false;
+      for (unsigned int i(0); i < 2; ++i)
+        if (av_cmp_q(masteringMetadata->white_point[i], right.masteringMetadata->white_point[i]))
+          return false;
+    }
+
+    if (masteringMetadata->has_luminance)
+    {
+      if (av_cmp_q(masteringMetadata->min_luminance, right.masteringMetadata->min_luminance)
+      || av_cmp_q(masteringMetadata->max_luminance, right.masteringMetadata->max_luminance))
+        return false;
+    }
+  }
+  else if (masteringMetadata || right.masteringMetadata)
+    return false;
+
+  if (contentLightMetadata && right.contentLightMetadata)
+  {
+    if (contentLightMetadata->MaxCLL != right.contentLightMetadata->MaxCLL
+    || contentLightMetadata->MaxFALL != right.contentLightMetadata->MaxFALL)
+      return false;
+  }
+  else if (contentLightMetadata || right.contentLightMetadata)
+    return false;
 
   // AUDIO
   if( channels      != right.channels
@@ -124,6 +156,13 @@ bool CDVDStreamInfo::Equal(const CDVDStreamInfo& right, bool withextradata)
 
   // SUBTITLE
 
+  // Crypto
+  if ((cryptoSession == nullptr) != (right.cryptoSession == nullptr))
+    return false;
+
+  if (cryptoSession && !(*cryptoSession == *right.cryptoSession))
+    return false;
+
   return true;
 }
 
@@ -131,7 +170,7 @@ bool CDVDStreamInfo::Equal(const CDemuxStream& right, bool withextradata)
 {
   CDVDStreamInfo info;
   info.Assign(right, withextradata);
-  return Equal(info, withextradata);
+  return Equal(info, withextradata ? COMPARE_ALL : COMPARE_ALL & ~COMPARE_EXTRADATA);
 }
 
 
@@ -141,7 +180,7 @@ void CDVDStreamInfo::Assign(const CDVDStreamInfo& right, bool withextradata)
   codec = right.codec;
   type = right.type;
   uniqueId = right.uniqueId;
-  realtime = right.realtime;
+  demuxerId = right.demuxerId;
   codec_tag = right.codec_tag;
   flags = right.flags;
   filename = right.filename;
@@ -181,6 +220,12 @@ void CDVDStreamInfo::Assign(const CDVDStreamInfo& right, bool withextradata)
   bitsperpixel = right.bitsperpixel;
   vfr = right.vfr;
   codecOptions = right.codecOptions;
+  colorSpace = right.colorSpace;
+  colorRange = right.colorRange;
+  colorPrimaries = right.colorPrimaries;
+  colorTransferCharacteristic = right.colorTransferCharacteristic;
+  masteringMetadata = right.masteringMetadata;
+  contentLightMetadata = right.contentLightMetadata;
   stereo_mode = right.stereo_mode;
   workaround_bugs = right.workaround_bugs;
 
@@ -202,13 +247,13 @@ void CDVDStreamInfo::Assign(const CDemuxStream& right, bool withextradata)
   codec = right.codec;
   type = right.type;
   uniqueId = right.uniqueId;
-  realtime = right.realtime;
+  demuxerId = right.demuxerId;
   codec_tag = right.codec_fourcc;
-  profile   = right.profile;
-  level     = right.level;
-  flags     = right.flags;
+  profile = right.profile;
+  level = right.level;
+  flags = right.flags;
 
-  if( withextradata && right.ExtraSize )
+  if (withextradata && right.ExtraSize)
   {
     extrasize = right.ExtraSize;
     extradata = malloc(extrasize);
@@ -220,7 +265,7 @@ void CDVDStreamInfo::Assign(const CDemuxStream& right, bool withextradata)
   cryptoSession = right.cryptoSession;
   externalInterfaces = right.externalInterfaces;
 
-  if( right.type == STREAM_AUDIO )
+  if (right.type == STREAM_AUDIO)
   {
     const CDemuxStreamAudio *stream = static_cast<const CDemuxStreamAudio*>(&right);
     channels      = stream->iChannels;
@@ -230,7 +275,7 @@ void CDVDStreamInfo::Assign(const CDemuxStream& right, bool withextradata)
     bitspersample = stream->iBitsPerSample;
     channellayout = stream->iChannelLayout;
   }
-  else if(  right.type == STREAM_VIDEO )
+  else if (right.type == STREAM_VIDEO)
   {
     const CDemuxStreamVideo *stream = static_cast<const CDemuxStreamVideo*>(&right);
     fpsscale  = stream->iFpsScale;
@@ -243,10 +288,16 @@ void CDVDStreamInfo::Assign(const CDemuxStream& right, bool withextradata)
     forced_aspect = stream->bForcedAspect;
     orientation = stream->iOrientation;
     bitsperpixel = stream->iBitsPerPixel;
+    colorSpace = stream->colorSpace;
+    colorRange = stream->colorRange;
+    colorPrimaries = stream->colorPrimaries;
+    colorTransferCharacteristic = stream->colorTransferCharacteristic;
+    masteringMetadata = stream->masteringMetaData;
+    contentLightMetadata = stream->contentLightMetaData;
     stereo_mode = stream->stereo_mode;
     workaround_bugs = stream->workaround_bugs;
   }
-  else if(  right.type == STREAM_SUBTITLE )
+  else if (right.type == STREAM_SUBTITLE)
   {
   }
 }

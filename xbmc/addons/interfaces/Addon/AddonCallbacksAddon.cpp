@@ -1,42 +1,31 @@
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      Copyright (C) 2015-2016 Team KODI
- *      http://kodi.tv
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with KODI; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
-
-#include "Application.h"
 #include "addons/Addon.h"
-#include "addons/settings/AddonSettings.h"
+
 #include "AddonCallbacksAddon.h"
-#include "utils/log.h"
-#include "LangInfo.h"
-#include "dialogs/GUIDialogKaiToast.h"
-#include "filesystem/File.h"
-#include "filesystem/Directory.h"
-#include "guilib/LocalizeStrings.h"
+#include "Application.h"
 #include "FileItem.h"
+#include "LangInfo.h"
+#include "ServiceBroker.h"
+#include "addons/settings/AddonSettings.h"
+#include "dialogs/GUIDialogKaiToast.h"
+#include "filesystem/Directory.h"
+#include "filesystem/File.h"
+#include "filesystem/SpecialProtocol.h"
+#include "guilib/LocalizeStrings.h"
 #include "network/Network.h"
 #include "utils/CharsetConverter.h"
 #include "utils/StringUtils.h"
 #include "utils/XMLUtils.h"
-#include "URL.h"
-#include "addons/kodi-addon-dev-kit/include/kodi/kodi_vfs_types.h"
-#include "filesystem/SpecialProtocol.h"
+#include "utils/log.h"
+
+#include <vector>
 
 using namespace ADDON;
 using namespace XFILE;
@@ -60,6 +49,7 @@ CAddonCallbacksAddon::CAddonCallbacksAddon(CAddon* addon)
   m_callbacks->GetLocalizedString = GetLocalizedString;
   m_callbacks->GetDVDMenuLanguage = GetDVDMenuLanguage;
   m_callbacks->FreeString         = FreeString;
+  m_callbacks->FreeStringArray    = FreeStringArray;
 
   m_callbacks->OpenFile           = OpenFile;
   m_callbacks->OpenFileForWrite   = OpenFileForWrite;
@@ -76,6 +66,8 @@ CAddonCallbacksAddon::CAddonCallbacksAddon(CAddon* addon)
   m_callbacks->GetFileChunkSize   = GetFileChunkSize;
   m_callbacks->FileExists         = FileExists;
   m_callbacks->StatFile           = StatFile;
+  m_callbacks->GetFilePropertyValue = GetFilePropertyValue;
+  m_callbacks->GetFilePropertyValues = GetFilePropertyValues;
   m_callbacks->DeleteFile         = DeleteFile;
 
   m_callbacks->CanOpenDirectory   = CanOpenDirectory;
@@ -96,7 +88,7 @@ CAddonCallbacksAddon::~CAddonCallbacksAddon()
   delete m_callbacks;
 }
 
-void CAddonCallbacksAddon::AddOnLog(void *addonData, const addon_log_t addonLogLevel, const char *strMessage)
+void CAddonCallbacksAddon::AddOnLog(void *addonData, const int addonLogLevel, const char *strMessage)
 {
   CAddonInterfaces* addon = (CAddonInterfaces*) addonData;
   if (addon == NULL || strMessage == NULL)
@@ -109,19 +101,24 @@ void CAddonCallbacksAddon::AddOnLog(void *addonData, const addon_log_t addonLogL
 
   try
   {
-    int xbmcLogLevel = LOGNONE;
+    int xbmcLogLevel;
     switch (addonLogLevel)
     {
-      case LOG_ERROR:
-        xbmcLogLevel = LOGERROR;
+      case LOG_DEBUG:
+        xbmcLogLevel = LOGDEBUG;
         break;
       case LOG_INFO:
         xbmcLogLevel = LOGINFO;
         break;
-      case LOG_NOTICE:
-        xbmcLogLevel = LOGNOTICE;
+      case LOG_WARNING:
+        xbmcLogLevel = LOGWARNING;
         break;
-      case LOG_DEBUG:
+      case LOG_ERROR:
+        xbmcLogLevel = LOGERROR;
+        break;
+      case LOG_FATAL:
+        xbmcLogLevel = LOGFATAL;
+        break;
       default:
         xbmcLogLevel = LOGDEBUG;
         break;
@@ -137,7 +134,7 @@ void CAddonCallbacksAddon::AddOnLog(void *addonData, const addon_log_t addonLogL
   }
 }
 
-void CAddonCallbacksAddon::QueueNotification(void *addonData, const queue_msg_t type, const char *strMessage)
+void CAddonCallbacksAddon::QueueNotification(void *addonData, const int type, const char *strMessage)
 {
   CAddonInterfaces* addon = (CAddonInterfaces*) addonData;
   if (addon == NULL || strMessage == NULL)
@@ -178,7 +175,7 @@ void CAddonCallbacksAddon::QueueNotification(void *addonData, const queue_msg_t 
 
 bool CAddonCallbacksAddon::WakeOnLan(const char *mac)
 {
-  return g_application.getNetwork().WakeOnLan(mac);
+  return CServiceBroker::GetNetwork().WakeOnLan(mac);
 }
 
 bool CAddonCallbacksAddon::GetAddonSetting(void *addonData, const char *strSettingName, void *settingValue)
@@ -196,12 +193,12 @@ bool CAddonCallbacksAddon::GetAddonSetting(void *addonData, const char *strSetti
   {
     CLog::Log(LOGDEBUG, "CAddonCallbacksAddon - %s - add-on '%s' requests setting '%s'", __FUNCTION__, addonHelper->m_addon->Name().c_str(), strSettingName);
 
-    if (strcasecmp(strSettingName, "__addonpath__") == 0)
+    if (StringUtils::CompareNoCase(strSettingName, "__addonpath__") == 0)
     {
       strcpy((char*) settingValue, addonHelper->m_addon->Path().c_str());
       return true;
     }
-    else if (strcasecmp(strSettingName, "__addonname__") == 0)
+    else if (StringUtils::CompareNoCase(strSettingName, "__addonname__") == 0)
     {
       strcpy((char*)settingValue, addonHelper->m_addon->Name().c_str());
       return true;
@@ -312,6 +309,15 @@ char* CAddonCallbacksAddon::GetDVDMenuLanguage(const void* addonData)
 void CAddonCallbacksAddon::FreeString(const void* addonData, char* str)
 {
   free(str);
+}
+
+void CAddonCallbacksAddon::FreeStringArray(const void* addonData, char** arr, int numElements)
+{
+  for (int i = 0; i < numElements; ++i)
+  {
+    free(arr[i]);
+  }
+  free(arr);
 }
 
 void* CAddonCallbacksAddon::OpenFile(const void* addonData, const char* strFileName, unsigned int flags)
@@ -504,6 +510,45 @@ int CAddonCallbacksAddon::StatFile(const void* addonData, const char *strFileNam
   return CFile::Stat(strFileName, buffer);
 }
 
+char *CAddonCallbacksAddon::GetFilePropertyValue(const void* addonData, void* file, XFILE::FileProperty type, const char *name)
+{
+  CAddonInterfaces* helper = (CAddonInterfaces*)addonData;
+  if (!helper)
+    return nullptr;
+
+  CFile* cfile = (CFile*)file;
+  if (cfile)
+  {
+    std::vector<std::string> values = cfile->GetPropertyValues(type, name);
+    if (values.empty()) {
+      return nullptr;
+    }
+    return strdup(values[0].c_str());
+  }
+  return nullptr;
+}
+
+char **CAddonCallbacksAddon::GetFilePropertyValues(const void* addonData, void* file, XFILE::FileProperty type, const char *name, int *numValues)
+{
+  CAddonInterfaces* helper = (CAddonInterfaces*)addonData;
+  if (!helper)
+    return nullptr;
+
+  CFile* cfile = static_cast<CFile*>(file);
+  if (!cfile)
+  {
+    return nullptr;
+  }
+  std::vector<std::string> values = cfile->GetPropertyValues(type, name);
+  *numValues = values.size();
+  char **ret = static_cast<char**>(malloc(sizeof(char*)*values.size()));
+  for (int i = 0; i < *numValues; ++i)
+  {
+    ret[i] = strdup(values[i].c_str());
+  }
+  return ret;
+}
+
 bool CAddonCallbacksAddon::DeleteFile(const void* addonData, const char *strFileName)
 {
   CAddonInterfaces* helper = (CAddonInterfaces*) addonData;
@@ -520,7 +565,7 @@ bool CAddonCallbacksAddon::CanOpenDirectory(const void* addonData, const char* s
     return false;
 
   CFileItemList items;
-  return CDirectory::GetDirectory(strURL, items);
+  return CDirectory::GetDirectory(strURL, items, "", DIR_FLAG_DEFAULTS);
 }
 
 bool CAddonCallbacksAddon::CreateDirectory(const void* addonData, const char *strPath)
@@ -549,7 +594,7 @@ bool CAddonCallbacksAddon::RemoveDirectory(const void* addonData, const char *st
 
   // Empty directory
   CFileItemList fileItems;
-  CDirectory::GetDirectory(strPath, fileItems);
+  CDirectory::GetDirectory(strPath, fileItems, "", DIR_FLAG_DEFAULTS);
   for (int i = 0; i < fileItems.Size(); ++i)
     CFile::Delete(fileItems.Get(i)->GetPath());
 
@@ -571,6 +616,7 @@ static void CFileItemListToVFSDirEntries(VFSDirEntry* entries,
     entries[i].path = strdup(items[i]->GetPath().c_str());
     entries[i].size = items[i]->m_dwSize;
     entries[i].folder = items[i]->m_bIsFolder;
+    items[i]->m_dateTime.GetAsTime(entries[i].date_time);
   }
 }
 

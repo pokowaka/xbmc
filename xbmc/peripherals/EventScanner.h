@@ -1,78 +1,75 @@
 /*
- *      Copyright (C) 2016-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2016-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
-#include <vector>
-
-#include "EventScanRate.h"
+#include "EventLockHandle.h"
+#include "EventPollHandle.h"
+#include "PeripheralTypes.h"
 #include "threads/CriticalSection.h"
 #include "threads/Event.h"
 #include "threads/Thread.h"
 
+#include <set>
+
 namespace PERIPHERALS
 {
-  class IEventScannerCallback
-  {
-  public:
-    virtual ~IEventScannerCallback(void) = default;
+class IEventScannerCallback;
 
-    virtual void ProcessEvents(void) = 0;
-  };
+/*!
+ * \brief Class to scan for peripheral events
+ *
+ * By default, a rate of 60 Hz is used. A client can obtain control over when
+ * input is handled by registering for a polling handle.
+ */
+class CEventScanner : public IEventPollCallback, public IEventLockCallback, protected CThread
+{
+public:
+  explicit CEventScanner(IEventScannerCallback& callback);
+
+  ~CEventScanner() override = default;
+
+  void Start();
+  void Stop();
+
+  EventPollHandlePtr RegisterPollHandle();
 
   /*!
-   * \brief Class to scan for peripheral events
-   *
-   * A default rate of 60 Hz is used. This can be overridden by calling
-   * SetRate(). The scanner will run at this new rate until the handle it
-   * returns has been released.
-   *
-   * If two instances hold handles from SetRate(), the one with the higher
-   * rate wins.
+   * \brief Acquire a lock that prevents event processing while held
    */
-  class CEventScanner : public IEventRateCallback,
-                        protected CThread
-  {
-  public:
-    CEventScanner(IEventScannerCallback* callback);
+  EventLockHandlePtr RegisterLock();
 
-    ~CEventScanner(void) override = default;
+  // implementation of IEventPollCallback
+  void Activate(CEventPollHandle& handle) override;
+  void Deactivate(CEventPollHandle& handle) override;
+  void HandleEvents(bool bWait) override;
+  void Release(CEventPollHandle& handle) override;
 
-    void Start(void);
-    void Stop(void);
+  // implementation of IEventLockCallback
+  void ReleaseLock(CEventLockHandle& handle) override;
 
-    EventRateHandle SetRate(double rateHz);
+protected:
+  // implementation of CThread
+  void Process() override;
 
-    // implementation of IEventRateCallback
-    void Release(CEventRateHandle* handle) override;
+private:
+  double GetScanIntervalMs() const;
 
-  protected:
-    // implementation of CThread
-    void Process(void) override;
+  // Construction parameters
+  IEventScannerCallback& m_callback;
 
-  private:
-    double GetRateHz(void) const;
-    double GetScanIntervalMs(void) const { return 1000.0 / GetRateHz(); }
-
-    IEventScannerCallback* const m_callback;
-    std::vector<EventRateHandle> m_handles;
-    CEvent                       m_scanEvent;
-    CCriticalSection             m_mutex;
-  };
-}
+  // Event parameters
+  std::set<void*> m_activeHandles;
+  std::set<void*> m_activeLocks;
+  CEvent m_scanEvent;
+  CEvent m_scanFinishedEvent;
+  mutable CCriticalSection m_handleMutex;
+  CCriticalSection m_lockMutex;
+  CCriticalSection m_pollMutex; // Prevent two poll handles from polling at once
+};
+} // namespace PERIPHERALS

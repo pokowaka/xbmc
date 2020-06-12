@@ -1,33 +1,24 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2020 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "SourcesDirectory.h"
-#include "utils/URIUtils.h"
+
+#include "File.h"
+#include "FileItem.h"
+#include "ServiceBroker.h"
 #include "URL.h"
 #include "Util.h"
-#include "FileItem.h"
-#include "File.h"
-#include "profiles/ProfilesManager.h"
-#include "settings/MediaSourceSettings.h"
 #include "guilib/TextureManager.h"
+#include "media/MediaLockState.h"
+#include "profiles/ProfileManager.h"
+#include "settings/MediaSourceSettings.h"
 #include "storage/MediaManager.h"
+#include "utils/URIUtils.h"
 
 using namespace XFILE;
 
@@ -48,7 +39,7 @@ bool CSourcesDirectory::GetDirectory(const CURL& url, CFileItemList &items)
     return false;
 
   sources = *sourcesFromType;
-  g_mediaManager.GetRemovableDrives(sources);
+  CServiceBroker::GetMediaManager().GetRemovableDrives(sources);
 
   return GetDirectory(sources, items);
 }
@@ -61,7 +52,7 @@ bool CSourcesDirectory::GetDirectory(const VECSOURCES &sources, CFileItemList &i
     CFileItemPtr pItem(new CFileItem(share));
     if (URIUtils::IsProtocol(pItem->GetPath(), "musicsearch"))
       pItem->SetCanQueue(false);
-    
+
     std::string strIcon;
     // We have the real DVD-ROM, set icon on disktype
     if (share.m_iDriveType == CMediaSource::SOURCE_TYPE_DVD && share.m_strThumbnailImage.empty())
@@ -88,19 +79,22 @@ bool CSourcesDirectory::GetDirectory(const VECSOURCES &sources, CFileItemList &i
       strIcon = "DefaultDVDRom.png";
     else if (pItem->IsDVD())
       strIcon = "DefaultDVDFull.png";
+    else if (pItem->IsBluray())
+      strIcon = "DefaultBluray.png";
     else if (pItem->IsCDDA())
       strIcon = "DefaultCDDA.png";
-    else if (pItem->IsRemovable() && g_TextureManager.HasTexture("DefaultRemovableDisk.png"))
+    else if (pItem->IsRemovable() && CServiceBroker::GetGUI()->GetTextureManager().HasTexture("DefaultRemovableDisk.png"))
       strIcon = "DefaultRemovableDisk.png";
     else
       strIcon = "DefaultHardDisk.png";
-    
-    pItem->SetIconImage(strIcon);
-    if (share.m_iHasLock == 2 && CProfilesManager::GetInstance().GetMasterProfile().getLockMode() != LOCK_MODE_EVERYONE)
+
+    pItem->SetArt("icon", strIcon);
+    if (share.m_iHasLock == LOCK_STATE_LOCKED &&
+        m_profileManager->GetMasterProfile().getLockMode() != LOCK_MODE_EVERYONE)
       pItem->SetOverlayImage(CGUIListItem::ICON_OVERLAY_LOCKED);
     else
       pItem->SetOverlayImage(CGUIListItem::ICON_OVERLAY_NONE);
-    
+
     items.Add(pItem);
   }
   return true;

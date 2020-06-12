@@ -1,34 +1,23 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "Win32DllLoader.h"
+
 #include "DllLoader.h"
 #include "DllLoaderContainer.h"
-#include "utils/log.h"
-#include "utils/StringUtils.h"
-#include "filesystem/SpecialProtocol.h"
-#include "platform/win32/CharsetConverter.h"
-
-#include "dll_tracker_library.h"
 #include "dll_tracker_file.h"
+#include "dll_tracker_library.h"
 #include "exports/emu_msvcrt.h"
+#include "filesystem/SpecialProtocol.h"
+#include "utils/StringUtils.h"
+#include "utils/log.h"
+
+#include "platform/win32/CharsetConverter.h"
 
 #include <limits>
 
@@ -37,11 +26,7 @@ extern "C" FARPROC WINAPI dllWin32GetProcAddress(HMODULE hModule, LPCSTR functio
 //dllLoadLibraryA, dllFreeLibrary, dllGetProcAddress are from dllLoader,
 //they are wrapper functions of COFF/PE32 loader.
 extern "C" HMODULE WINAPI dllLoadLibraryA(LPCSTR libname);
-extern "C" HMODULE WINAPI dllLoadLibraryExA(LPCSTR lpLibFileName, HANDLE hFile, DWORD dwFlags);
 extern "C" BOOL WINAPI dllFreeLibrary(HINSTANCE hLibModule);
-extern "C" FARPROC WINAPI dllGetProcAddress(HMODULE hModule, LPCSTR function);
-extern "C" HMODULE WINAPI dllGetModuleHandleA(LPCSTR lpModuleName);
-extern "C" DWORD WINAPI dllGetModuleFileNameA(HMODULE hModule, LPSTR lpFilename, DWORD nSize);
 
 // our exports
 Export win32_exports[] =
@@ -140,9 +125,26 @@ bool Win32DllLoader::Load()
     return true;
 
   std::string strFileName = GetFileName();
-
   auto strDllW = ToW(CSpecialProtocol::TranslatePath(strFileName));
+
+#ifdef TARGET_WINDOWS_STORE
+  // The path cannot be an absolute path or a relative path that contains ".." in the path.
+  auto appPath = winrt::Windows::ApplicationModel::Package::Current().InstalledLocation().Path();
+  size_t len = appPath.size();
+
+  if (!appPath.empty() && wcsnicmp(appPath.c_str(), strDllW.c_str(), len) == 0)
+  {
+    if (strDllW.at(len) == '\\' || strDllW.at(len) == '/')
+      len++;
+    std::wstring relative = strDllW.substr(len);
+    m_dllHandle = LoadPackagedLibrary(relative.c_str(), 0);
+  }
+  else
+    m_dllHandle = LoadPackagedLibrary(strDllW.c_str(), 0);
+#else
   m_dllHandle = LoadLibraryExW(strDllW.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
+#endif
+
   if (!m_dllHandle)
   {
     DWORD dw = GetLastError();
@@ -225,7 +227,7 @@ void Win32DllLoader::OverrideImports(const std::string &dll)
 {
   using KODI::PLATFORM::WINDOWS::ToW;
   auto strdllW = ToW(CSpecialProtocol::TranslatePath(dll));
-  auto image_base = reinterpret_cast<BYTE*>(GetModuleHandleW(strdllW.c_str()));
+  auto image_base = reinterpret_cast<BYTE*>(m_dllHandle);
 
   if (!image_base)
   {

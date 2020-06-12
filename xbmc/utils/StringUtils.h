@@ -1,23 +1,13 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
+
 //-----------------------------------------------------------------------
 //
 //  File:      StringUtils.h
@@ -36,15 +26,46 @@
 #include <sstream>
 #include <locale>
 
+// workaround for broken [[depreciated]] in coverity
+#if defined(__COVERITY__)
+#undef FMT_DEPRECATED
+#define FMT_DEPRECATED
+#endif
 #include <fmt/format.h>
 
 #if FMT_VERSION >= 40000
 #include <fmt/printf.h>
 #endif
 
-#include "LangInfo.h"
 #include "XBDateTime.h"
 #include "utils/params_check_macros.h"
+
+/*! \brief  C-processor Token stringification
+
+The following macros can be used to stringify definitions to
+C style strings.
+
+Example:
+
+#define foo 4
+DEF_TO_STR_NAME(foo)  // outputs "foo"
+DEF_TO_STR_VALUE(foo) // outputs "4"
+
+*/
+
+#define DEF_TO_STR_NAME(x) #x
+#define DEF_TO_STR_VALUE(x) DEF_TO_STR_NAME(x)
+
+template<typename T, std::enable_if_t<!std::is_enum<T>::value, int> = 0>
+constexpr auto&& EnumToInt(T&& arg) noexcept
+{
+  return arg;
+}
+template<typename T, std::enable_if_t<std::is_enum<T>::value, int> = 0>
+constexpr auto EnumToInt(T&& arg) noexcept
+{
+  return static_cast<int>(arg);
+}
 
 class StringUtils
 {
@@ -64,9 +85,9 @@ public:
   static std::string Format(const std::string& fmt, Args&&... args)
   {
     // coverity[fun_call_w_exception : FALSE]
-    auto result = fmt::format(fmt, std::forward<Args>(args)...);
+    auto result = ::fmt::format(fmt, EnumToInt(std::forward<Args>(args))...);
     if (result == fmt)
-      result = fmt::sprintf(fmt, std::forward<Args>(args)...);
+      result = ::fmt::sprintf(fmt, EnumToInt(std::forward<Args>(args))...);
 
     return result;
   }
@@ -74,9 +95,9 @@ public:
   static std::wstring Format(const std::wstring& fmt, Args&&... args)
   {
     // coverity[fun_call_w_exception : FALSE]
-    auto result = fmt::format(fmt, std::forward<Args>(args)...);
+    auto result = ::fmt::format(fmt, EnumToInt(std::forward<Args>(args))...);
     if (result == fmt)
-      result = fmt::sprintf(fmt, std::forward<Args>(args)...);
+      result = ::fmt::sprintf(fmt, EnumToInt(std::forward<Args>(args))...);
 
     return result;
   }
@@ -92,8 +113,8 @@ public:
   static bool EqualsNoCase(const std::string &str1, const std::string &str2);
   static bool EqualsNoCase(const std::string &str1, const char *s2);
   static bool EqualsNoCase(const char *s1, const char *s2);
-  static int  CompareNoCase(const std::string &str1, const std::string &str2);
-  static int  CompareNoCase(const char *s1, const char *s2);
+  static int CompareNoCase(const std::string& str1, const std::string& str2, size_t n = 0);
+  static int CompareNoCase(const char* s1, const char* s2, size_t n = 0);
   static int ReturnDigits(const std::string &str);
   static std::string Left(const std::string &str, size_t count);
   static std::string Mid(const std::string &str, size_t first, size_t count = std::string::npos);
@@ -143,13 +164,76 @@ public:
   static std::vector<std::string> Split(const std::string& input, const std::string& delimiter, unsigned int iMaxStrings = 0);
   static std::vector<std::string> Split(const std::string& input, const char delimiter, size_t iMaxStrings = 0);
   static std::vector<std::string> Split(const std::string& input, const std::vector<std::string> &delimiters);
-  
+  /*! \brief Splits the given input string using the given delimiter into separate strings.
+
+   If the given input string is empty nothing will be put into the target iterator.
+
+   \param d_first the beginning of the destination range
+   \param input Input string to be split
+   \param delimiter Delimiter to be used to split the input string
+   \param iMaxStrings (optional) Maximum number of splitted strings
+   \return output iterator to the element in the destination range, one past the last element
+   *       that was put there
+   */
+  template<typename OutputIt>
+  static OutputIt SplitTo(OutputIt d_first, const std::string& input, const std::string& delimiter, unsigned int iMaxStrings = 0)
+  {
+    OutputIt dest = d_first;
+
+    if (input.empty())
+      return dest;
+    if (delimiter.empty())
+    {
+      *d_first++ = input;
+      return dest;
+    }
+
+    const size_t delimLen = delimiter.length();
+    size_t nextDelim;
+    size_t textPos = 0;
+    do
+    {
+      if (--iMaxStrings == 0)
+      {
+        *dest++ = input.substr(textPos);
+        break;
+      }
+      nextDelim = input.find(delimiter, textPos);
+      *dest++ = input.substr(textPos, nextDelim - textPos);
+      textPos = nextDelim + delimLen;
+    } while (nextDelim != std::string::npos);
+
+    return dest;
+  }
+  template<typename OutputIt>
+  static OutputIt SplitTo(OutputIt d_first, const std::string& input, const char delimiter, size_t iMaxStrings = 0)
+  {
+    return SplitTo(d_first, input, std::string(1, delimiter), iMaxStrings);
+  }
+  template<typename OutputIt>
+  static OutputIt SplitTo(OutputIt d_first, const std::string& input, const std::vector<std::string> &delimiters)
+  {
+    OutputIt dest = d_first;
+    if (input.empty())
+      return dest;
+
+    if (delimiters.empty())
+    {
+      *dest++ = input;
+      return dest;
+    }
+    std::string str = input;
+    for (size_t di = 1; di < delimiters.size(); di++)
+      StringUtils::Replace(str, delimiters[di], delimiters[0]);
+    return SplitTo(dest, str, delimiters[0]);
+  }
+
   /*! \brief Splits the given input strings using the given delimiters into further separate strings.
 
   If the given input string vector is empty the result will be an empty array (not
   an array containing an empty string).
 
-  Delimiter strings are applied in order, so once the (optional) maximum number of 
+  Delimiter strings are applied in order, so once the (optional) maximum number of
   items is produced no other delimiters are applied. This produces different results
   to applying all delimiters at once e.g. "a/b#c/d" becomes "a", "b#c", "d" rather
   than "a", "b", "c/d"
@@ -161,6 +245,7 @@ public:
   static std::vector<std::string> SplitMulti(const std::vector<std::string> &input, const std::vector<std::string> &delimiters, unsigned int iMaxStrings = 0);
   static int FindNumber(const std::string& strInput, const std::string &strFind);
   static int64_t AlphaNumericCompare(const wchar_t *left, const wchar_t *right);
+  static int AlphaNumericCollation(int nKey1, const void* pKey1, int nKey2, const void* pKey2);
   static long TimeStringToSeconds(const std::string &timeString);
   static void RemoveCRLF(std::string& strLine);
 
@@ -195,33 +280,34 @@ public:
   /* The next several isasciiXX and asciiXXvalue functions are locale independent (US-ASCII only),
    * as opposed to standard ::isXX (::isalpha, ::isdigit...) which are locale dependent.
    * Next functions get parameter as char and don't need double cast ((int)(unsigned char) is required for standard functions). */
-  inline static bool isasciidigit(char chr) // locale independent 
+  inline static bool isasciidigit(char chr) // locale independent
   {
-    return chr >= '0' && chr <= '9'; 
+    return chr >= '0' && chr <= '9';
   }
-  inline static bool isasciixdigit(char chr) // locale independent 
+  inline static bool isasciixdigit(char chr) // locale independent
   {
-    return (chr >= '0' && chr <= '9') || (chr >= 'a' && chr <= 'f') || (chr >= 'A' && chr <= 'F'); 
+    return (chr >= '0' && chr <= '9') || (chr >= 'a' && chr <= 'f') || (chr >= 'A' && chr <= 'F');
   }
-  static int asciidigitvalue(char chr); // locale independent 
-  static int asciixdigitvalue(char chr); // locale independent 
+  static int asciidigitvalue(char chr); // locale independent
+  static int asciixdigitvalue(char chr); // locale independent
   inline static bool isasciiuppercaseletter(char chr) // locale independent
   {
-    return (chr >= 'A' && chr <= 'Z'); 
+    return (chr >= 'A' && chr <= 'Z');
   }
   inline static bool isasciilowercaseletter(char chr) // locale independent
   {
-    return (chr >= 'a' && chr <= 'z'); 
+    return (chr >= 'a' && chr <= 'z');
   }
   inline static bool isasciialphanum(char chr) // locale independent
   {
-    return isasciiuppercaseletter(chr) || isasciilowercaseletter(chr) || isasciidigit(chr); 
+    return isasciiuppercaseletter(chr) || isasciilowercaseletter(chr) || isasciidigit(chr);
   }
   static std::string SizeToString(int64_t size);
   static const std::string Empty;
   static size_t FindWords(const char *str, const char *wordLowerCase);
   static int FindEndBracket(const std::string &str, char opener, char closer, int startPos = 0);
   static int DateStringToYYYYMMDD(const std::string &dateString);
+  static std::string ISODateToLocalizedDate (const std::string& strIsoDate);
   static void WordToDigits(std::string &word);
   static std::string CreateUUID();
   static bool ValidateUUID(const std::string &uuid); // NB only validates syntax
@@ -238,6 +324,13 @@ public:
   \return Converted string
   */
   static std::string BinaryStringToString(const std::string& in);
+  /**
+   * Convert each character in the string to its hexadecimal
+   * representation and return the concatenated result
+   *
+   * example: "abc\n" -> "6162630a"
+   */
+  static std::string ToHexadecimal(const std::string& in);
   /*! \brief Format the string with locale separators.
 
   Format the string with locale separators.
@@ -253,7 +346,7 @@ public:
 // ifdef is needed because when you set _ITERATOR_DEBUG_LEVEL=0 and you use custom numpunct you will get runtime error in debug mode
 // for more info https://connect.microsoft.com/VisualStudio/feedback/details/2655363
 #if !(defined(_DEBUG) && defined(TARGET_WINDOWS))
-    ss.imbue(g_langInfo.GetOriginalLocale());
+    ss.imbue(GetOriginalLocale());
 #endif
     ss.precision(1);
     ss << std::fixed << num;
@@ -292,6 +385,13 @@ public:
    * 102400 bytes as "100kB". See TestStringUtils for more examples.
    */
   static std::string FormatFileSize(uint64_t bytes);
+
+private:
+  /*!
+   * Wrapper for CLangInfo::GetOriginalLocale() which allows us to
+   * avoid including LangInfo.h from this header.
+   */
+  static const std::locale& GetOriginalLocale() noexcept;
 };
 
 struct sortstringbyname

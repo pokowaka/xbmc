@@ -1,26 +1,13 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include <stdlib.h>
 #include "network/Network.h"
-#include "system.h"
 #include "DirectoryFactory.h"
 #include "SpecialProtocolDirectory.h"
 #include "MultiPathDirectory.h"
@@ -38,34 +25,40 @@
 #include "FTPDirectory.h"
 #include "HTTPDirectory.h"
 #include "DAVDirectory.h"
+#if defined(HAS_UDFREAD)
 #include "UDFDirectory.h"
-#include "Application.h"
+#endif
 #include "utils/log.h"
 #include "network/WakeOnAccess.h"
 
 #ifdef TARGET_POSIX
-#include "posix/PosixDirectory.h"
+#include "platform/posix/filesystem/PosixDirectory.h"
 #elif defined(TARGET_WINDOWS)
-#include "win32/Win32Directory.h"
+#include "platform/win32/filesystem/Win32Directory.h"
+#ifdef TARGET_WINDOWS_STORE
+#include "platform/win10/filesystem/WinLibraryDirectory.h"
+#endif
 #endif
 #ifdef HAS_FILESYSTEM_SMB
 #ifdef TARGET_WINDOWS
-#include "win32/Win32SMBDirectory.h"
+#include "platform/win32/filesystem/Win32SMBDirectory.h"
 #else
-#include "SMBDirectory.h"
+#include "platform/posix/filesystem/SMBDirectory.h"
 #endif
 #endif
-#ifdef HAS_FILESYSTEM_CDDA
 #include "CDDADirectory.h"
-#endif
 #include "PluginDirectory.h"
+#if defined(HAS_ISO9660PP)
 #include "ISO9660Directory.h"
+#endif
 #ifdef HAS_UPNP
 #include "UPnPDirectory.h"
 #endif
 #include "PVRDirectory.h"
 #if defined(TARGET_ANDROID)
-#include "APKDirectory.h"
+#include "platform/android/filesystem/APKDirectory.h"
+#elif defined(TARGET_DARWIN_TVOS)
+#include "platform/darwin/tvos/filesystem/TVOSDirectory.h"
 #endif
 #include "XbtDirectory.h"
 #include "ZipDirectory.h"
@@ -75,9 +68,6 @@
 #ifdef HAS_ZEROCONF
 #include "ZeroconfDirectory.h"
 #endif
-#ifdef HAS_FILESYSTEM_SFTP
-#include "SFTPDirectory.h"
-#endif
 #ifdef HAS_FILESYSTEM_NFS
 #include "NFSDirectory.h"
 #endif
@@ -85,7 +75,7 @@
 #include "BlurayDirectory.h"
 #endif
 #if defined(TARGET_ANDROID)
-#include "AndroidAppDirectory.h"
+#include "platform/android/filesystem/AndroidAppDirectory.h"
 #endif
 #include "ResourceDirectory.h"
 #include "ServiceBroker.h"
@@ -107,12 +97,30 @@ IDirectory* CDirectoryFactory::Create(const CURL& url)
     return NULL;
 
   CFileItem item(url.Get(), true);
-  IFileDirectory* pDir=CFileDirectoryFactory::Create(url, &item);
+  IFileDirectory* pDir = CFileDirectoryFactory::Create(url, &item);
   if (pDir)
     return pDir;
 
+  if (!url.GetProtocol().empty() && CServiceBroker::IsBinaryAddonCacheUp())
+  {
+    for (const auto& vfsAddon : CServiceBroker::GetVFSAddonCache().GetAddonInstances())
+    {
+      auto prots = StringUtils::Split(vfsAddon->GetProtocols(), "|");
+
+      if (vfsAddon->HasDirectories() && std::find(prots.begin(), prots.end(), url.GetProtocol()) != prots.end())
+        return new CVFSEntryIDirectoryWrapper(vfsAddon);
+    }
+  }
+
 #ifdef TARGET_POSIX
-  if (url.GetProtocol().empty() || url.IsProtocol("file")) return new CPosixDirectory();
+  if (url.GetProtocol().empty() || url.IsProtocol("file"))
+  {
+#if defined(TARGET_DARWIN_TVOS)
+    if (CTVOSDirectory::WantsDirectory(url))
+      return new CTVOSDirectory();
+#endif
+    return new CPosixDirectory();
+  }
 #elif defined(TARGET_WINDOWS)
   if (url.GetProtocol().empty() || url.IsProtocol("file")) return new CWin32Directory();
 #else
@@ -121,11 +129,15 @@ IDirectory* CDirectoryFactory::Create(const CURL& url)
   if (url.IsProtocol("special")) return new CSpecialProtocolDirectory();
   if (url.IsProtocol("sources")) return new CSourcesDirectory();
   if (url.IsProtocol("addons")) return new CAddonsDirectory();
-#if defined(HAS_FILESYSTEM_CDDA) && defined(HAS_DVD_DRIVE)
+#if defined(HAS_DVD_DRIVE)
   if (url.IsProtocol("cdda")) return new CCDDADirectory();
 #endif
+#if defined(HAS_ISO9660PP)
   if (url.IsProtocol("iso9660")) return new CISO9660Directory();
+#endif
+#if defined(HAS_UDFREAD)
   if (url.IsProtocol("udf")) return new CUDFDirectory();
+#endif
   if (url.IsProtocol("plugin")) return new CPluginDirectory();
 #if defined(TARGET_ANDROID)
   if (url.IsProtocol("apk")) return new CAPKDirectory();
@@ -149,46 +161,35 @@ IDirectory* CDirectoryFactory::Create(const CURL& url)
 #endif
   if (url.IsProtocol("resource")) return new CResourceDirectory();
   if (url.IsProtocol("events")) return new CEventsDirectory();
-
-  bool networkAvailable = g_application.getNetwork().IsAvailable();
-  if (networkAvailable)
-  {
-    if (url.IsProtocol("ftp") || url.IsProtocol("ftps")) return new CFTPDirectory();
-    if (url.IsProtocol("http") || url.IsProtocol("https")) return new CHTTPDirectory();
-    if (url.IsProtocol("dav") || url.IsProtocol("davs")) return new CDAVDirectory();
-#ifdef HAS_FILESYSTEM_SFTP
-    if (url.IsProtocol("sftp") || url.IsProtocol("ssh")) return new CSFTPDirectory();
+#ifdef TARGET_WINDOWS_STORE
+  if (CWinLibraryDirectory::IsValid(url)) return new CWinLibraryDirectory();
 #endif
+
+  if (url.IsProtocol("ftp") || url.IsProtocol("ftps")) return new CFTPDirectory();
+  if (url.IsProtocol("http") || url.IsProtocol("https")) return new CHTTPDirectory();
+  if (url.IsProtocol("dav") || url.IsProtocol("davs")) return new CDAVDirectory();
 #ifdef HAS_FILESYSTEM_SMB
 #ifdef TARGET_WINDOWS
-    if (url.IsProtocol("smb")) return new CWin32SMBDirectory();
+  if (url.IsProtocol("smb")) return new CWin32SMBDirectory();
 #else
-    if (url.IsProtocol("smb")) return new CSMBDirectory();
+  if (url.IsProtocol("smb")) return new CSMBDirectory();
 #endif
 #endif
 #ifdef HAS_UPNP
-    if (url.IsProtocol("upnp")) return new CUPnPDirectory();
+  if (url.IsProtocol("upnp")) return new CUPnPDirectory();
 #endif
-    if (url.IsProtocol("rss")) return new CRSSDirectory();
-    if (url.IsProtocol("pvr")) return new CPVRDirectory();
+  if (url.IsProtocol("rss") || url.IsProtocol("rsss")) return new CRSSDirectory();
 #ifdef HAS_ZEROCONF
-    if (url.IsProtocol("zeroconf")) return new CZeroconfDirectory();
+  if (url.IsProtocol("zeroconf")) return new CZeroconfDirectory();
 #endif
 #ifdef HAS_FILESYSTEM_NFS
-    if (url.IsProtocol("nfs")) return new CNFSDirectory();
+  if (url.IsProtocol("nfs")) return new CNFSDirectory();
 #endif
-  }
 
-  if (!url.GetProtocol().empty() && CServiceBroker::IsBinaryAddonCacheUp())
-  {
-    for (const auto& vfsAddon : CServiceBroker::GetVFSAddonCache().GetAddonInstances())
-    {
-      if (vfsAddon->HasDirectories() && vfsAddon->GetProtocols().find(url.GetProtocol()) != std::string::npos)
-        return new CVFSEntryIDirectoryWrapper(vfsAddon);
-    }
-  }
+  if (url.IsProtocol("pvr"))
+    return new CPVRDirectory();
 
-  CLog::Log(LOGWARNING, "%s - %sunsupported protocol(%s) in %s", __FUNCTION__, networkAvailable ? "" : "Network down or ", url.GetProtocol().c_str(), url.GetRedacted().c_str() );
+  CLog::Log(LOGWARNING, "%s - unsupported protocol(%s) in %s", __FUNCTION__, url.GetProtocol().c_str(), url.GetRedacted().c_str() );
   return NULL;
 }
 

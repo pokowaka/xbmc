@@ -1,46 +1,40 @@
 /*
- *      Copyright (c) 2006 elupus (Joakim Plate)
- *      Copyright (C) 2006-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (c) 2006 elupus (Joakim Plate)
+ *  Copyright (C) 2006-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
-#include <Platinum/Source/Platinum/Platinum.h>
-#include <Platinum/Source/Devices/MediaRenderer/PltMediaController.h>
-#include <Platinum/Source/Devices/MediaServer/PltDidl.h>
-
 #include "UPnPPlayer.h"
+
+#include "Application.h"
+#include "FileItem.h"
+#include "GUIInfoManager.h"
+#include "ServiceBroker.h"
+#include "ThumbLoader.h"
 #include "UPnP.h"
 #include "UPnPInternal.h"
-#include "FileItem.h"
-#include "threads/Event.h"
-#include "utils/log.h"
-#include "utils/TimeUtils.h"
-#include "utils/Variant.h"
-#include "GUIInfoManager.h"
-#include "ThumbLoader.h"
-#include "video/VideoThumbLoader.h"
-#include "music/MusicThumbLoader.h"
-#include "messaging/ApplicationMessenger.h"
-#include "messaging/helpers/DialogHelper.h"
-#include "Application.h"
 #include "cores/DataCacheCore.h"
 #include "dialogs/GUIDialogBusy.h"
+#include "guilib/GUIComponent.h"
 #include "guilib/GUIWindowManager.h"
 #include "input/Key.h"
+#include "messaging/ApplicationMessenger.h"
+#include "messaging/helpers/DialogHelper.h"
+#include "music/MusicThumbLoader.h"
+#include "threads/Event.h"
+#include "utils/StaticLoggerBase.h"
+#include "utils/StringUtils.h"
+#include "utils/TimeUtils.h"
+#include "utils/Variant.h"
+#include "utils/log.h"
+#include "video/VideoThumbLoader.h"
+#include "windowing/WinSystem.h"
+
+#include <Platinum/Source/Devices/MediaRenderer/PltMediaController.h>
+#include <Platinum/Source/Devices/MediaServer/PltDidl.h>
+#include <Platinum/Source/Platinum/Platinum.h>
 
 using namespace KODI::MESSAGING;
 
@@ -51,26 +45,28 @@ NPT_SET_LOCAL_LOGGER("xbmc.upnp.player")
 namespace UPNP
 {
 
-class CUPnPPlayerController
-  : public PLT_MediaControllerDelegate
+class CUPnPPlayerController : public PLT_MediaControllerDelegate, protected CStaticLoggerBase
 {
 public:
-  CUPnPPlayerController(PLT_MediaController* control, PLT_DeviceDataReference& device, IPlayerCallback& callback)
-    : m_control(control)
-    , m_transport(NULL)
-    , m_device(device)
-    , m_instance(0)
-    , m_callback(callback)
-    , m_postime(0)
+  CUPnPPlayerController(PLT_MediaController* control,
+                        PLT_DeviceDataReference& device,
+                        IPlayerCallback& callback)
+    : CStaticLoggerBase("CUPnPPlayerController"),
+      m_control(control),
+      m_transport(NULL),
+      m_device(device),
+      m_instance(0),
+      m_callback(callback),
+      m_postime(0)
   {
-    memset(&m_posinfo, 0, sizeof(m_posinfo));
+    m_posinfo = {};
     m_device->FindServiceByType("urn:schemas-upnp-org:service:AVTransport:1", m_transport);
   }
 
   void OnSetAVTransportURIResult(NPT_Result res, PLT_DeviceDataReference& device, void* userdata) override
   {
     if(NPT_FAILED(res))
-      CLog::Log(LOGERROR, "UPNP: CUPnPPlayer : OnSetAVTransportURIResult failed");
+      s_logger->error("OnSetAVTransportURIResult failed");
     m_resstatus = res;
     m_resevent.Set();
   }
@@ -78,7 +74,7 @@ public:
   void OnPlayResult(NPT_Result res, PLT_DeviceDataReference& device, void* userdata) override
   {
     if(NPT_FAILED(res))
-      CLog::Log(LOGERROR, "UPNP: CUPnPPlayer : OnPlayResult failed");
+      s_logger->error("OnPlayResult failed");
     m_resstatus = res;
     m_resevent.Set();
   }
@@ -86,7 +82,7 @@ public:
   void OnStopResult(NPT_Result res, PLT_DeviceDataReference& device, void* userdata) override
   {
     if(NPT_FAILED(res))
-      CLog::Log(LOGERROR, "UPNP: CUPnPPlayer : OnStopResult failed");
+      s_logger->error("OnStopResult failed");
     m_resstatus = res;
     m_resevent.Set();
   }
@@ -94,7 +90,7 @@ public:
   void OnGetMediaInfoResult(NPT_Result res, PLT_DeviceDataReference& device, PLT_MediaInfo* info, void* userdata) override
   {
     if(NPT_FAILED(res) || info == NULL)
-      CLog::Log(LOGERROR, "UPNP: CUPnPPlayer : OnGetMediaInfoResult failed");
+      s_logger->error("OnGetMediaInfoResult failed");
   }
 
   void OnGetTransportInfoResult(NPT_Result res, PLT_DeviceDataReference& device, PLT_TransportInfo* info, void* userdata) override
@@ -103,7 +99,7 @@ public:
 
     if(NPT_FAILED(res))
     {
-      CLog::Log(LOGERROR, "UPNP: CUPnPPlayer : OnGetTransportInfoResult failed");
+      s_logger->error("OnGetTransportInfoResult failed");
       m_trainfo.cur_speed            = "0";
       m_trainfo.cur_transport_state  = "STOPPED";
       m_trainfo.cur_transport_status = "ERROR_OCCURED";
@@ -130,7 +126,7 @@ public:
 
     if(NPT_FAILED(res) || info == NULL)
     {
-      CLog::Log(LOGERROR, "UPNP: CUPnPPlayer : OnGetMediaInfoResult failed");
+      s_logger->error("OnGetMediaInfoResult failed");
       m_posinfo = PLT_PositionInfo();
     }
     else
@@ -162,11 +158,12 @@ public:
 };
 
 CUPnPPlayer::CUPnPPlayer(IPlayerCallback& callback, const char* uuid)
-: IPlayer(callback)
-, m_control(NULL)
-, m_delegate(NULL)
-, m_started(false)
-, m_stopremote(false)
+  : IPlayer(callback),
+    m_control(NULL),
+    m_delegate(NULL),
+    m_started(false),
+    m_stopremote(false),
+    m_logger(CServiceBroker::GetLogging().GetLogger(StringUtils::Format("CUPnPPlayer[{}]", uuid)))
 {
   m_control  = CUPnP::GetInstance()->m_MediaController;
 
@@ -177,11 +174,14 @@ CUPnPPlayer::CUPnPPlayer(IPlayerCallback& callback, const char* uuid)
     CUPnP::RegisterUserdata(m_delegate);
   }
   else
-    CLog::Log(LOGERROR, "UPNP: CUPnPPlayer couldn't find device as %s", uuid);
+    m_logger->error("couldn't find device as {}", uuid);
+
+  CServiceBroker::GetWinSystem()->RegisterRenderLoop(this);
 }
 
 CUPnPPlayer::~CUPnPPlayer()
 {
+  CServiceBroker::GetWinSystem()->UnregisterRenderLoop(this);
   CloseFile();
   CUPnP::UnregisterUserdata(m_delegate);
   delete m_delegate;
@@ -226,7 +226,7 @@ int CUPnPPlayer::PlayFile(const CFileItem& file, const CPlayerOptions& options, 
   {
     for (NPT_Cardinal i=0; i< obj->m_Resources.GetItemCount(); i++) {
       if (obj->m_Resources[i].m_ProtocolInfo.GetContentType().Compare("video/x-matroska") == 0) {
-        CLog::Log(LOGDEBUG, "CUPnPPlayer::PlayFile(%s): applying video/x-mkv quirk", file.GetPath().c_str());
+        m_logger->debug("PlayFile({}): applying video/x-mkv quirk", file.GetPath());
         NPT_String protocolInfo = obj->m_Resources[i].m_ProtocolInfo.ToString();
         protocolInfo.Replace(":video/x-matroska:", ":video/x-mkv:");
         obj->m_Resources[i].m_ProtocolInfo = PLT_ProtocolInfo(protocolInfo);
@@ -293,7 +293,7 @@ int CUPnPPlayer::PlayFile(const CFileItem& file, const CPlayerOptions& options, 
       if(m_delegate->m_trainfo.cur_transport_state  == "STOPPED"
       && m_delegate->m_trainfo.cur_transport_status != "OK")
       {
-        CLog::Log(LOGERROR, "UPNP: CUPnPPlayer::OpenFile - remote player signalled error %s", file.GetPath().c_str());
+        m_logger->error("OpenFile({}): remote player signalled error", file.GetPath());
         return NPT_FAILURE;
       }
     }
@@ -314,31 +314,31 @@ int CUPnPPlayer::PlayFile(const CFileItem& file, const CPlayerOptions& options, 
 
   return NPT_SUCCESS;
 failed_todidl:
-  CLog::Log(LOGERROR, "CUPnPPlayer::PlayFile(%s) failed to serialize item into DIDL-Lite", file.GetPath().c_str());
+  m_logger->error("PlayFile({}) failed to serialize item into DIDL-Lite", file.GetPath());
   return NPT_FAILURE;
 failed_findbestresource:
-  CLog::Log(LOGERROR, "CUPnPPlayer::PlayFile(%s) failed to find a matching resource", file.GetPath().c_str());
+  m_logger->error("PlayFile({}) failed to find a matching resource", file.GetPath());
   return NPT_FAILURE;
 failed_gettransportinfo:
-  CLog::Log(LOGERROR, "CUPnPPlayer::PlayFile(%s): call to GetTransportInfo failed", file.GetPath().c_str());
+  m_logger->error("PlayFile({}): call to GetTransportInfo failed", file.GetPath());
   return NPT_FAILURE;
 failed_stop:
-  CLog::Log(LOGERROR, "CUPnPPlayer::PlayFile(%s) failed to stop current playback", file.GetPath().c_str());
+  m_logger->error("PlayFile({}) failed to stop current playback", file.GetPath());
   return NPT_FAILURE;
 failed_setavtransporturi:
-  CLog::Log(LOGERROR, "CUPnPPlayer::PlayFile(%s) failed to set the playback URI", file.GetPath().c_str());
+  m_logger->error("PlayFile({}) failed to set the playback URI", file.GetPath());
   return NPT_FAILURE;
 failed_play:
-  CLog::Log(LOGERROR, "CUPnPPlayer::PlayFile(%s) failed to start playback", file.GetPath().c_str());
+  m_logger->error("PlayFile({}) failed to start playback", file.GetPath());
   return NPT_FAILURE;
 failed_waitplaying:
-  CLog::Log(LOGERROR, "CUPnPPlayer::PlayFile(%s) failed to wait for PLAYING state", file.GetPath().c_str());
+  m_logger->error("PlayFile({}) failed to wait for PLAYING state", file.GetPath());
   return NPT_FAILURE;
 failed_seek:
-  CLog::Log(LOGERROR, "CUPnPPlayer::PlayFile(%s) failed to seek to start offset", file.GetPath().c_str());
+  m_logger->error("PlayFile({}) failed to seek to start offset", file.GetPath());
   return NPT_FAILURE;
 failed:
-  CLog::Log(LOGERROR, "CUPnPPlayer::PlayFile(%s) failed", file.GetPath().c_str());
+  m_logger->error("PlayFile({}) failed", file.GetPath());
   return NPT_FAILURE;
 }
 
@@ -368,7 +368,8 @@ bool CUPnPPlayer::OpenFile(const CFileItem& file, const CPlayerOptions& options)
 
   m_stopremote = true;
   m_started = true;
-  m_callback.OnPlayBackStarted();
+  m_callback.OnPlayBackStarted(file);
+  m_callback.OnAVStarted(file);
   NPT_CHECK_LABEL_SEVERE(m_control->GetPositionInfo(m_delegate->m_device
                                                   , m_delegate->m_instance
                                                   , m_delegate), failed);
@@ -379,9 +380,11 @@ bool CUPnPPlayer::OpenFile(const CFileItem& file, const CPlayerOptions& options)
   if(dialog)
     dialog->Close();
 
+  m_updateTimer.Set(0);
+
   return true;
 failed:
-  CLog::Log(LOGERROR, "UPNP: CUPnPPlayer::OpenFile - unable to open file %s", file.GetPath().c_str());
+  m_logger->error("OpenFile({}) failed to open file", file.GetPath());
   if(dialog)
     dialog->Close();
   return false;
@@ -401,7 +404,7 @@ bool CUPnPPlayer::QueueNextFile(const CFileItem& file)
     thumb_loader = NPT_Reference<CThumbLoader>(new CMusicThumbLoader());
 
 
-  obj = BuildObject(item, path, 0, thumb_loader, NULL, CUPnP::GetServer(), UPnPPlayer);
+  obj = BuildObject(item, path, false, thumb_loader, NULL, CUPnP::GetServer(), UPnPPlayer);
   if(!obj.IsNull())
   {
     NPT_CHECK_LABEL_SEVERE(PLT_Didl::ToDidl(*obj, "", tmp), failed);
@@ -419,7 +422,7 @@ bool CUPnPPlayer::QueueNextFile(const CFileItem& file)
   return true;
 
 failed:
-  CLog::Log(LOGERROR, "UPNP: CUPnPPlayer::QueueNextFile - unable to queue file %s", file.GetPath().c_str());
+  m_logger->error("QueueNextFile({}) failed to queue file", file.GetPath());
   return false;
 }
 
@@ -443,7 +446,7 @@ bool CUPnPPlayer::CloseFile(bool reopen)
 
   return true;
 failed:
-  CLog::Log(LOGERROR, "UPNP: CUPnPPlayer::CloseFile - unable to stop playback");
+  m_logger->error("CloseFile - unable to stop playback");
   return false;
 }
 
@@ -467,8 +470,7 @@ void CUPnPPlayer::Pause()
 
   return;
 failed:
-  CLog::Log(LOGERROR, "UPNP: CUPnPPlayer::CloseFile - unable to pause/unpause playback");
-  return;
+  m_logger->error("CloseFile - unable to pause/unpause playback");
 }
 
 void CUPnPPlayer::SeekTime(int64_t ms)
@@ -478,10 +480,10 @@ void CUPnPPlayer::SeekTime(int64_t ms)
                                 , "REL_TIME", PLT_Didl::FormatTimeStamp((NPT_UInt32)(ms / 1000))
                                 , m_delegate), failed);
 
-  g_infoManager.SetDisplayAfterSeek();
+  CServiceBroker::GetGUI()->GetInfoManager().GetInfoProviders().GetPlayerInfoProvider().SetDisplayAfterSeek();
   return;
 failed:
-  CLog::Log(LOGERROR, "UPNP: CUPnPPlayer::SeekTime - unable to seek playback");
+  m_logger->error("SeekTime - unable to seek playback");
 }
 
 float CUPnPPlayer::GetPercentage()
@@ -565,8 +567,7 @@ void CUPnPPlayer::SetVolume(float volume)
                                      , m_delegate), failed);
   return;
 failed:
-  CLog::Log(LOGERROR, "UPNP: CUPnPPlayer - unable to set volume");
-  return;
+  m_logger->error("- unable to set volume");
 }
 
 int64_t CUPnPPlayer::GetTime()
@@ -585,11 +586,6 @@ failed:
   return 0;
 };
 
-std::string CUPnPPlayer::GetPlayingTitle()
-{
-  return "";
-};
-
 bool CUPnPPlayer::OnAction(const CAction &action)
 {
   switch (action.GetID())
@@ -599,7 +595,7 @@ bool CUPnPPlayer::OnAction(const CAction &action)
       {
         //stop on remote system
         m_stopremote = HELPERS::ShowYesNoDialogText(CVariant{37022}, CVariant{37023}) == DialogResponse::YES;
-        
+
         return false; /* let normal code handle the action */
       }
     default:
@@ -612,5 +608,13 @@ void CUPnPPlayer::SetSpeed(float speed)
 
 }
 
+void CUPnPPlayer::FrameMove()
+{
+  if (m_updateTimer.IsTimePast())
+  {
+    CDataCacheCore::GetInstance().SetPlayTimes(0, GetTime(), 0, GetTotalTime());
+    m_updateTimer.Set(500);
+  }
+}
 
 } /* namespace UPNP */

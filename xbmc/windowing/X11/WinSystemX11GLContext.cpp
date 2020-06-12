@@ -1,44 +1,89 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
-#include "system.h"
+
+#include "WinSystemX11GLContext.h"
+
+#include "Application.h"
+#include "GLContextEGL.h"
+#include "OptionalsReg.h"
+#include "VideoSyncOML.h"
+#include "X11DPMSSupport.h"
+#include "cores/RetroPlayer/process/X11/RPProcessInfoX11.h"
+#include "cores/RetroPlayer/rendering/VideoRenderers/RPRendererOpenGL.h"
+#include "cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.h"
+#include "cores/VideoPlayer/Process/X11/ProcessInfoX11.h"
+#include "cores/VideoPlayer/VideoRenderers/LinuxRendererGL.h"
+#include "cores/VideoPlayer/VideoRenderers/RenderFactory.h"
+#include "guilib/DispResource.h"
+#include "rendering/gl/ScreenshotSurfaceGL.h"
+#include "threads/SingleLock.h"
+#include "utils/StringUtils.h"
+#include "utils/log.h"
+#include "windowing/GraphicContext.h"
+
+#include "platform/freebsd/OptionalsReg.h"
+#include "platform/linux/OptionalsReg.h"
+
+#include <vector>
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
-#include "WinSystemX11GLContext.h"
-#include "GLContextGLX.h"
-#include "GLContextEGL.h"
-#include "utils/log.h"
-#include "utils/StringUtils.h"
-#include "guilib/GraphicContext.h"
-#include "guilib/DispResource.h"
-#include "threads/SingleLock.h"
-#include <vector>
-#include "Application.h"
-#include "VideoSyncDRM.h"
-#include "VideoSyncGLX.h"
-#include "cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.h"
-#include "cores/VideoPlayer/Process/X11/ProcessInfoX11.h"
-#include "cores/VideoPlayer/VideoRenderers/RenderFactory.h"
+using namespace KODI;
 
-CWinSystemX11GLContext::CWinSystemX11GLContext() = default;
+std::unique_ptr<CWinSystemBase> CWinSystemBase::CreateWinSystem()
+{
+  std::unique_ptr<CWinSystemBase> winSystem(new CWinSystemX11GLContext());
+  return winSystem;
+}
+
+CWinSystemX11GLContext::CWinSystemX11GLContext()
+{
+  std::string envSink;
+  if (getenv("KODI_AE_SINK"))
+    envSink = getenv("KODI_AE_SINK");
+  if (StringUtils::EqualsNoCase(envSink, "ALSA"))
+  {
+    OPTIONALS::ALSARegister();
+  }
+  else if (StringUtils::EqualsNoCase(envSink, "PULSE"))
+  {
+    OPTIONALS::PulseAudioRegister();
+  }
+  else if (StringUtils::EqualsNoCase(envSink, "OSS"))
+  {
+    OPTIONALS::OSSRegister();
+  }
+  else if (StringUtils::EqualsNoCase(envSink, "SNDIO"))
+  {
+    OPTIONALS::SndioRegister();
+  }
+  else if (StringUtils::EqualsNoCase(envSink, "ALSA+PULSE"))
+  {
+    OPTIONALS::ALSARegister();
+    OPTIONALS::PulseAudioRegister();
+  }
+  else
+  {
+    if (!OPTIONALS::PulseAudioRegister())
+    {
+      if (!OPTIONALS::ALSARegister())
+      {
+        if (!OPTIONALS::SndioRegister())
+        {
+          OPTIONALS::OSSRegister();
+        }
+      }
+    }
+  }
+
+  m_lirc.reset(OPTIONALS::LircRegister());
+}
 
 CWinSystemX11GLContext::~CWinSystemX11GLContext()
 {
@@ -49,7 +94,7 @@ void CWinSystemX11GLContext::PresentRenderImpl(bool rendered)
 {
   if (rendered)
     m_pGLContext->SwapBuffers();
-  
+
   if (m_delayDispReset && m_dispResetTimer.IsTimePast())
   {
     m_delayDispReset = false;
@@ -65,7 +110,7 @@ void CWinSystemX11GLContext::SetVSyncImpl(bool enable)
   m_pGLContext->SetVSync(enable);
 }
 
-bool CWinSystemX11GLContext::IsExtSupported(const char* extension)
+bool CWinSystemX11GLContext::IsExtSupported(const char* extension) const
 {
   if(strncmp(extension, m_pGLContext->ExtPrefix().c_str(), 4) != 0)
     return CRenderSystemGL::IsExtSupported(extension);
@@ -73,14 +118,14 @@ bool CWinSystemX11GLContext::IsExtSupported(const char* extension)
   return m_pGLContext->IsExtSupported(extension);
 }
 
-GLXWindow CWinSystemX11GLContext::GetWindow() const
+XID CWinSystemX11GLContext::GetWindow() const
 {
-  return static_cast<CGLContextGLX*>(m_pGLContext)->m_glxWindow;
+  return X11::GLXGetWindow(m_pGLContext);
 }
 
-GLXContext CWinSystemX11GLContext::GetGlxContext() const
+void* CWinSystemX11GLContext::GetGlxContext() const
 {
-  return static_cast<CGLContextGLX*>(m_pGLContext)->m_glxContext;
+  return X11::GLXGetContext(m_pGLContext);
 }
 
 EGLDisplay CWinSystemX11GLContext::GetEGLDisplay() const
@@ -106,13 +151,14 @@ EGLConfig CWinSystemX11GLContext::GetEGLConfig() const
 bool CWinSystemX11GLContext::SetWindow(int width, int height, bool fullscreen, const std::string &output, int *winstate)
 {
   int newwin = 0;
+
   CWinSystemX11::SetWindow(width, height, fullscreen, output, &newwin);
   if (newwin)
   {
     RefreshGLContext(m_currentOutput.compare(output) != 0);
-    XSync(m_dpy, FALSE);
-    g_graphicsContext.Clear(0);
-    g_graphicsContext.Flip(true, false);
+    XSync(m_dpy, False);
+    CServiceBroker::GetWinSystem()->GetGfxContext().Clear(0);
+    CServiceBroker::GetWinSystem()->GetGfxContext().Flip(true, false);
     ResetVSync();
 
     m_windowDirty = false;
@@ -142,7 +188,7 @@ bool CWinSystemX11GLContext::ResizeWindow(int newWidth, int newHeight, int newLe
 {
   m_newGlContext = false;
   CWinSystemX11::ResizeWindow(newWidth, newHeight, newLeft, newTop);
-  CRenderSystemGL::ResetRenderSystem(newWidth, newHeight, false, 0);
+  CRenderSystemGL::ResetRenderSystem(newWidth, newHeight);
 
   if (m_newGlContext)
     g_application.ReloadSkin();
@@ -150,11 +196,21 @@ bool CWinSystemX11GLContext::ResizeWindow(int newWidth, int newHeight, int newLe
   return true;
 }
 
+void CWinSystemX11GLContext::FinishWindowResize(int newWidth, int newHeight)
+{
+  m_newGlContext = false;
+  CWinSystemX11::FinishWindowResize(newWidth, newHeight);
+  CRenderSystemGL::ResetRenderSystem(newWidth, newHeight);
+
+  if (m_newGlContext)
+    g_application.ReloadSkin();
+}
+
 bool CWinSystemX11GLContext::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool blankOtherDisplays)
 {
   m_newGlContext = false;
   CWinSystemX11::SetFullScreen(fullScreen, res, blankOtherDisplays);
-  CRenderSystemGL::ResetRenderSystem(res.iWidth, res.iHeight, fullScreen, res.fRefreshRate);
+  CRenderSystemGL::ResetRenderSystem(res.iWidth, res.iHeight);
 
   if (m_newGlContext)
     g_application.ReloadSkin();
@@ -164,89 +220,114 @@ bool CWinSystemX11GLContext::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res
 
 bool CWinSystemX11GLContext::DestroyWindowSystem()
 {
-  m_pGLContext->Destroy();
+  if (m_pGLContext)
+    m_pGLContext->Destroy();
   return CWinSystemX11::DestroyWindowSystem();
 }
 
 bool CWinSystemX11GLContext::DestroyWindow()
 {
-  m_pGLContext->Detach();
+  if (m_pGLContext)
+    m_pGLContext->Detach();
   return CWinSystemX11::DestroyWindow();
 }
 
 XVisualInfo* CWinSystemX11GLContext::GetVisual()
 {
-  GLint att[] =
-  {
-    GLX_RGBA,
-    GLX_RED_SIZE, 8,
-    GLX_GREEN_SIZE, 8,
-    GLX_BLUE_SIZE, 8,
-    GLX_ALPHA_SIZE, 8,
-    GLX_DEPTH_SIZE, 24,
-    GLX_DOUBLEBUFFER,
-    None
-  };
-  return glXChooseVisual(m_dpy, m_nScreen, att);
-}
+  int count = 0;
+  XVisualInfo vTemplate;
+  XVisualInfo *visual = nullptr;
 
-#if defined (HAVE_LIBVA)
-#include <va/va_x11.h>
-#include "cores/VideoPlayer/DVDCodecs/Video/VAAPI.h"
-#include "cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGL.h"
-#endif
-#if defined (HAVE_LIBVDPAU)
-#include "cores/VideoPlayer/DVDCodecs/Video/VDPAU.h"
-#include "cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVDPAU.h"
-#endif
+  int vMask = VisualScreenMask | VisualDepthMask | VisualClassMask;
+
+  vTemplate.screen = m_screen;
+  vTemplate.depth = 24;
+  vTemplate.c_class = TrueColor;
+
+  visual = XGetVisualInfo(m_dpy, vMask, &vTemplate, &count);
+
+  if (!visual)
+  {
+    vTemplate.depth = 30;
+    visual = XGetVisualInfo(m_dpy, vMask, &vTemplate, &count);
+  }
+
+  return visual;
+}
 
 bool CWinSystemX11GLContext::RefreshGLContext(bool force)
 {
   bool success = false;
   if (m_pGLContext)
   {
-    success = m_pGLContext->Refresh(force, m_nScreen, m_glWindow, m_newGlContext);
+    success = m_pGLContext->Refresh(force, m_screen, m_glWindow, m_newGlContext);
+    if (!success)
+    {
+      success = m_pGLContext->CreatePB();
+      m_newGlContext = true;
+    }
     return success;
   }
 
+  m_dpms = std::make_shared<CX11DPMSSupport>();
   VIDEOPLAYER::CProcessInfoX11::Register();
+  RETRO::CRPProcessInfoX11::Register();
+  RETRO::CRPProcessInfoX11::RegisterRendererFactory(new RETRO::CRendererFactoryOpenGL);
   CDVDFactoryCodec::ClearHWAccels();
   VIDEOPLAYER::CRendererFactory::ClearRenderer();
   CLinuxRendererGL::Register();
 
-  m_pGLContext = new CGLContextEGL(m_dpy);
-  success = m_pGLContext->Refresh(force, m_nScreen, m_glWindow, m_newGlContext);
-  if (success)
+  CScreenshotSurfaceGL::Register();
+
+  std::string gpuvendor;
+  const char* vend = (const char*) glGetString(GL_VENDOR);
+  if (vend)
+    gpuvendor = vend;
+  std::transform(gpuvendor.begin(), gpuvendor.end(), gpuvendor.begin(), ::tolower);
+  bool isNvidia = (gpuvendor.compare(0, 6, "nvidia") == 0);
+  bool isIntel = (gpuvendor.compare(0, 5, "intel") == 0);
+  std::string gli = (getenv("KODI_GL_INTERFACE") != nullptr) ? getenv("KODI_GL_INTERFACE") : "";
+
+  if (gli != "GLX")
   {
-    std::string gpuvendor;
-    const char* vend = (const char*) glGetString(GL_VENDOR);
-    if (vend)
-      gpuvendor = vend;
-    std::transform(gpuvendor.begin(), gpuvendor.end(), gpuvendor.begin(), ::tolower);
-    if (gpuvendor.compare(0, 5, "intel") == 0)
+    m_pGLContext = new CGLContextEGL(m_dpy, EGL_OPENGL_API);
+    success = m_pGLContext->Refresh(force, m_screen, m_glWindow, m_newGlContext);
+    if (success)
     {
-#if defined (HAVE_LIBVA)
-      EGLDisplay eglDpy = static_cast<CGLContextEGL*>(m_pGLContext)->m_eglDisplay;
-      VADisplay vaDpy = GetVaDisplay();
-      bool general, hevc;
-      CRendererVAAPI::Register(vaDpy, eglDpy, general, hevc);
-      if (general)
-        VAAPI::CDecoder::Register(hevc);
-#endif
-      return success;
+      if (!isNvidia)
+      {
+        m_vaapiProxy.reset(X11::VaapiProxyCreate());
+        X11::VaapiProxyConfig(m_vaapiProxy.get(), GetDisplay(),
+                              static_cast<CGLContextEGL*>(m_pGLContext)->m_eglDisplay);
+        bool general = false;
+        bool deepColor = false;
+        X11::VAAPIRegisterRender(m_vaapiProxy.get(), general, deepColor);
+        if (general)
+        {
+          X11::VAAPIRegister(m_vaapiProxy.get(), deepColor);
+          return true;
+        }
+        if (isIntel || gli == "EGL")
+          return true;
+      }
     }
-    delete m_pGLContext;
+    else if (gli == "EGL_PB")
+    {
+      success = m_pGLContext->CreatePB();
+      if (success)
+        return true;
+    }
   }
 
+  delete m_pGLContext;
+
   // fallback for vdpau
-  m_pGLContext = new CGLContextGLX(m_dpy);
-  success = m_pGLContext->Refresh(force, m_nScreen, m_glWindow, m_newGlContext);
+  m_pGLContext = X11::GLXContextCreate(m_dpy);
+  success = m_pGLContext->Refresh(force, m_screen, m_glWindow, m_newGlContext);
   if (success)
   {
-#if defined (HAVE_LIBVDPAU)
-    VDPAU::CDecoder::Register();
-    CRendererVDPAU::Register();
-#endif
+    X11::VDPAURegister();
+    X11::VDPAURegisterRender();
   }
   return success;
 }
@@ -257,19 +338,40 @@ std::unique_ptr<CVideoSync> CWinSystemX11GLContext::GetVideoSync(void *clock)
 
   if (dynamic_cast<CGLContextEGL*>(m_pGLContext))
   {
-    pVSync.reset(new CVideoSyncDRM(clock));
+    pVSync.reset(new CVideoSyncOML(clock, *this));
   }
-  else if (dynamic_cast<CGLContextGLX*>(m_pGLContext))
+  else
   {
-    pVSync.reset(new CVideoSyncGLX(clock));
+    pVSync.reset(X11::GLXVideoSyncCreate(clock, *this));
   }
+
   return pVSync;
 }
 
-void* CWinSystemX11GLContext::GetVaDisplay()
+float CWinSystemX11GLContext::GetFrameLatencyAdjustment()
 {
-#if defined(HAVE_LIBVA)
-  return vaGetDisplay(m_dpy);
-#endif
-  return nullptr;
+  if (m_pGLContext)
+  {
+    uint64_t msc, interval;
+    float micros = m_pGLContext->GetVblankTiming(msc, interval);
+    return micros / 1000;
+  }
+  return 0;
+}
+
+uint64_t CWinSystemX11GLContext::GetVblankTiming(uint64_t &msc, uint64_t &interval)
+{
+  if (m_pGLContext)
+  {
+    float micros = m_pGLContext->GetVblankTiming(msc, interval);
+    return micros / 1000;
+  }
+  msc = 0;
+  interval = 0;
+  return 0;
+}
+
+void CWinSystemX11GLContext::delete_CVaapiProxy::operator()(CVaapiProxy *p) const
+{
+  X11::VaapiProxyDelete(p);
 }

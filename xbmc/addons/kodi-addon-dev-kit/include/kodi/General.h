@@ -1,25 +1,33 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
+#pragma once
+
 #include "AddonBase.h"
+
+//==============================================================================
+/// \ingroup cpp_kodi_Defs
+/// @brief For kodi::CurrentKeyboardLayout used defines
+///
+typedef enum StdKbButtons
+{
+  /// The quantity of buttons per row on Kodi's standard keyboard
+  STD_KB_BUTTONS_PER_ROW = 20,
+  /// The quantity of rows on Kodi's standard keyboard
+  STD_KB_BUTTONS_MAX_ROWS = 4,
+  /// Keyboard layout type, this for initial standard
+  STD_KB_MODIFIER_KEY_NONE = 0x00,
+  /// Keyboard layout type, this for shift controled layout (uppercase)
+  STD_KB_MODIFIER_KEY_SHIFT = 0x01,
+  /// Keyboard layout type, this to show symbols
+  STD_KB_MODIFIER_KEY_SYMBOL = 0x02
+} StdKbButtons;
+//------------------------------------------------------------------------------
 
 /*
  * For interface between add-on and kodi.
@@ -32,12 +40,16 @@
  *
  * Note: For add-on development itself this is not needed
  */
+typedef struct AddonKeyboardKeyTable
+{
+  char* keys[STD_KB_BUTTONS_MAX_ROWS][STD_KB_BUTTONS_PER_ROW];
+} AddonKeyboardKeyTable;
 typedef struct AddonToKodiFuncTable_kodi
 {
   char* (*get_addon_info)(void* kodiBase, const char* id);
   bool (*open_settings_dialog)(void* kodiBase);
   char* (*unknown_to_utf8)(void* kodiBase, const char* source, bool* ret, bool failOnBadChar);
-  char* (*get_localized_string)(void* kodiBase, long dwCode);
+  char* (*get_localized_string)(void* kodiBase, long label_id);
   char* (*get_language)(void* kodiBase, int format, bool region);
   bool (*queue_notification)(void* kodiBase, int type, const char* header, const char* message, const char* imageFile, unsigned int displayTime, bool withSound, unsigned int messageTime);
   void (*get_md5)(void* kodiBase, const char* text, char* md5);
@@ -45,7 +57,11 @@ typedef struct AddonToKodiFuncTable_kodi
   char* (*get_region)(void* kodiBase, const char* id);
   void (*get_free_mem)(void* kodiBase, long* free, long* total, bool as_bytes);
   int  (*get_global_idle_time)(void* kodiBase);
+  bool (*is_addon_avilable)(void* kodiBase, const char* id, char** version, bool* enabled);
   void (*kodi_version)(void* kodiBase, char** compile_name, int* major, int* minor, char** revision, char** tag, char** tagversion);
+  char* (*get_current_skin_id)(void* kodiBase);
+  bool (*get_keyboard_layout)(void* kodiBase, char** layout_name, int modifier_key, AddonKeyboardKeyTable* layout);
+  bool (*change_keyboard_layout)(void* kodiBase, char** layout_name);
 } AddonToKodiFuncTable_kodi;
 
 //==============================================================================
@@ -187,8 +203,8 @@ namespace kodi {
 /// @return               The localized message, or default if the add-on
 ///                       helper fails to return a message
 ///
-/// @note Label id's \b 30000 to \b 30999 and \b 32000 to \b 32999 are related 
-/// to the add-on's own included strings from 
+/// @note Label id's \b 30000 to \b 30999 and \b 32000 to \b 32999 are related
+/// to the add-on's own included strings from
 /// <b>./resources/language/resource.language.??_??/strings.po</b>
 /// All other strings are from Kodi core language files.
 ///
@@ -623,6 +639,88 @@ inline int GetGlobalIdleTime()
 namespace kodi {
 ///
 /// \ingroup cpp_kodi
+/// @brief Get the currently used skin identification name from Kodi
+///
+/// @return The active skin id name as a string
+///
+///
+/// @note This is not the full path like 'special://home/addons/MediaCenter',
+/// but only 'MediaCenter'.
+///
+///
+/// ------------------------------------------------------------------------
+///
+/// **Example:**
+/// ~~~~~~~~~~~~~{.cpp}
+/// #include <kodi/General.h>
+/// ..
+/// std::string skinid = kodi::GetCurrentSkinId();
+/// ..
+/// ~~~~~~~~~~~~~
+///
+inline std::string GetCurrentSkinId()
+{
+  AddonToKodiFuncTable_Addon* toKodi = ::kodi::addon::CAddonBase::m_interface->toKodi;
+
+  std::string strReturn;
+  char* strMsg = toKodi->kodi->get_current_skin_id(toKodi->kodiBase);
+  if (strMsg != nullptr)
+  {
+    if (std::strlen(strMsg))
+      strReturn = strMsg;
+    toKodi->free_string(toKodi->kodiBase, strMsg);
+  }
+  return strReturn;
+}
+} /* namespace kodi */
+//------------------------------------------------------------------------------
+
+namespace kodi
+{
+
+//==============================================================================
+/// @brief To check another addon is available and usable inside Kodi.
+///
+/// @param[in] id The wanted addon identification string to check
+/// @param[out] version Version string of addon if **installed** inside Kodi
+/// @param[out] enabled Set to true <b>`true* </b> if addon is enabled
+/// @return Returns <b>`true* </b> if addon is installed
+///
+///
+/// ------------------------------------------------------------------------
+///
+/// **Example:**
+/// ~~~~~~~~~~~~~{.cpp}
+/// #include <kodi/General.h>
+///
+/// bool enabled = false;
+/// std::string version;
+/// bool ret = kodi::IsAddonAvailable("inputstream.adaptive", version, enabled);
+/// fprintf(stderr, "Available inputstream.adaptive version '%s' and enabled '%s'\n",
+///            ret ? version.c_str() : "not installed", enabled ? "yes" : "no");
+/// ~~~~~~~~~~~~~
+///
+inline bool IsAddonAvailable(const std::string& id, std::string& version, bool& enabled)
+{
+  AddonToKodiFuncTable_Addon* toKodi = ::kodi::addon::CAddonBase::m_interface->toKodi;
+
+  char* cVersion = nullptr;
+  bool ret = toKodi->kodi->is_addon_avilable(toKodi->kodiBase, id.c_str(), &cVersion, &enabled);
+  if (cVersion)
+  {
+    version = cVersion;
+    toKodi->free_string(toKodi->kodiBase, cVersion);
+  }
+  return ret;
+}
+//------------------------------------------------------------------------------
+
+} /* namespace kodi */
+
+//==============================================================================
+namespace kodi {
+///
+/// \ingroup cpp_kodi
 /// @brief Get current Kodi informations and versions, returned data from the following
 /// <b><tt>kodi_version_t version; kodi::KodiVersion(version);</tt></b>
 /// is e.g.:
@@ -693,6 +791,127 @@ inline void KodiVersion(kodi_version_t& version)
     version.tag_revision = tag_revision;
     toKodi->free_string(toKodi->kodiBase, tag_revision);
   }
+}
+} /* namespace kodi */
+//------------------------------------------------------------------------------
+
+//==============================================================================
+namespace kodi {
+///
+/// \ingroup cpp_kodi
+/// @brief To get keyboard layout characters
+///
+/// This is used to get the keyboard layout currently used from Kodi by the
+/// there set language.
+///
+/// @param[in] modifierKey the key to define the needed layout (uppercase, symbols...)
+/// @param[out] layout_name name of used layout
+/// @param[out] layout list of selected keyboard layout
+/// @return true if request successed
+///
+///
+/// ------------------------------------------------------------------------
+///
+/// **Example:**
+/// ~~~~~~~~~~~~~{.cpp}
+/// #include <kodi/General.h>
+/// ...
+/// std::string layout_name;
+/// std::vector<std::vector<std::string>> layout;
+/// kodi::GetKeyboardLayout(STD_KB_MODIFIER_KEY_SHIFT | STD_KB_MODIFIER_KEY_SYMBOL, layout_name, layout);
+/// fprintf(stderr, "Layout: '%s'\n", layout_name.c_str());
+/// for (unsigned int row = 0; row < STD_KB_BUTTONS_MAX_ROWS; row++)
+/// {
+///   for (unsigned int column = 0; column < STD_KB_BUTTONS_PER_ROW; column++)
+///   {
+///     fprintf(stderr, " - Row: '%02i'; Column: '%02i'; Text: '%s'\n", row, column, layout[row][column].c_str());
+///   }
+/// }
+/// ...
+/// ~~~~~~~~~~~~~
+///
+inline bool GetKeyboardLayout(int modifierKey, std::string& layout_name, std::vector<std::vector<std::string>>& layout)
+{
+  AddonToKodiFuncTable_Addon* toKodi = ::kodi::addon::CAddonBase::m_interface->toKodi;
+  AddonKeyboardKeyTable c_layout;
+  char* c_layout_name = nullptr;
+  bool ret = toKodi->kodi->get_keyboard_layout(toKodi->kodiBase, &c_layout_name, modifierKey, &c_layout);
+  if (ret)
+  {
+    if (c_layout_name)
+    {
+      layout_name = c_layout_name;
+      toKodi->free_string(toKodi->kodiBase, c_layout_name);
+    }
+
+    layout.resize(STD_KB_BUTTONS_MAX_ROWS);
+    for (unsigned int row = 0; row < STD_KB_BUTTONS_MAX_ROWS; row++)
+    {
+      layout[row].resize(STD_KB_BUTTONS_PER_ROW);
+      for (unsigned int column = 0; column < STD_KB_BUTTONS_PER_ROW; column++)
+      {
+        char* button = c_layout.keys[row][column];
+        if (button)
+        {
+          layout[row][column] = button;
+          toKodi->free_string(toKodi->kodiBase, button);
+        }
+      }
+    }
+  }
+  return ret;
+}
+} /* namespace kodi */
+//------------------------------------------------------------------------------
+
+//==============================================================================
+namespace kodi {
+///
+/// \ingroup cpp_kodi
+/// @brief To change keyboard layout characters
+///
+/// This is used to change the keyboard layout currently used from Kodi
+///
+/// @param[out] layout_name new name of used layout (input string not used!)
+/// @return true if request successed
+///
+/// @note \ref GetKeyboardLayout must be called afterwards.
+///
+///
+/// ------------------------------------------------------------------------
+///
+/// **Example:**
+/// ~~~~~~~~~~~~~{.cpp}
+/// #include <kodi/General.h>
+/// ...
+/// std::string layout_name;
+/// kodi::ChangeKeyboardLayout(layout_name);
+///
+/// std::vector<std::vector<std::string>> layout;
+/// kodi::GetKeyboardLayout(STD_KB_MODIFIER_KEY_SHIFT | STD_KB_MODIFIER_KEY_SYMBOL, layout_name, layout);
+/// fprintf(stderr, "Layout: '%s'\n", layout_name.c_str());
+/// for (unsigned int row = 0; row < STD_KB_BUTTONS_MAX_ROWS; row++)
+/// {
+///   for (unsigned int column = 0; column < STD_KB_BUTTONS_PER_ROW; column++)
+///   {
+///     fprintf(stderr, " - Row: '%02i'; Column: '%02i'; Text: '%s'\n", row, column, layout[row][column].c_str());
+///   }
+/// }
+/// ...
+/// ~~~~~~~~~~~~~
+///
+inline bool ChangeKeyboardLayout(std::string& layout_name)
+{
+  AddonToKodiFuncTable_Addon* toKodi = ::kodi::addon::CAddonBase::m_interface->toKodi;
+  char* c_layout_name = nullptr;
+  bool ret = toKodi->kodi->change_keyboard_layout(toKodi->kodiBase, &c_layout_name);
+  if (c_layout_name)
+  {
+    layout_name = c_layout_name;
+    toKodi->free_string(toKodi->kodiBase, c_layout_name);
+  }
+
+  return ret;
 }
 } /* namespace kodi */
 //------------------------------------------------------------------------------

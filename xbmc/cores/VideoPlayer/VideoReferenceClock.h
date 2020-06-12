@@ -1,27 +1,17 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "threads/CriticalSection.h"
 #include "threads/Event.h"
 #include "threads/Thread.h"
+
 #include <memory>
 
 class CVideoSync;
@@ -51,7 +41,6 @@ class CVideoReferenceClock : CThread
     int64_t m_LastIntTime;       //last interpolated clock value, to make sure the clock doesn't go backwards
     double  m_CurrTimeFract;     //fractional part that is lost due to rounding when updating the clock
     double  m_ClockSpeed;        //the frequency of the clock set by VideoPlayer
-    int64_t m_ClockOffset;       //the difference between the vblank clock and systemclock, set when vblank clock is stopped
     int64_t m_SystemFrequency;   //frequency of the systemclock
 
     bool    m_UseVblank;         //set to true when vblank is used as clock source
@@ -62,7 +51,7 @@ class CVideoReferenceClock : CThread
 
     CEvent m_vsyncStopEvent;
 
-    CCriticalSection m_CritSection;
+    mutable CCriticalSection m_CritSection;
 
     std::unique_ptr<CVideoSync> m_pVideoSync;
 };

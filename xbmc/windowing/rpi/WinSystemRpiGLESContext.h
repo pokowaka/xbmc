@@ -1,29 +1,16 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
 
-#include "GLContextEGL.h"
-#include "rendering/gles/RenderSystemGLES.h"
-#include "utils/GlobalsHandling.h"
 #include "WinSystemRpi.h"
+#include "rendering/gles/RenderSystemGLES.h"
+#include "utils/EGLUtils.h"
 
 class CWinSystemRpiGLESContext : public CWinSystemRpi, public CRenderSystemGLES
 {
@@ -31,6 +18,8 @@ public:
   CWinSystemRpiGLESContext() = default;
   virtual ~CWinSystemRpiGLESContext() = default;
 
+  // Implementation of CWinSystemBase via CWinSystemRpi
+  CRenderSystemBase *GetRenderSystem() override { return this; }
   bool InitWindowSystem() override;
   bool CreateNewWindow(const std::string& name,
                        bool fullScreen,
@@ -50,9 +39,6 @@ protected:
   void PresentRenderImpl(bool rendered) override;
 
 private:
-  CGLContextEGL m_pGLContext;
+  CEGLContextUtils m_pGLContext;
 
 };
-
-XBMC_GLOBAL_REF(CWinSystemRpiGLESContext, g_Windowing);
-#define g_Windowing XBMC_GLOBAL_USE(CWinSystemRpiGLESContext)

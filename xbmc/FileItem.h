@@ -1,45 +1,33 @@
+/*
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
+#pragma once
+
 /*!
  \file FileItem.h
  \brief
  */
-#pragma once
 
-/*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
- *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- */
+#include "LockType.h"
+#include "XBDateTime.h"
+#include "addons/IAddon.h"
+#include "guilib/GUIListItem.h"
+#include "threads/CriticalSection.h"
+#include "utils/IArchivable.h"
+#include "utils/ISerializable.h"
+#include "utils/ISortable.h"
+#include "utils/SortUtils.h"
 
 #include <map>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
-
-#include "addons/IAddon.h"
-#include "guilib/GUIListItem.h"
-#include "GUIPassword.h"
-#include "pvr/PVRTypes.h"
-#include "threads/CriticalSection.h"
-#include "utils/IArchivable.h"
-#include "utils/ISerializable.h"
-#include "utils/ISortable.h"
-#include "utils/SortUtils.h"
-#include "XBDateTime.h"
 
 namespace MUSIC_INFO
 {
@@ -54,6 +42,14 @@ namespace GAME
 {
   class CGameInfoTag;
 }
+}
+
+namespace PVR
+{
+class CPVRChannel;
+class CPVREpgInfoTag;
+class CPVRRecording;
+class CPVRTimerInfoTag;
 }
 
 class CAlbum;
@@ -101,26 +97,26 @@ class CFileItem :
 public:
   CFileItem(void);
   CFileItem(const CFileItem& item);
-  CFileItem(const CGUIListItem& item);
+  explicit CFileItem(const CGUIListItem& item);
   explicit CFileItem(const std::string& strLabel);
   explicit CFileItem(const char* strLabel);
   CFileItem(const CURL& path, bool bIsFolder);
   CFileItem(const std::string& strPath, bool bIsFolder);
-  CFileItem(const CSong& song);
+  explicit CFileItem(const CSong& song);
   CFileItem(const CSong& song, const MUSIC_INFO::CMusicInfoTag& music);
   CFileItem(const CURL &path, const CAlbum& album);
   CFileItem(const std::string &path, const CAlbum& album);
-  CFileItem(const CArtist& artist);
-  CFileItem(const CGenre& genre);
-  CFileItem(const MUSIC_INFO::CMusicInfoTag& music);
-  CFileItem(const CVideoInfoTag& movie);
-  CFileItem(const PVR::CPVREpgInfoTagPtr& tag);
-  CFileItem(const PVR::CPVRChannelPtr& channel);
-  CFileItem(const PVR::CPVRRecordingPtr& record);
-  CFileItem(const PVR::CPVRTimerInfoTagPtr& timer);
-  CFileItem(const CMediaSource& share);
-  CFileItem(std::shared_ptr<const ADDON::IAddon> addonInfo);
-  CFileItem(const EventPtr& eventLogEntry);
+  explicit CFileItem(const CArtist& artist);
+  explicit CFileItem(const CGenre& genre);
+  explicit CFileItem(const MUSIC_INFO::CMusicInfoTag& music);
+  explicit CFileItem(const CVideoInfoTag& movie);
+  explicit CFileItem(const std::shared_ptr<PVR::CPVREpgInfoTag>& tag);
+  explicit CFileItem(const std::shared_ptr<PVR::CPVRChannel>& channel);
+  explicit CFileItem(const std::shared_ptr<PVR::CPVRRecording>& record);
+  explicit CFileItem(const std::shared_ptr<PVR::CPVRTimerInfoTag>& timer);
+  explicit CFileItem(const CMediaSource& share);
+  explicit CFileItem(std::shared_ptr<const ADDON::IAddon> addonInfo);
+  explicit CFileItem(const EventPtr& eventLogEntry);
 
   ~CFileItem(void) override;
   CGUIListItem *Clone() const override { return new CFileItem(*this); };
@@ -132,12 +128,17 @@ public:
   void SetPath(const std::string &path) { m_strPath = path; };
   bool IsPath(const std::string& path, bool ignoreURLOptions = false) const;
 
+  const CURL GetDynURL() const;
+  void SetDynURL(const CURL& url);
+  const std::string &GetDynPath() const;
+  void SetDynPath(const std::string &path);
+
   /*! \brief reset class to it's default values as per construction.
    Free's all allocated memory.
    \sa Initialize
    */
   void Reset();
-  const CFileItem& operator=(const CFileItem& item);
+  CFileItem& operator=(const CFileItem& item);
   void Archive(CArchive& ar) override;
   void Serialize(CVariant& value) const override;
   void ToSortable(SortItem &sortable, Field field) const override;
@@ -207,6 +208,8 @@ public:
   bool IsOpticalMediaFile() const;
   bool IsDVDFile(bool bVobs = true, bool bIfos = true) const;
   bool IsBDFile() const;
+  bool IsBluray() const;
+  bool IsProtectedBlurayDisc() const;
   bool IsRAR() const;
   bool IsAPK() const;
   bool IsZIP() const;
@@ -228,12 +231,12 @@ public:
   bool IsVideoDb() const;
   bool IsEPG() const;
   bool IsPVRChannel() const;
+  bool IsPVRChannelGroup() const;
   bool IsPVRRecording() const;
   bool IsUsablePVRRecording() const;
   bool IsDeletedPVRRecording() const;
   bool IsInProgressPVRRecording() const;
   bool IsPVRTimer() const;
-  bool IsPVRRadioRDS() const;
   bool IsType(const char *ext) const;
   bool IsVirtualDirectoryRoot() const;
   bool IsReadOnly() const;
@@ -282,12 +285,12 @@ public:
     return m_epgInfoTag.get() != NULL;
   }
 
-  inline const PVR::CPVREpgInfoTagPtr GetEPGInfoTag() const
+  inline const std::shared_ptr<PVR::CPVREpgInfoTag> GetEPGInfoTag() const
   {
     return m_epgInfoTag;
   }
 
-  inline void SetEPGInfoTag(const PVR::CPVREpgInfoTagPtr& tag)
+  inline void SetEPGInfoTag(const std::shared_ptr<PVR::CPVREpgInfoTag>& tag)
   {
     m_epgInfoTag = tag;
   }
@@ -297,7 +300,7 @@ public:
     return m_pvrChannelInfoTag.get() != NULL;
   }
 
-  inline const PVR::CPVRChannelPtr GetPVRChannelInfoTag() const
+  inline const std::shared_ptr<PVR::CPVRChannel> GetPVRChannelInfoTag() const
   {
     return m_pvrChannelInfoTag;
   }
@@ -307,7 +310,7 @@ public:
     return m_pvrRecordingInfoTag.get() != NULL;
   }
 
-  inline const PVR::CPVRRecordingPtr GetPVRRecordingInfoTag() const
+  inline const std::shared_ptr<PVR::CPVRRecording> GetPVRRecordingInfoTag() const
   {
     return m_pvrRecordingInfoTag;
   }
@@ -317,24 +320,9 @@ public:
     return m_pvrTimerInfoTag != NULL;
   }
 
-  inline const PVR::CPVRTimerInfoTagPtr GetPVRTimerInfoTag() const
+  inline const std::shared_ptr<PVR::CPVRTimerInfoTag> GetPVRTimerInfoTag() const
   {
     return m_pvrTimerInfoTag;
-  }
-
-  inline bool HasPVRRadioRDSInfoTag() const
-  {
-    return m_pvrRadioRDSInfoTag.get() != NULL;
-  }
-
-  inline const PVR::CPVRRadioRDSInfoTagPtr GetPVRRadioRDSInfoTag() const
-  {
-    return m_pvrRadioRDSInfoTag;
-  }
-
-  inline void SetPVRRadioRDSInfoTag(const PVR::CPVRRadioRDSInfoTagPtr& tag)
-  {
-    m_pvrRadioRDSInfoTag = tag;
   }
 
   /*!
@@ -361,7 +349,7 @@ public:
    \param partNumber will be filled with the part number if item has a resume point set, is unchanged otherwise
    \return True if the item has a resume point set, false otherwise.
    */
-  bool GetCurrentResumeTimeAndPartNumber(int& startOffset, int& partNumber) const;
+  bool GetCurrentResumeTimeAndPartNumber(int64_t& startOffset, int& partNumber) const;
 
   inline bool HasPictureInfoTag() const
   {
@@ -542,9 +530,9 @@ public:
   std::string m_strTitle;
   int m_iprogramCount;
   int m_idepth;
-  int m_lStartOffset;
+  int64_t m_lStartOffset;
   int m_lStartPartNumber;
-  int m_lEndOffset;
+  int64_t m_lEndOffset;
   LockType m_iLockMode;
   std::string m_strLockCode;
   int m_iHasLock; // 0 - no lock 1 - lock, but unlocked 2 - locked
@@ -567,7 +555,13 @@ private:
    */
   CBookmark GetResumePoint() const;
 
+  /*!
+   \brief If given channel is radio, fill item's music tag from given epg tag and channel info.
+   */
+  void FillMusicInfoTag(const std::shared_ptr<PVR::CPVRChannel>& channel, const std::shared_ptr<PVR::CPVREpgInfoTag>& tag);
+
   std::string m_strPath;            ///< complete path to item
+  std::string m_strDynPath;
 
   SortSpecial m_specialSort;
   bool m_bIsParentFolder;
@@ -578,11 +572,10 @@ private:
   bool m_doContentLookup;
   MUSIC_INFO::CMusicInfoTag* m_musicInfoTag;
   CVideoInfoTag* m_videoInfoTag;
-  PVR::CPVREpgInfoTagPtr m_epgInfoTag;
-  PVR::CPVRChannelPtr m_pvrChannelInfoTag;
-  PVR::CPVRRecordingPtr m_pvrRecordingInfoTag;
-  PVR::CPVRTimerInfoTagPtr m_pvrTimerInfoTag;
-  PVR::CPVRRadioRDSInfoTagPtr m_pvrRadioRDSInfoTag;
+  std::shared_ptr<PVR::CPVREpgInfoTag> m_epgInfoTag;
+  std::shared_ptr<PVR::CPVRChannel> m_pvrChannelInfoTag;
+  std::shared_ptr<PVR::CPVRRecording> m_pvrRecordingInfoTag;
+  std::shared_ptr<PVR::CPVRTimerInfoTag> m_pvrTimerInfoTag;
   CPictureInfoTag* m_pictureInfoTag;
   std::shared_ptr<const ADDON::IAddon> m_addonInfo;
   KODI::GAME::CGameInfoTag* m_gameInfoTag;
@@ -657,7 +650,7 @@ public:
   void Remove(int iItem);
   CFileItemPtr Get(int iItem);
   const CFileItemPtr Get(int iItem) const;
-  const VECFILEITEMS GetList() const { return m_items; }
+  const VECFILEITEMS& GetList() const { return m_items; }
   CFileItemPtr Get(const std::string& strPath);
   const CFileItemPtr Get(const std::string& strPath) const;
   int Size() const;
@@ -697,6 +690,9 @@ public:
 
   SortOrder GetSortOrder() const { return m_sortDescription.sortOrder; }
   SortBy GetSortMethod() const { return m_sortDescription.sortBy; }
+  void SetSortOrder(SortOrder sortOrder) { m_sortDescription.sortOrder = sortOrder; }
+  void SetSortMethod(SortBy sortBy) { m_sortDescription.sortBy = sortBy; }
+
   /*! \brief load a CFileItemList out of the cache
 
    The file list may be cached based on which window we're viewing in, as different
@@ -733,6 +729,8 @@ public:
    \sa Save,Load
    */
   void RemoveDiscCache(int windowID = 0) const;
+  void RemoveDiscCache(const std::string& cachefile) const;
+  void RemoveDiscCacheCRC(const std::string& crc) const;
   bool AlwaysCache() const;
 
   void Swap(unsigned int item1, unsigned int item2);
@@ -763,12 +761,12 @@ public:
 
   void ClearSortState();
 
-  VECFILEITEMS::const_iterator begin() { return m_items.cbegin(); }
-  VECFILEITEMS::const_iterator end() { return m_items.cend(); }
+  VECFILEITEMS::iterator begin() { return m_items.begin(); }
+  VECFILEITEMS::iterator end() { return m_items.end(); }
   VECFILEITEMS::const_iterator begin() const { return m_items.begin(); }
   VECFILEITEMS::const_iterator end() const { return m_items.end(); }
-  VECFILEITEMS::const_iterator cbegin() const { return m_items.begin(); }
-  VECFILEITEMS::const_iterator cend() const { return m_items.end(); }
+  VECFILEITEMS::const_iterator cbegin() const { return m_items.cbegin(); }
+  VECFILEITEMS::const_iterator cend() const { return m_items.cend(); }
 private:
   void Sort(FILEITEMLISTCOMPARISONFUNC func);
   void FillSortFields(FILEITEMFILLFUNC func);
@@ -788,15 +786,15 @@ private:
 
   VECFILEITEMS m_items;
   MAPFILEITEMS m_map;
-  bool m_ignoreURLOptions;
-  bool m_fastLookup;
+  bool m_ignoreURLOptions = false;
+  bool m_fastLookup = false;
   SortDescription m_sortDescription;
-  bool m_sortIgnoreFolders;
-  CACHE_TYPE m_cacheToDisc;
-  bool m_replaceListing;
+  bool m_sortIgnoreFolders = false;
+  CACHE_TYPE m_cacheToDisc = CACHE_IF_SLOW;
+  bool m_replaceListing = false;
   std::string m_content;
 
   std::vector<GUIViewSortDetails> m_sortDetails;
 
-  CCriticalSection m_lock;
+  mutable CCriticalSection m_lock;
 };

@@ -1,53 +1,39 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "threads/SystemClock.h"
-#include "system.h"
-
-#ifdef HAS_EVENT_SERVER
-
 #include "EventClient.h"
+
 #include "EventPacket.h"
-#include "threads/SingleLock.h"
+#include "ServiceBroker.h"
+#include "dialogs/GUIDialogKaiToast.h"
+#include "filesystem/File.h"
+#include "guilib/LocalizeStrings.h"
+#include "input/ButtonTranslator.h"
 #include "input/GamepadTranslator.h"
-#include "input/InputManager.h"
 #include "input/IRTranslator.h"
+#include "input/Key.h"
 #include "input/KeyboardTranslator.h"
+#include "threads/SingleLock.h"
+#include "threads/SystemClock.h"
+#include "utils/StringUtils.h"
+#include "utils/TimeUtils.h"
+#include "utils/log.h"
+#include "windowing/GraphicContext.h"
+
 #include <map>
 #include <queue>
-#include "filesystem/File.h"
-#include "utils/log.h"
-#include "utils/TimeUtils.h"
-#include "dialogs/GUIDialogKaiToast.h"
-#include "guilib/GraphicContext.h"
-#include "input/Key.h"
-#include "guilib/LocalizeStrings.h"
-#include "utils/StringUtils.h"
-#include "ServiceBroker.h"
 
 using namespace EVENTCLIENT;
 using namespace EVENTPACKET;
 
 struct ButtonStateFinder
 {
-  ButtonStateFinder(const CEventButtonState& state)
+  explicit ButtonStateFinder(const CEventButtonState& state)
     : m_keycode(state.m_iKeyCode)
     , m_map(state.m_mapName)
     , m_button(state.m_buttonName)
@@ -74,36 +60,10 @@ void CEventButtonState::Load()
   {
     if ( (m_mapName.length() > 0) && (m_buttonName.length() > 0) )
     {
-      if ( m_mapName.compare("KB") == 0 ) // standard keyboard map
+      m_iKeyCode = CButtonTranslator::TranslateString(m_mapName, m_buttonName);
+      if (m_iKeyCode == 0)
       {
-        m_iKeyCode = CKeyboardTranslator::TranslateString( m_buttonName.c_str() );
-      }
-      else if  ( m_mapName.compare("XG") == 0 ) // xbox gamepad map
-      {
-        m_iKeyCode = CGamepadTranslator::TranslateString( m_buttonName.c_str() );
-      }
-      else if  ( m_mapName.compare("R1") == 0 ) // xbox remote map
-      {
-        m_iKeyCode = CIRTranslator::TranslateString( m_buttonName.c_str() );
-      }
-      else if  ( m_mapName.compare("R2") == 0 ) // xbox universal remote map
-      {
-        m_iKeyCode = CIRTranslator::TranslateUniversalRemoteString( m_buttonName.c_str() );
-      }
-      else if ( (m_mapName.length() > 3) &&
-                (StringUtils::StartsWith(m_mapName, "LI:")) ) // starts with LI: ?
-      {
-#if defined(HAS_LIRC) || defined(HAS_IRSERVERSUITE)
-        std::string lircDevice = m_mapName.substr(3);
-        m_iKeyCode = CServiceBroker::GetInputManager().TranslateLircRemoteString( lircDevice.c_str(),
-                                                                   m_buttonName.c_str() );
-#else
-        CLog::Log(LOGERROR, "ES: LIRC support not enabled");
-#endif
-      }
-      else
-      {
-        Reset(); // disable key since its invalid
+        Reset();
         CLog::Log(LOGERROR, "ES: Could not map %s : %s to a key", m_mapName.c_str(),
                   m_buttonName.c_str());
       }
@@ -119,7 +79,7 @@ void CEventButtonState::Load()
         - (unsigned char)'0'; // convert <num> to int
       m_joystickName = m_joystickName.substr(2); // extract joyname
     }
-    
+
     if (m_mapName.length() > 3 &&
         (StringUtils::StartsWith(m_mapName, "CC")) ) // custom map - CC:<controllerName>
     {
@@ -292,7 +252,7 @@ bool CEventClient::OnPacketHELO(CEventPacket *packet)
   if (!ParseString(payload, psize, m_deviceName))
     return false;
 
-  CLog::Log(LOGNOTICE, "ES: Incoming connection from %s", m_deviceName.c_str());
+  CLog::Log(LOGINFO, "ES: Incoming connection from %s", m_deviceName.c_str());
 
   // icon type
   unsigned char ltype;
@@ -409,6 +369,12 @@ bool CEventClient::OnPacketBUTTON(CEventPacket *packet)
 
   float famount = 0;
   bool active = (flags & PTB_DOWN) ? true : false;
+  
+  if (flags & PTB_USE_NAME)
+    CLog::Log(LOGDEBUG, "EventClient: button name \"%s\" map \"%s\" %s",
+              button.c_str(), map.c_str(), active ? "pressed" : "released");
+  else
+    CLog::Log(LOGDEBUG, "EventClient: button code %d %s", bcode, active ? "pressed" : "released");
 
   if(flags & PTB_USE_AMOUNT)
   {
@@ -458,15 +424,22 @@ bool CEventClient::OnPacketBUTTON(CEventPacket *packet)
 
         /* if last event had an amount, we must resend without amount */
         if(it2->m_bUseAmount && it2->m_fAmount != 0.0)
+        {
           m_buttonQueue.push_back(state);
+        }
 
         /* if the last event was waiting for a repeat interval, it has executed already.*/
         if(it2->m_bRepeat)
         {
           if(it2->m_iNextRepeat > 0)
+          {
             m_buttonQueue.erase(it2);
+          }
           else
+          {
             it2->m_bRepeat = false;
+            it2->m_bActive = false;
+          }
         }
 
       }
@@ -809,8 +782,8 @@ bool CEventClient::GetMousePos(float& x, float& y)
   CSingleLock lock(m_critSection);
   if (m_bMouseMoved)
   {
-    x = (float)((m_iMouseX / 65535.0f) * g_graphicsContext.GetWidth());
-    y = (float)((m_iMouseY / 65535.0f) * g_graphicsContext.GetHeight());
+    x = (m_iMouseX / 65535.0f) * CServiceBroker::GetWinSystem()->GetGfxContext().GetWidth();
+    y = (m_iMouseY / 65535.0f) * CServiceBroker::GetWinSystem()->GetGfxContext().GetHeight();
     m_bMouseMoved = false;
     return true;
   }
@@ -841,5 +814,3 @@ bool CEventClient::Alive() const
     return false;
   return true;
 }
-
-#endif // HAS_EVENT_SERVER

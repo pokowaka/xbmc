@@ -1,38 +1,30 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIBaseContainer.h"
-#include "ServiceBroker.h"
-#include "utils/CharsetConverter.h"
-#include "GUIInfoManager.h"
-#include "utils/TimeUtils.h"
-#include "utils/log.h"
-#include "utils/SortUtils.h"
-#include "utils/StringUtils.h"
+
 #include "FileItem.h"
+#include "GUIInfoManager.h"
+#include "GUIListItemLayout.h"
+#include "GUIMessage.h"
+#include "ServiceBroker.h"
+#include "guilib/guiinfo/GUIInfoLabels.h"
 #include "input/Key.h"
-#include "utils/MathUtils.h"
-#include "utils/XBMCTinyXML.h"
 #include "listproviders/IListProvider.h"
 #include "settings/Settings.h"
-#include "guiinfo/GUIInfoLabels.h"
+#include "settings/SettingsComponent.h"
+#include "utils/CharsetConverter.h"
+#include "utils/MathUtils.h"
+#include "utils/SortUtils.h"
+#include "utils/StringUtils.h"
+#include "utils/TimeUtils.h"
+#include "utils/XBMCTinyXML.h"
+#include "utils/log.h"
 
 #define HOLD_TIME_START 100
 #define HOLD_TIME_END   3000
@@ -63,8 +55,14 @@ CGUIBaseContainer::CGUIBaseContainer(int parentID, int controlID, float posX, fl
   m_lastRenderTime = 0;
 }
 
+CGUIBaseContainer::CGUIBaseContainer(const CGUIBaseContainer &) = default;
+
 CGUIBaseContainer::~CGUIBaseContainer(void)
 {
+  // release the container from items
+  for (auto item : m_items)
+    item->FreeMemory();
+
   delete m_listProvider;
 }
 
@@ -88,14 +86,15 @@ void CGUIBaseContainer::Process(unsigned int currentTime, CDirtyRegionList &dirt
   // update our auto-scrolling as necessary
   UpdateAutoScrolling(currentTime);
 
-  ValidateOffset();
-
   if (m_bInvalidated)
     UpdateLayout();
 
   if (!m_layout || !m_focusedLayout) return;
 
   UpdateScrollOffset(currentTime);
+
+  if (m_scroller.IsScrolling())
+    MarkDirtyRegion();
 
   int offset = (int)floorf(m_scroller.GetValue() / m_layout->Size(m_orientation));
 
@@ -128,6 +127,8 @@ void CGUIBaseContainer::Process(unsigned int currentTime, CDirtyRegionList &dirt
     if (itemNo >= 0)
     {
       CGUIListItemPtr item = m_items[itemNo];
+      item->SetCurrentItem(itemNo + 1);
+
       // render our item
       if (m_orientation == VERTICAL)
         ProcessItem(origin.x, pos, item, focused, currentTime, dirtyregions);
@@ -153,7 +154,7 @@ void CGUIBaseContainer::ProcessItem(float posX, float posY, CGUIListItemPtr& ite
   if (!m_focusedLayout || !m_layout) return;
 
   // set the origin
-  g_graphicsContext.SetOrigin(posX, posY);
+  CServiceBroker::GetWinSystem()->GetGfxContext().SetOrigin(posX, posY);
 
   if (m_bInvalidated)
     item->SetInvalid();
@@ -161,8 +162,7 @@ void CGUIBaseContainer::ProcessItem(float posX, float posY, CGUIListItemPtr& ite
   {
     if (!item->GetFocusedLayout())
     {
-      CGUIListItemLayout *layout = new CGUIListItemLayout(*m_focusedLayout, this);
-      item->SetFocusedLayout(layout);
+      item->SetFocusedLayout(CGUIListItemLayoutPtr(new CGUIListItemLayout(*m_focusedLayout, this)));
     }
     if (item->GetFocusedLayout())
     {
@@ -188,9 +188,9 @@ void CGUIBaseContainer::ProcessItem(float posX, float posY, CGUIListItemPtr& ite
       item->GetFocusedLayout()->SetFocusedItem(0);  // focus is not set
     if (!item->GetLayout())
     {
-      CGUIListItemLayout *layout = new CGUIListItemLayout(*m_layout);
+      CGUIListItemLayoutPtr layout(new CGUIListItemLayout(*m_layout));
       layout->SetParentControl(this);
-      item->SetLayout(layout);
+      item->SetLayout(std::move(layout));
     }
     if (item->GetFocusedLayout())
       item->GetFocusedLayout()->Process(item.get(), m_parentID, currentTime, dirtyregions);
@@ -198,7 +198,7 @@ void CGUIBaseContainer::ProcessItem(float posX, float posY, CGUIListItemPtr& ite
       item->GetLayout()->Process(item.get(), m_parentID, currentTime, dirtyregions);
   }
 
-  g_graphicsContext.RestoreOrigin();
+  CServiceBroker::GetWinSystem()->GetGfxContext().RestoreOrigin();
 }
 
 void CGUIBaseContainer::Render()
@@ -210,7 +210,7 @@ void CGUIBaseContainer::Render()
   int cacheBefore, cacheAfter;
   GetCacheOffsets(cacheBefore, cacheAfter);
 
-  if (g_graphicsContext.SetClipRegion(m_posX, m_posY, m_width, m_height))
+  if (CServiceBroker::GetWinSystem()->GetGfxContext().SetClipRegion(m_posX, m_posY, m_width, m_height))
   {
     CPoint origin = CPoint(m_posX, m_posY) + m_renderOffset;
     float pos = (m_orientation == VERTICAL) ? origin.y : origin.x;
@@ -263,7 +263,7 @@ void CGUIBaseContainer::Render()
         RenderItem(focusedPos, origin.y, focusedItem.get(), true);
     }
 
-    g_graphicsContext.RestoreClipRegion();
+    CServiceBroker::GetWinSystem()->GetGfxContext().RestoreClipRegion();
   }
 
   CGUIControl::Render();
@@ -275,7 +275,7 @@ void CGUIBaseContainer::RenderItem(float posX, float posY, CGUIListItem *item, b
   if (!m_focusedLayout || !m_layout) return;
 
   // set the origin
-  g_graphicsContext.SetOrigin(posX, posY);
+  CServiceBroker::GetWinSystem()->GetGfxContext().SetOrigin(posX, posY);
 
   if (focused)
   {
@@ -289,14 +289,16 @@ void CGUIBaseContainer::RenderItem(float posX, float posY, CGUIListItem *item, b
     else if (item->GetLayout())
       item->GetLayout()->Render(item, m_parentID);
   }
-  g_graphicsContext.RestoreOrigin();
+  CServiceBroker::GetWinSystem()->GetGfxContext().RestoreOrigin();
 }
 
 bool CGUIBaseContainer::OnAction(const CAction &action)
 {
-  if (action.GetID() >= KEY_ASCII)
+  if (action.GetID() == KEY_UNICODE)
   {
-    OnJumpLetter((char)(action.GetID() & 0xff));
+    std::string letter;
+    g_charsetConverter.wToUTF8({action.GetUnicode()}, letter);
+    OnJumpLetter(std::move(letter));
     return true;
   }
   // stop the timer on any other action
@@ -412,7 +414,7 @@ bool CGUIBaseContainer::OnMessage(CGUIMessage& message)
       if (message.GetMessage() == GUI_MSG_LABEL_BIND && message.GetPointer())
       { // bind our items
         Reset();
-        CFileItemList *items = (CFileItemList *)message.GetPointer();
+        CFileItemList *items = static_cast<CFileItemList*>(message.GetPointer());
         for (int i = 0; i < items->Size(); i++)
           m_items.push_back(items->Get(i));
         UpdateLayout(true); // true to refresh all items
@@ -439,7 +441,7 @@ bool CGUIBaseContainer::OnMessage(CGUIMessage& message)
         int offset = GetOffset();
         if (message.GetParam2() && message.GetParam2() == 1)
           offset = 0;
-        int item = std::min(offset + (int)message.GetParam1() - 1, (int)m_items.size() - 1);
+        int item = std::min(offset + message.GetParam1() - 1, (int)m_items.size() - 1);
         SelectItem(item);
       }
     }
@@ -452,7 +454,7 @@ bool CGUIBaseContainer::OnMessage(CGUIMessage& message)
     {
       if (message.GetSenderId() == m_pageControl && IsVisible())
       { // update our page if we're visible - not much point otherwise
-        if ((int)message.GetParam1() != GetOffset())
+        if (message.GetParam1() != GetOffset())
           m_pageChangeTimer.StartZero();
         ScrollToOffset(message.GetParam1());
         return true;
@@ -465,7 +467,7 @@ bool CGUIBaseContainer::OnMessage(CGUIMessage& message)
     }
     else if (message.GetMessage() == GUI_MSG_MOVE_OFFSET)
     {
-      int count = (int)message.GetParam1();
+      int count = message.GetParam1();
       while (count < 0)
       {
         MoveUp(true);
@@ -560,12 +562,12 @@ void CGUIBaseContainer::OnPrevLetter()
   }
 }
 
-void CGUIBaseContainer::OnJumpLetter(char letter, bool skip /*=false*/)
+void CGUIBaseContainer::OnJumpLetter(std::string letter, bool skip /*=false*/)
 {
   if (m_matchTimer.GetElapsedMilliseconds() < letter_match_timeout)
-    m_match.push_back(letter);
+    m_match += letter;
   else
-    m_match = StringUtils::Format("%c", letter);
+    m_match = letter;
 
   m_matchTimer.StartZero();
 
@@ -580,17 +582,20 @@ void CGUIBaseContainer::OnJumpLetter(char letter, bool skip /*=false*/)
   {
     CGUIListItemPtr item = m_items[i];
     std::string label = item->GetLabel();
-    if (CServiceBroker::GetSettings().GetBool(CSettings::SETTING_FILELISTS_IGNORETHEWHENSORTING))
+    if (CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_FILELISTS_IGNORETHEWHENSORTING))
       label = SortUtils::RemoveArticles(label);
-    if (0 == strnicmp(label.c_str(), m_match.c_str(), m_match.size()))
+    if (0 == StringUtils::CompareNoCase(label, m_match, m_match.size()))
     {
       SelectItem(i);
       return;
     }
     i = (i+1) % m_items.size();
   } while (i != offset);
+
   // no match found - repeat with a single letter
-  if (m_match.size() > 1)
+  std::wstring wmatch;
+  g_charsetConverter.utf8ToW(m_match, wmatch);
+  if (wmatch.length() > 1)
   {
     m_match.clear();
     OnJumpLetter(letter, true);
@@ -663,7 +668,7 @@ CGUIListItemPtr CGUIBaseContainer::GetListItem(int offset, unsigned int flag) co
   int item = GetSelectedItem() + offset;
   if (flag & INFOFLAG_LISTITEM_POSITION) // use offset from the first item displayed, taking into account scrolling
     item = CorrectOffset((int)(m_scroller.GetValue() / m_layout->Size(m_orientation)), offset);
-  
+
   if (flag & INFOFLAG_LISTITEM_ABSOLUTE) // use offset from the first item
     item = CorrectOffset(0, offset);
 
@@ -691,7 +696,8 @@ CGUIListItemLayout *CGUIBaseContainer::GetFocusedLayout() const
 bool CGUIBaseContainer::OnMouseOver(const CPoint &point)
 {
   // select the item under the pointer
-  SelectItemFromPoint(point - CPoint(m_posX, m_posY));
+  if (!m_waitForScrollEnd)
+    SelectItemFromPoint(point - CPoint(m_posX, m_posY));
   return CGUIControl::OnMouseOver(point);
 }
 
@@ -701,9 +707,13 @@ EVENT_RESULT CGUIBaseContainer::OnMouseEvent(const CPoint &point, const CMouseEv
       event.m_id == ACTION_MOUSE_DOUBLE_CLICK ||
       event.m_id == ACTION_MOUSE_RIGHT_CLICK)
   {
+    // Cancel touch
+    m_waitForScrollEnd = false;
+    int select = GetSelectedItem();
     if (SelectItemFromPoint(point - CPoint(m_posX, m_posY)))
     {
-      OnClick(event.m_id);
+      if (event.m_id != ACTION_MOUSE_RIGHT_CLICK || select == GetSelectedItem())
+        OnClick(event.m_id);
       return EVENT_RESULT_HANDLED;
     }
   }
@@ -719,6 +729,8 @@ EVENT_RESULT CGUIBaseContainer::OnMouseEvent(const CPoint &point, const CMouseEv
   }
   else if (event.m_id == ACTION_GESTURE_NOTIFY)
   {
+    m_waitForScrollEnd = true;
+    m_lastScrollValue = m_scroller.GetValue();
     return (m_orientation == HORIZONTAL) ? EVENT_RESULT_PAN_HORIZONTAL : EVENT_RESULT_PAN_VERTICAL;
   }
   else if (event.m_id == ACTION_GESTURE_BEGIN)
@@ -731,14 +743,27 @@ EVENT_RESULT CGUIBaseContainer::OnMouseEvent(const CPoint &point, const CMouseEv
   { // do the drag and validate our offset (corrects for end of scroll)
     m_scroller.SetValue(m_scroller.GetValue() - ((m_orientation == HORIZONTAL) ? event.m_offsetX : event.m_offsetY));
     float size = (m_layout) ? m_layout->Size(m_orientation) : 10.0f;
-    int offset = (int)MathUtils::round_int(m_scroller.GetValue() / size);
+    int offset = MathUtils::round_int(m_scroller.GetValue() / size);
     m_lastScrollStartTimer.Stop();
     m_scrollTimer.Start();
+    const int absCursor = CorrectOffset(GetOffset(), GetCursor());
     SetOffset(offset);
     ValidateOffset();
+    CGUIBaseContainer::SetCursor(absCursor - CorrectOffset(GetOffset(), 0));
+    // Notify Application if Inertial scrolling reaches lists end
+    if (m_waitForScrollEnd)
+    {
+      if (fabs(m_scroller.GetValue() - m_lastScrollValue) < 0.001f)
+      {
+        m_waitForScrollEnd = false;
+        return EVENT_RESULT_UNHANDLED;
+      }
+      else
+        m_lastScrollValue = m_scroller.GetValue();
+    }
     return EVENT_RESULT_HANDLED;
   }
-  else if (event.m_id == ACTION_GESTURE_END)
+  else if (event.m_id == ACTION_GESTURE_END || event.m_id == ACTION_GESTURE_ABORT)
   { // release exclusive access
     CGUIMessage msg(GUI_MSG_EXCLUSIVE_MOUSE, 0, GetParentID());
     SendWindowMessage(msg);
@@ -746,12 +771,16 @@ EVENT_RESULT CGUIBaseContainer::OnMouseEvent(const CPoint &point, const CMouseEv
     // and compute the nearest offset from this and scroll there
     float size = (m_layout) ? m_layout->Size(m_orientation) : 10.0f;
     float offset = m_scroller.GetValue() / size;
-    int toOffset = (int)MathUtils::round_int(offset);
+    int toOffset = MathUtils::round_int(offset);
     if (toOffset < offset)
       SetOffset(toOffset+1);
     else
       SetOffset(toOffset-1);
     ScrollToOffset(toOffset);
+    ValidateOffset();
+    SetCursor(GetCursor());
+    SetFocus(true);
+    m_waitForScrollEnd = false;
     return EVENT_RESULT_HANDLED;
   }
   return EVENT_RESULT_UNHANDLED;
@@ -765,7 +794,7 @@ bool CGUIBaseContainer::OnClick(int actionID)
     if (m_listProvider)
     { // "select" action
       int selected = GetSelectedItem();
-      if (selected >= 0 && selected < (int)m_items.size())
+      if (selected >= 0 && selected < static_cast<int>(m_items.size()))
       {
         if (m_clickActions.HasActionsMeetingCondition())
           m_clickActions.ExecuteActions(0, GetParentID(), m_items[selected]);
@@ -831,7 +860,7 @@ void CGUIBaseContainer::SetFocus(bool bOnOff)
 void CGUIBaseContainer::SaveStates(std::vector<CControlState> &states)
 {
   if (!m_listProvider || !m_listProvider->AlwaysFocusDefaultItem())
-    states.push_back(CControlState(GetID(), GetSelectedItem()));
+    states.emplace_back(GetID(), GetSelectedItem());
 }
 
 void CGUIBaseContainer::SetPageControl(int id)
@@ -857,7 +886,6 @@ void CGUIBaseContainer::AllocResources()
   if (m_listProvider)
   {
     UpdateListProvider(true);
-    SelectItem(m_listProvider->GetDefaultItem());
   }
 }
 
@@ -917,8 +945,10 @@ void CGUIBaseContainer::UpdateVisibility(const CGUIListItem *item)
   if ((m_layout && m_layout->CheckCondition() != m_layoutCondition) ||
       (m_focusedLayout && m_focusedLayout->CheckCondition() != m_focusedLayoutCondition))
   {
-    m_layoutCondition = m_layout->CheckCondition();
-    m_focusedLayoutCondition = m_focusedLayout->CheckCondition();
+    if (m_layout)
+      m_layoutCondition = m_layout->CheckCondition();
+    if (m_focusedLayout)
+      m_focusedLayoutCondition = m_focusedLayout->CheckCondition();
 
     int itemIndex = GetSelectedItem();
     UpdateLayout(true); // true to refresh all items
@@ -1026,7 +1056,7 @@ void CGUIBaseContainer::UpdateScrollByLetter()
     if (currentMatch != nextLetter)
     {
       currentMatch = nextLetter;
-      m_letterOffsets.push_back(make_pair((int)i, currentMatch));
+      m_letterOffsets.emplace_back(static_cast<int>(i), currentMatch);
     }
   }
 }
@@ -1073,6 +1103,11 @@ void CGUIBaseContainer::ScrollToOffset(int offset)
     else
       m_scrollTimer.Stop();
   }
+  else
+  {
+    m_scrollTimer.Stop();
+    m_scroller.Update(~0U);
+  }
   SetOffset(offset);
 }
 
@@ -1086,7 +1121,7 @@ void CGUIBaseContainer::SetAutoScrolling(const TiXmlNode *node)
     if (scroll->Attribute("reverse"))
       m_autoScrollIsReversed = true;
     if (scroll->FirstChild())
-      m_autoScrollCondition = g_infoManager.Register(scroll->FirstChild()->ValueStr(), GetParentID());
+      m_autoScrollCondition = CServiceBroker::GetGUI()->GetInfoManager().Register(scroll->FirstChild()->ValueStr(), GetParentID());
   }
 }
 
@@ -1115,7 +1150,7 @@ void CGUIBaseContainer::UpdateAutoScrolling(unsigned int currentTime)
 void CGUIBaseContainer::SetContainerMoving(int direction)
 {
   if (direction)
-    g_infoManager.SetContainerMoving(GetID(), direction > 0, m_scroller.IsScrolling());
+    CServiceBroker::GetGUI()->GetInfoManager().GetInfoProviders().GetGUIControlsInfoProvider().SetContainerMoving(GetID(), direction > 0, m_scroller.IsScrolling());
 }
 
 void CGUIBaseContainer::UpdateScrollOffset(unsigned int currentTime)
@@ -1126,6 +1161,7 @@ void CGUIBaseContainer::UpdateScrollOffset(unsigned int currentTime)
   {
     m_scrollTimer.Stop();
     m_lastScrollStartTimer.Stop();
+    SetCursor(GetCursor());
   }
 }
 

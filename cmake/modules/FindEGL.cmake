@@ -3,7 +3,7 @@
 # -------
 # Finds the EGL library
 #
-# This will will define the following variables::
+# This will define the following variables::
 #
 # EGL_FOUND - system has EGL
 # EGL_INCLUDE_DIRS - the EGL include directory
@@ -14,8 +14,12 @@
 #
 #   EGL::EGL   - The EGL library
 
+if(CORE_PLATFORM_NAME_LC STREQUAL rbpi)
+    set(_brcmprefix brcm)
+endif()
+
 if(PKG_CONFIG_FOUND)
-  pkg_check_modules(PC_EGL egl QUIET)
+  pkg_check_modules(PC_EGL ${_brcmprefix}egl QUIET)
 endif()
 
 find_path(EGL_INCLUDE_DIR EGL/egl.h

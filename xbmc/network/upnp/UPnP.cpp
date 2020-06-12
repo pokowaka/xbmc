@@ -1,55 +1,44 @@
 /*
  * UPnP Support for XBMC
- *      Copyright (c) 2006 c0diq (Sylvain Rebaud)
+ *  Copyright (c) 2006 c0diq (Sylvain Rebaud)
  *      Portions Copyright (c) by the authors of libPlatinum
  *      http://www.plutinosoft.com/blog/category/platinum/
- *      Copyright (C) 2006-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2006-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <set>
-#include <Platinum/Source/Platinum/Platinum.h>
-
-#include "threads/SystemClock.h"
 #include "UPnP.h"
+
+#include "FileItem.h"
+#include "GUIUserMessages.h"
+#include "ServiceBroker.h"
 #include "UPnPInternal.h"
 #include "UPnPRenderer.h"
 #include "UPnPServer.h"
 #include "UPnPSettings.h"
-#include "utils/URIUtils.h"
-#include "Application.h"
-#include "ServiceBroker.h"
+#include "URL.h"
+#include "Util.h"
+#include "cores/playercorefactory/PlayerCoreFactory.h"
+#include "guilib/GUIComponent.h"
+#include "guilib/GUIWindowManager.h"
 #include "messaging/ApplicationMessenger.h"
 #include "network/Network.h"
-#include "utils/log.h"
-#include "URL.h"
-#include "cores/playercorefactory/PlayerCoreFactory.h"
-#include "profiles/ProfilesManager.h"
-#include "settings/AdvancedSettings.h"
+#include "profiles/ProfileManager.h"
 #include "settings/Settings.h"
-#include "GUIUserMessages.h"
-#include "FileItem.h"
-#include "guilib/GUIWindowManager.h"
-#include "utils/TimeUtils.h"
-#include "video/VideoInfoTag.h"
-#include "input/Key.h"
-#include "Util.h"
+#include "settings/SettingsComponent.h"
+#include "utils/StaticLoggerBase.h"
 #include "utils/SystemInfo.h"
+#include "utils/TimeUtils.h"
+#include "utils/URIUtils.h"
+#include "utils/log.h"
+#include "video/VideoInfoTag.h"
+
+#include <set>
+
+#include <Platinum/Source/Platinum/Platinum.h>
 
 using namespace UPNP;
 using namespace KODI::MESSAGING;
@@ -101,29 +90,29 @@ DLNA_ORG_FLAGS_VAL = '01500000000000000000000000000000'
 void
 NPT_Console::Output(const char* msg) { }
 
-int ConvertLogLevel(int nptLogLevel)
+spdlog::level::level_enum ConvertLogLevel(int nptLogLevel)
 {
     if (nptLogLevel >= NPT_LOG_LEVEL_FATAL)
-        return LOGFATAL;
+      return spdlog::level::critical;
     if (nptLogLevel >= NPT_LOG_LEVEL_SEVERE)
-        return LOGERROR;
+      return spdlog::level::err;
     if (nptLogLevel >= NPT_LOG_LEVEL_WARNING)
-        return LOGWARNING;
-    if (nptLogLevel >= NPT_LOG_LEVEL_INFO)
-        return LOGNOTICE;
+      return spdlog::level::warn;
     if (nptLogLevel >= NPT_LOG_LEVEL_FINE)
-        return LOGINFO;
+      return spdlog::level::info;
+    if (nptLogLevel >= NPT_LOG_LEVEL_FINER)
+      return spdlog::level::debug;
 
-    return LOGDEBUG;
+    return spdlog::level::trace;
 }
 
 void
 UPnPLogger(const NPT_LogRecord* record)
 {
-    if (!g_advancedSettings.CanLogComponent(LOGUPNP))
-        return;
-
-    CLog::Log(ConvertLogLevel(record->m_Level), "Platinum [%s]: %s", record->m_LoggerName, record->m_Message);
+  static Logger logger = CServiceBroker::GetLogging().GetLogger("Platinum");
+  if (CServiceBroker::GetLogging().CanLogComponent(LOGUPNP))
+    logger->log(ConvertLogLevel(record->m_Level), "[{}]: {}", record->m_LoggerName,
+                record->m_Message);
 }
 
 namespace UPNP
@@ -160,7 +149,7 @@ public:
 class CUPnPCleaner : public NPT_Thread
 {
 public:
-    CUPnPCleaner(CUPnP* upnp) : NPT_Thread(true), m_UPnP(upnp) {}
+    explicit CUPnPCleaner(CUPnP* upnp) : NPT_Thread(true), m_UPnP(upnp) {}
     void Run() override {
         delete m_UPnP;
     }
@@ -172,13 +161,14 @@ public:
 |   CMediaBrowser class
 +---------------------------------------------------------------------*/
 class CMediaBrowser : public PLT_SyncMediaBrowser,
-                      public PLT_MediaContainerChangesListener
+                      public PLT_MediaContainerChangesListener,
+                      protected CStaticLoggerBase
 {
 public:
-    CMediaBrowser(PLT_CtrlPointReference& ctrlPoint)
-        : PLT_SyncMediaBrowser(ctrlPoint, true)
-    {
-        SetContainerListener(this);
+  explicit CMediaBrowser(PLT_CtrlPointReference& ctrlPoint)
+    : PLT_SyncMediaBrowser(ctrlPoint, true), CStaticLoggerBase("UPNP::CMediaBrowser")
+  {
+    SetContainerListener(this);
     }
 
     // PLT_MediaBrowser methods
@@ -186,7 +176,7 @@ public:
     {
         CGUIMessage message(GUI_MSG_NOTIFY_ALL, 0, 0, GUI_MSG_UPDATE_PATH);
         message.SetStringParam("upnp://");
-        g_windowManager.SendThreadMessage(message);
+        CServiceBroker::GetGUI()->GetWindowManager().SendThreadMessage(message);
 
         return PLT_SyncMediaBrowser::OnMSAdded(device);
     }
@@ -196,7 +186,7 @@ public:
 
         CGUIMessage message(GUI_MSG_NOTIFY_ALL, 0, 0, GUI_MSG_UPDATE_PATH);
         message.SetStringParam("upnp://");
-        g_windowManager.SendThreadMessage(message);
+        CServiceBroker::GetGUI()->GetWindowManager().SendThreadMessage(message);
 
         PLT_SyncMediaBrowser::OnMSRemoved(device);
     }
@@ -213,10 +203,10 @@ public:
             path += id.c_str();
         }
 
-        CLog::Log(LOGDEBUG, "UPNP: notified container update %s", (const char*)path);
+        s_logger->debug("notified container update {}", (const char*)path);
         CGUIMessage message(GUI_MSG_NOTIFY_ALL, 0, 0, GUI_MSG_UPDATE_PATH);
         message.SetStringParam(path.GetChars());
-        g_windowManager.SendThreadMessage(message);
+        CServiceBroker::GetGUI()->GetWindowManager().SendThreadMessage(message);
     }
 
     bool MarkWatched(const CFileItem& item, const bool watched)
@@ -227,8 +217,9 @@ public:
             return SaveFileState(temp, CBookmark(), watched);
         }
         else {
-            CLog::Log(LOGDEBUG, "UPNP: Marking video item %s as watched", item.GetPath().c_str());
-            return InvokeUpdateObject(item.GetPath().c_str(), "<upnp:playCount>1</upnp:playCount>", "<upnp:playCount>0</upnp:playCount>");
+          s_logger->debug("Marking video item {} as watched", item.GetPath());
+          return InvokeUpdateObject(item.GetPath().c_str(), "<upnp:playCount>1</upnp:playCount>",
+                                    "<upnp:playCount>0</upnp:playCount>");
         }
     }
 
@@ -243,25 +234,31 @@ public:
         NPT_String new_value;
 
         if (item.GetVideoInfoTag()->GetResumePoint().timeInSeconds != bookmark.timeInSeconds) {
-            CLog::Log(LOGDEBUG, "UPNP: Updating resume point for item %s", path.c_str());
-            long time = (long)bookmark.timeInSeconds;
-            if (time < 0) time = 0;
-            curr_value.Append(NPT_String::Format("<upnp:lastPlaybackPosition>%ld</upnp:lastPlaybackPosition>",
-                                                 (long)item.GetVideoInfoTag()->GetResumePoint().timeInSeconds));
-            curr_value += "<xbmc:lastPlayerState>";
-            PLT_Didl::AppendXmlEscape(curr_value, item.GetVideoInfoTag()->GetResumePoint().playerState.c_str());
-            curr_value += "</xbmc:lastPlayerState>";
-            new_value.Append(NPT_String::Format("<upnp:lastPlaybackPosition>%ld</upnp:lastPlaybackPosition>", time));
-            new_value += "<xbmc:lastPlayerState>";
-            PLT_Didl::AppendXmlEscape(new_value, bookmark.playerState.c_str());
-            new_value += "</xbmc:lastPlayerState>";
+          s_logger->debug("Updating resume point for item {}", path);
+          long time = (long)bookmark.timeInSeconds;
+          if (time < 0)
+            time = 0;
+          curr_value.Append(
+              NPT_String::Format("<upnp:lastPlaybackPosition>%ld</upnp:lastPlaybackPosition>",
+                                 (long)item.GetVideoInfoTag()->GetResumePoint().timeInSeconds));
+          curr_value += "<xbmc:lastPlayerState>";
+          PLT_Didl::AppendXmlEscape(curr_value,
+                                    item.GetVideoInfoTag()->GetResumePoint().playerState.c_str());
+          curr_value += "</xbmc:lastPlayerState>";
+          new_value.Append(NPT_String::Format(
+              "<upnp:lastPlaybackPosition>%ld</upnp:lastPlaybackPosition>", time));
+          new_value += "<xbmc:lastPlayerState>";
+          PLT_Didl::AppendXmlEscape(new_value, bookmark.playerState.c_str());
+          new_value += "</xbmc:lastPlayerState>";
         }
         if (updatePlayCount) {
-            CLog::Log(LOGDEBUG, "UPNP: Marking video item %s as watched", path.c_str());
-            if (!curr_value.IsEmpty()) curr_value.Append(",");
-            if (!new_value.IsEmpty()) new_value.Append(",");
-            curr_value.Append("<upnp:playCount>0</upnp:playCount>");
-            new_value.Append("<upnp:playCount>1</upnp:playCount>");
+          s_logger->debug("Marking video item {} as watched", path);
+          if (!curr_value.IsEmpty())
+            curr_value.Append(",");
+          if (!new_value.IsEmpty())
+            new_value.Append(",");
+          curr_value.Append("<upnp:playCount>0</upnp:playCount>");
+          new_value.Append("<upnp:playCount>1</upnp:playCount>");
         }
 
         return InvokeUpdateObject(path.c_str(), (const char*)curr_value, (const char*)new_value);
@@ -274,7 +271,7 @@ public:
         PLT_Service* cds;
         PLT_ActionReference action;
 
-        CLog::Log(LOGDEBUG, "UPNP: attempting to invoke UpdateObject for %s", id);
+        s_logger->debug("attempting to invoke UpdateObject for {}", id);
 
         // check this server supports UpdateObject action
         NPT_CHECK_LABEL(FindServer(url.GetHostName().c_str(), device),failed);
@@ -292,12 +289,12 @@ public:
 
         NPT_CHECK_LABEL(m_CtrlPoint->InvokeAction(action, NULL),failed);
 
-        CLog::Log(LOGDEBUG, "UPNP: invoked UpdateObject successfully");
+        s_logger->debug("invoked UpdateObject successfully");
         return true;
 
     failed:
-        CLog::Log(LOGINFO, "UPNP: invoking UpdateObject failed");
-        return false;
+      s_logger->info("invoking UpdateObject failed");
+      return false;
     }
 };
 
@@ -310,7 +307,7 @@ class CMediaController
   , public PLT_MediaController
 {
 public:
-  CMediaController(PLT_CtrlPointReference& ctrl_point)
+  explicit CMediaController(PLT_CtrlPointReference& ctrl_point)
     : PLT_MediaController(ctrl_point)
   {
     PLT_MediaController::SetDelegate(this);
@@ -318,8 +315,8 @@ public:
 
   ~CMediaController() override
   {
-    for (std::set<std::string>::const_iterator itRenderer = m_registeredRenderers.begin(); itRenderer != m_registeredRenderers.end(); ++itRenderer)
-      unregisterRenderer(*itRenderer);
+    for (const auto& itRenderer : m_registeredRenderers)
+      unregisterRenderer(itRenderer);
     m_registeredRenderers.clear();
   }
 
@@ -388,9 +385,11 @@ public:
     if (device->GetUUID().IsEmpty() || device->GetUUID().GetChars() == NULL)
       return false;
 
-    CPlayerCoreFactory::GetInstance().OnPlayerDiscovered((const char*)device->GetUUID()
+    CPlayerCoreFactory &playerCoreFactory = CServiceBroker::GetPlayerCoreFactory();
+
+    playerCoreFactory.OnPlayerDiscovered((const char*)device->GetUUID()
                                           ,(const char*)device->GetFriendlyName());
-    
+
     m_registeredRenderers.insert(std::string(device->GetUUID().GetChars()));
     return true;
   }
@@ -408,7 +407,9 @@ public:
 private:
   void unregisterRenderer(const std::string &deviceUUID)
   {
-    CPlayerCoreFactory::GetInstance().OnPlayerRemoved(deviceUUID);
+    CPlayerCoreFactory &playerCoreFactory = CServiceBroker::GetPlayerCoreFactory();
+
+    playerCoreFactory.OnPlayerRemoved(deviceUUID);
   }
 
   std::set<std::string> m_registeredRenderers;
@@ -433,8 +434,8 @@ CUPnP::CUPnP() :
     m_UPnP = new PLT_UPnP();
 
     // keep main IP around
-    if (g_application.getNetwork().GetFirstConnectedInterface()) {
-        m_IP = g_application.getNetwork().GetFirstConnectedInterface()->GetCurrentIPAddress().c_str();
+    if (CServiceBroker::GetNetwork().GetFirstConnectedInterface()) {
+        m_IP = CServiceBroker::GetNetwork().GetFirstConnectedInterface()->GetCurrentIPAddress().c_str();
     }
     NPT_List<NPT_IpAddress> list;
     if (NPT_SUCCEEDED(PLT_UPnPMessageHelper::GetIPAddresses(list)) && list.GetItemCount()) {
@@ -504,7 +505,7 @@ CUPnP::ReleaseInstance(bool bWait)
 CUPnPServer* CUPnP::GetServer()
 {
   if(upnp)
-    return (CUPnPServer*)upnp->m_ServerHolder->m_Device.AsPointer();
+    return static_cast<CUPnPServer*>(upnp->m_ServerHolder->m_Device.AsPointer());
   return NULL;
 }
 
@@ -641,7 +642,7 @@ CUPnP::CreateServer(int port /* = 0 */)
     // but it doesn't work anyways as it requires multicast for XP to detect us
     device->m_PresentationURL =
         NPT_HttpUrl(m_IP.c_str(),
-                    CServiceBroker::GetSettings().GetInt(CSettings::SETTING_SERVICES_WEBSERVERPORT),
+                    CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(CSettings::SETTING_SERVICES_WEBSERVERPORT),
                     "/").ToString();
 
     device->m_ModelName        = "Kodi";
@@ -663,8 +664,10 @@ CUPnP::StartServer()
 {
     if (!m_ServerHolder->m_Device.IsNull()) return false;
 
+  const std::shared_ptr<CProfileManager> profileManager = CServiceBroker::GetSettingsComponent()->GetProfileManager();
+
     // load upnpserver.xml
-    std::string filename = URIUtils::AddFileToFolder(CProfilesManager::GetInstance().GetUserDataFolder(), "upnpserver.xml");
+    std::string filename = URIUtils::AddFileToFolder(profileManager->GetUserDataFolder(), "upnpserver.xml");
     CUPnPSettings::GetInstance().Load(filename);
 
     // create the server with a XBox compatible friendlyname and UUID from upnpserver.xml if found
@@ -724,7 +727,7 @@ CUPnP::CreateRenderer(int port /* = 0 */)
 
     device->m_PresentationURL =
         NPT_HttpUrl(m_IP.c_str(),
-                    CServiceBroker::GetSettings().GetInt(CSettings::SETTING_SERVICES_WEBSERVERPORT),
+                    CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(CSettings::SETTING_SERVICES_WEBSERVERPORT),
                     "/").ToString();
     device->m_ModelName        = "Kodi";
     device->m_ModelNumber      = CSysInfo::GetVersion().c_str();
@@ -741,9 +744,12 @@ CUPnP::CreateRenderer(int port /* = 0 */)
 +---------------------------------------------------------------------*/
 bool CUPnP::StartRenderer()
 {
-    if (!m_RendererHolder->m_Device.IsNull()) return false;
+    if (!m_RendererHolder->m_Device.IsNull())
+      return false;
 
-    std::string filename = URIUtils::AddFileToFolder(CProfilesManager::GetInstance().GetUserDataFolder(), "upnpserver.xml");
+    const std::shared_ptr<CProfileManager> profileManager = CServiceBroker::GetSettingsComponent()->GetProfileManager();
+
+    std::string filename = URIUtils::AddFileToFolder(profileManager->GetUserDataFolder(), "upnpserver.xml");
     CUPnPSettings::GetInstance().Load(filename);
 
     m_RendererHolder->m_Device = CreateRenderer(CUPnPSettings::GetInstance().GetRendererPort());
@@ -784,7 +790,7 @@ void CUPnP::StopRenderer()
 void CUPnP::UpdateState()
 {
   if (!m_RendererHolder->m_Device.IsNull())
-      ((CUPnPRenderer*)m_RendererHolder->m_Device.AsPointer())->UpdateState();
+      static_cast<CUPnPRenderer*>(m_RendererHolder->m_Device.AsPointer())->UpdateState();
 }
 
 void CUPnP::RegisterUserdata(void* ptr)

@@ -19,6 +19,7 @@
  */
 
 #pragma once
+
 #include "IDecoder.h"
 
 class GIFDecoder : public IDecoder
@@ -32,4 +33,6 @@ class GIFDecoder : public IDecoder
     const char* GetDecoderName() override { return "libgif"; }
   protected:
     void FillSupportedExtensions() override;
+  private:
+    static void gifDestroyFN(void* user);
 };

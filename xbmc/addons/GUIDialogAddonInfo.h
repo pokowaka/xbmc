@@ -1,31 +1,19 @@
+/*
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
 #pragma once
 
-/*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
- *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- */
+#include "addons/IAddon.h"
+#include "guilib/GUIDialog.h"
 
 #include <string>
 #include <utility>
 #include <vector>
-
-#include "guilib/GUIDialog.h"
-#include "addons/IAddon.h"
 
 class CGUIDialogAddonInfo : public CGUIDialog
 {
@@ -34,7 +22,7 @@ public:
   ~CGUIDialogAddonInfo(void) override;
   bool OnMessage(CGUIMessage& message) override;
   bool OnAction(const CAction &action) override;
-  
+
   CFileItemPtr GetCurrentListItem(int offset = 0) override { return m_item; }
   bool HasListItems() const override { return true; }
 
@@ -82,10 +70,10 @@ private:
    *  \param reactivate If true, reactivate info dialog when done
    *  \return True if okay was selected, false otherwise
    */
-  bool ShowDependencyList(const ADDON::ADDONDEPS& deps, bool reactivate);
+  bool ShowDependencyList(const std::vector<ADDON::DependencyInfo>& deps, bool reactivate);
 
   CFileItemPtr m_item;
   ADDON::AddonPtr m_localAddon;
-  bool m_addonEnabled;
+  bool m_addonEnabled = false;
 };
 

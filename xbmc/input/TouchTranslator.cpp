@@ -1,52 +1,39 @@
 /*
- *      Copyright (C) 2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "TouchTranslator.h"
-#include "ActionIDs.h"
-#include "ActionTranslator.h"
+
 #include "WindowTranslator.h" //! @todo
-#include "utils/log.h"
+#include "input/actions/ActionIDs.h"
+#include "input/actions/ActionTranslator.h"
 #include "utils/StringUtils.h"
 #include "utils/XBMCTinyXML.h"
+#include "utils/log.h"
 
 #include <map>
 
 using ActionName = std::string;
 using TouchCommandID = unsigned int;
 
-#define TOUCH_COMMAND_NONE  0
+#define TOUCH_COMMAND_NONE 0
 
-static const std::map<ActionName, TouchCommandID> TouchCommands =
-{
-    { "tap"                      , ACTION_TOUCH_TAP },
-    { "longpress"                , ACTION_TOUCH_LONGPRESS },
-    { "pan"                      , ACTION_GESTURE_PAN },
-    { "zoom"                     , ACTION_GESTURE_ZOOM },
-    { "rotate"                   , ACTION_GESTURE_ROTATE },
-    { "swipeleft"                , ACTION_GESTURE_SWIPE_LEFT },
-    { "swiperight"               , ACTION_GESTURE_SWIPE_RIGHT },
-    { "swipeup"                  , ACTION_GESTURE_SWIPE_UP },
-    { "swipedown"                , ACTION_GESTURE_SWIPE_DOWN }
-};
+static const std::map<ActionName, TouchCommandID> TouchCommands = {
+    {"tap", ACTION_TOUCH_TAP},
+    {"longpress", ACTION_TOUCH_LONGPRESS},
+    {"pan", ACTION_GESTURE_PAN},
+    {"zoom", ACTION_GESTURE_ZOOM},
+    {"rotate", ACTION_GESTURE_ROTATE},
+    {"swipeleft", ACTION_GESTURE_SWIPE_LEFT},
+    {"swiperight", ACTION_GESTURE_SWIPE_RIGHT},
+    {"swipeup", ACTION_GESTURE_SWIPE_UP},
+    {"swipedown", ACTION_GESTURE_SWIPE_DOWN}};
 
-void CTouchTranslator::MapActions(int windowID, const TiXmlNode *pTouch)
+void CTouchTranslator::MapActions(int windowID, const TiXmlNode* pTouch)
 {
   if (pTouch == nullptr)
     return;
@@ -63,11 +50,11 @@ void CTouchTranslator::MapActions(int windowID, const TiXmlNode *pTouch)
     m_touchMap.erase(it);
   }
 
-  const TiXmlElement *pTouchElem = pTouch->ToElement();
+  const TiXmlElement* pTouchElem = pTouch->ToElement();
   if (pTouchElem == nullptr)
     return;
 
-  const TiXmlElement *pButton = pTouchElem->FirstChildElement();
+  const TiXmlElement* pButton = pTouchElem->FirstChildElement();
   while (pButton != nullptr)
   {
     CTouchAction action;
@@ -96,28 +83,36 @@ void CTouchTranslator::Clear()
   m_touchMap.clear();
 }
 
-bool CTouchTranslator::TranslateTouchAction(int window, int touchAction, int touchPointers, int &action, std::string &actionString)
+bool CTouchTranslator::TranslateTouchAction(
+    int window, int touchAction, int touchPointers, int& action, std::string& actionString)
 {
   if (touchAction < 0)
     return false;
 
   unsigned int actionId = ACTION_NONE;
 
+  // handle virtual windows
+  window = CWindowTranslator::GetVirtualWindow(window);
+
   if (!TranslateAction(window, touchAction, touchPointers, actionId, actionString))
   {
-    int fallbackWindow = CWindowTranslator::GetFallbackWindow(window);
-    if (fallbackWindow > -1)
-      TranslateAction(fallbackWindow, touchAction, touchPointers, actionId, actionString);
-
-    if (actionId == ACTION_NONE)
-      TranslateAction(-1, touchAction, touchPointers, actionId, actionString);
+    // if it's invalid, try to get it from fallback windows or the global map (window == -1)
+    while (actionId == ACTION_NONE && window > -1)
+    {
+      window = CWindowTranslator::GetFallbackWindow(window);
+      TranslateAction(window, touchAction, touchPointers, actionId, actionString);
+    }
   }
 
   action = actionId;
   return actionId != ACTION_NONE;
 }
 
-bool CTouchTranslator::TranslateAction(int window, unsigned int touchCommand, int touchPointers, unsigned int &actionId, std::string &actionString)
+bool CTouchTranslator::TranslateAction(int window,
+                                       unsigned int touchCommand,
+                                       int touchPointers,
+                                       unsigned int& actionId,
+                                       std::string& actionString)
 {
   unsigned int touchActionKey = GetTouchActionKey(touchCommand, touchPointers);
 
@@ -126,7 +121,9 @@ bool CTouchTranslator::TranslateAction(int window, unsigned int touchCommand, in
   return actionId != ACTION_NONE;
 }
 
-unsigned int CTouchTranslator::GetActionID(WindowID window, TouchActionKey touchActionKey, std::string &actionString)
+unsigned int CTouchTranslator::GetActionID(WindowID window,
+                                           TouchActionKey touchActionKey,
+                                           std::string& actionString)
 {
   auto windowIt = m_touchMap.find(window);
   if (windowIt == m_touchMap.end())
@@ -140,13 +137,14 @@ unsigned int CTouchTranslator::GetActionID(WindowID window, TouchActionKey touch
   return touchIt->second.actionId;
 }
 
-unsigned int CTouchTranslator::TranslateTouchCommand(const TiXmlElement *pButton, CTouchAction &action)
+unsigned int CTouchTranslator::TranslateTouchCommand(const TiXmlElement* pButton,
+                                                     CTouchAction& action)
 {
-  const char *szButton = pButton->Value();
+  const char* szButton = pButton->Value();
   if (szButton == nullptr || pButton->FirstChild() == nullptr)
     return ACTION_NONE;
 
-  const char *szAction = pButton->FirstChild()->Value();
+  const char* szAction = pButton->FirstChild()->Value();
   if (szAction == nullptr)
     return ACTION_NONE;
 
@@ -154,7 +152,7 @@ unsigned int CTouchTranslator::TranslateTouchCommand(const TiXmlElement *pButton
   StringUtils::ToLower(strTouchCommand);
 
   // Handle direction
-  const char *attrVal = pButton->Attribute("direction");
+  const char* attrVal = pButton->Attribute("direction");
   if (attrVal != nullptr)
     strTouchCommand += attrVal;
 
@@ -179,7 +177,8 @@ unsigned int CTouchTranslator::TranslateTouchCommand(const TiXmlElement *pButton
   unsigned int touchActionKey = GetTouchActionKey(touchCommandId, pointers);
 
   action.strAction = szAction;
-  if (!CActionTranslator::TranslateString(action.strAction, action.actionId) || action.actionId == ACTION_NONE)
+  if (!CActionTranslator::TranslateString(action.strAction, action.actionId) ||
+      action.actionId == ACTION_NONE)
     return ACTION_NONE;
 
   return touchActionKey;

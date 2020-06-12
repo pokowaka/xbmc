@@ -1,33 +1,21 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
-#include "cores/VideoPlayer/Process/ProcessInfo.h"
-#include "cores/VideoPlayer/Process/VideoBuffer.h"
-#include "cores/VideoPlayer/DVDDemuxers/DVDDemuxPacket.h"
+#pragma once
+
 #include "DVDResource.h"
+#include "cores/VideoPlayer/Buffers/VideoBuffer.h"
+#include "cores/VideoPlayer/Interface/Addon/DemuxPacket.h"
+#include "cores/VideoPlayer/Process/ProcessInfo.h"
 
 extern "C" {
-#include "libavcodec/avcodec.h"
+#include <libavcodec/avcodec.h>
+#include <libavutil/mastering_display_metadata.h>
 }
 
 #include <vector>
@@ -52,6 +40,7 @@ public:
   ~VideoPicture();
   VideoPicture& CopyRef(const VideoPicture &pic);
   VideoPicture& SetParams(const VideoPicture &pic);
+  void Reset(); // reinitialize members, videoBuffer will be released if set!
 
   CVideoBuffer *videoBuffer = nullptr;
 
@@ -61,16 +50,23 @@ public:
   double iRepeatPicture;
   double iDuration;
   unsigned int iFrameType         : 4;  //< see defines above // 1->I, 2->P, 3->B, 0->Undef
-  unsigned int color_matrix       : 4;
+  unsigned int color_space;
   unsigned int color_range        : 1;  //< 1 indicate if we have a full range of color
   unsigned int chroma_position;
   unsigned int color_primaries;
   unsigned int color_transfer;
-  char stereo_mode[32];
+  unsigned int colorBits = 8;
+  std::string stereoMode;
 
   int8_t* qp_table;                //< Quantization parameters, primarily used by filters
   int qstride;
   int qscale_type;
+  int pict_type;
+
+  bool hasDisplayMetadata = false;
+  AVMasteringDisplayMetadata displayMetadata;
+  bool hasLightMetadata = false;
+  AVContentLightMetadata lightMetadata;
 
   unsigned int iWidth;
   unsigned int iHeight;
@@ -114,6 +110,7 @@ public:
   {
     VC_NONE = 0,
     VC_ERROR,           //< an error occured, no other messages will be returned
+    VC_FATAL,           //< non recoverable error
     VC_BUFFER,          //< the decoder needs more data
     VC_PICTURE,         //< the decoder got a picture, call Decode(NULL, 0) again to parse the rest of the data
     VC_FLUSHED,         //< the decoder lost it's state, we need to restart decoding again
@@ -122,7 +119,7 @@ public:
     VC_EOF              //< EOF
   };
 
-  CDVDVideoCodec(CProcessInfo &processInfo) : m_processInfo(processInfo) {}
+  explicit CDVDVideoCodec(CProcessInfo &processInfo) : m_processInfo(processInfo) {}
   virtual ~CDVDVideoCodec() = default;
 
   /**
@@ -187,16 +184,6 @@ public:
    * calling decode on the next demux packet
    */
   virtual unsigned GetAllowedReferences() { return 0; }
-
-  /**
-   * Hide or Show Settings depending on the currently running hardware
-   */
-  static bool IsSettingVisible(const std::string &condition, const std::string &value, std::shared_ptr<const CSetting> setting, void *data);
-
-  /**
-   * Interact with user settings so that user disabled codecs are disabled
-   */
-  static bool IsCodecDisabled(const std::map<AVCodecID, std::string> &map, AVCodecID id);
 
   /**
    * For calculation of dropping requirements player asks for some information.

@@ -1,31 +1,18 @@
 /*
  * Socket classes
- *      Copyright (c) 2008 d4rk
- *      Copyright (C) 2008-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (c) 2008 d4rk
+ *  Copyright (C) 2008-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
-
-#ifdef HAS_EVENT_SERVER
-
 #include "Socket.h"
+
+#include "utils/ScopeGuard.h"
 #include "utils/log.h"
+
 #include <vector>
 
 using namespace SOCKETS;
@@ -48,43 +35,23 @@ bool CPosixUDPSocket::Bind(bool localOnly, int port, int range)
   // with an IPv6-only socket).
   if (!localOnly) // Only bind loopback to ipv4. TODO : Implement dual bindinds.
   {
-    m_iSock = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
-    if (m_iSock != INVALID_SOCKET)
-    {
-#ifdef WINSOCK_VERSION
-      const char zero = 0;
-#else
-      int zero = 0;
-#endif
-      if (setsockopt(m_iSock, IPPROTO_IPV6, IPV6_V6ONLY, &zero, sizeof(&zero)) == -1)
-      {
-        close(m_iSock);
-        m_iSock = INVALID_SOCKET;
-      }
-      else
-      {
-        m_addr = CAddress("::");
+    m_ipv6Socket = CheckIPv6(port, range);
 
-        SOCKET testSocket = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
-        setsockopt(testSocket, IPPROTO_IPV6, IPV6_V6ONLY, &zero, sizeof(&zero));
-        // Try to bind a socket to validate ipv6 status
-        for (m_iPort = port; m_iPort <= port + range; ++m_iPort)
+    if (m_ipv6Socket)
+    {
+      m_iSock = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+      if (m_iSock != INVALID_SOCKET)
+      {
+#ifdef WINSOCK_VERSION
+        const char zero = 0;
+#else
+        int zero = 0;
+#endif
+        if (setsockopt(m_iSock, IPPROTO_IPV6, IPV6_V6ONLY, &zero, sizeof(zero)) == -1)
         {
-          m_addr.saddr.saddr6.sin6_port = htons(m_iPort);
-          if (bind(testSocket, (struct sockaddr*)&m_addr.saddr, m_addr.size) >= 0)
-          {
-            m_ipv6Socket = true;
-            break;
-          }
-        }
-        if (!m_ipv6Socket)
-        {
-          CLog::Log(LOGWARNING, "UDP: Unable to bind to advertised ipv6, fallback to ipv4");
-          close(m_iSock);
+          closesocket(m_iSock);
           m_iSock = INVALID_SOCKET;
         }
-
-        closesocket(testSocket);
       }
     }
   }
@@ -106,7 +73,7 @@ bool CPosixUDPSocket::Bind(bool localOnly, int port, int range)
     }
 #else
     CLog::Log(LOGERROR, "UDP: Could not create socket");
-#endif    
+#endif
     CLog::Log(LOGERROR, "UDP: %s", strerror(errno));
     return false;
   }
@@ -117,7 +84,7 @@ bool CPosixUDPSocket::Bind(bool localOnly, int port, int range)
 #else
   int yes = 1;
 #endif
-  if (setsockopt(m_iSock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int))==-1)
+  if (setsockopt(m_iSock, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1)
   {
     CLog::Log(LOGWARNING, "UDP: Could not enable the address reuse options");
     CLog::Log(LOGWARNING, "UDP: %s", strerror(errno));
@@ -154,7 +121,8 @@ bool CPosixUDPSocket::Bind(bool localOnly, int port, int range)
     }
     else
     {
-      CLog::Log(LOGNOTICE, "UDP: Listening on port %d (ipv6 : %s)", m_iPort, m_ipv6Socket ? "true" : "false");
+      CLog::Log(LOGINFO, "UDP: Listening on port %d (ipv6 : %s)", m_iPort,
+                m_ipv6Socket ? "true" : "false");
       SetBound();
       SetReady();
       break;
@@ -170,6 +138,55 @@ bool CPosixUDPSocket::Bind(bool localOnly, int port, int range)
   }
 
   return true;
+}
+
+bool CPosixUDPSocket::CheckIPv6(int port, int range)
+{
+  CAddress testaddr("::");
+#if defined(TARGET_WINDOWS)
+  using CAutoPtrSocket = KODI::UTILS::CScopeGuard<SOCKET, INVALID_SOCKET, decltype(closesocket)>;
+  CAutoPtrSocket testSocket(closesocket, socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP));
+#else
+  using CAutoPtrSocket = KODI::UTILS::CScopeGuard<int, -1, decltype(close)>;
+  CAutoPtrSocket testSocket(close, socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP));
+#endif
+
+  if (static_cast<SOCKET>(testSocket) == INVALID_SOCKET)
+  {
+    CLog::LogF(LOGDEBUG, "Could not create IPv6 socket: %s", strerror(errno));
+    return false;
+  }
+
+#ifdef WINSOCK_VERSION
+  const char zero = 0;
+#else
+  int zero = 0;
+#endif
+
+  if (setsockopt(static_cast<SOCKET>(testSocket), IPPROTO_IPV6, IPV6_V6ONLY, &zero, sizeof(zero)) ==
+      -1)
+  {
+    CLog::LogF(LOGDEBUG, "Could not disable IPV6_V6ONLY for socket: %s", strerror(errno));
+    return false;
+  }
+
+  // Try to bind a socket to validate ipv6 status
+  for (; port <= port + range; port++)
+  {
+    testaddr.saddr.saddr6.sin6_port = htons(port);
+    if (bind(static_cast<SOCKET>(testSocket), reinterpret_cast<struct sockaddr*>(&testaddr.saddr),
+             testaddr.size) == 0)
+    {
+      CLog::LogF(LOGDEBUG, "IPv6 socket bound successfully");
+      return true;
+    }
+    else
+    {
+      CLog::LogF(LOGDEBUG, "Could not bind IPv6 socket: %s", strerror(errno));
+    }
+  }
+
+  return false;
 }
 
 void CPosixUDPSocket::Close()
@@ -309,5 +326,3 @@ CBaseSocket* CSocketListener::GetNextReadySocket()
   }
   return NULL;
 }
-
-#endif // HAS_EVENT_SERVER

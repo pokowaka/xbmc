@@ -1,23 +1,14 @@
-#pragma once
 /*
- *      Copyright (C) 2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2013-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
+
+#include "utils/Variant.h"
 
 #include <memory>
 #include <string>
@@ -34,6 +25,7 @@
 #define SETTING_XML_ELM_VISIBLE "visible"
 #define SETTING_XML_ELM_REQUIREMENT "requirement"
 #define SETTING_XML_ELM_CONDITION "condition"
+#define SETTING_XML_ELM_ENABLED "enable"
 #define SETTING_XML_ELM_LEVEL "level"
 #define SETTING_XML_ELM_DEFAULT "default"
 #define SETTING_XML_ELM_VALUE "value"
@@ -69,15 +61,60 @@
 #define SETTING_XML_ATTR_BEFORE "before"
 #define SETTING_XML_ATTR_AFTER "after"
 
-using TranslatableIntegerSettingOption = std::pair<int, int>;
+struct IntegerSettingOption
+{
+  IntegerSettingOption(const std::string& _label, int _value)
+  : label(_label), value(_value) {}
+
+  IntegerSettingOption(const std::string& _label, int _value,
+                       const std::vector<std::pair<std::string, CVariant>>& props)
+  : label(_label), value(_value), properties(props) {}
+
+  std::string label;
+  int value = 0;
+  std::vector<std::pair<std::string, CVariant>> properties;
+};
+
+struct StringSettingOption
+{
+  StringSettingOption(const std::string& _label, const std::string& _value)
+  : label(_label), value(_value) {}
+
+  StringSettingOption(const std::string& _label, const std::string& _value,
+                      const std::vector<std::pair<std::string, CVariant>>& props)
+  : label(_label), value(_value), properties(props) {}
+
+  std::string label;
+  std::string value;
+  std::vector<std::pair<std::string, CVariant>> properties;
+};
+
+struct TranslatableIntegerSettingOption
+{
+  TranslatableIntegerSettingOption() = default;
+  TranslatableIntegerSettingOption(int _label, int _value, const std::string& _addonId = "")
+    : label(_label), value(_value), addonId(_addonId)
+  {
+  }
+
+  int label = 0;
+  int value = 0;
+  std::string addonId; // Leaved empty for Kodi labels
+};
+
 using TranslatableIntegerSettingOptions = std::vector<TranslatableIntegerSettingOption>;
-using IntegerSettingOption = std::pair<std::string, int>;
 using IntegerSettingOptions = std::vector<IntegerSettingOption>;
 using TranslatableStringSettingOption = std::pair<int, std::string>;
 using TranslatableStringSettingOptions = std::vector<TranslatableStringSettingOption>;
-using StringSettingOption = std::pair<std::string, std::string>;
 using StringSettingOptions = std::vector<StringSettingOption>;
 
 class CSetting;
 using IntegerSettingOptionsFiller = void (*)(std::shared_ptr<const CSetting> setting, IntegerSettingOptions &list, int &current, void *data);
 using StringSettingOptionsFiller = void (*)(std::shared_ptr<const CSetting> setting, StringSettingOptions &list, std::string &current, void *data);
+
+enum class SettingOptionsSort
+{
+  NoSorting,
+  Ascending,
+  Descending
+};

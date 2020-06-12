@@ -1,37 +1,26 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "AppParamParser.h"
 #include "CompileInfo.h"
+#include "ServiceBroker.h"
+#include "platform/Environment.h"
+#include "platform/xbmc.h"
 #include "threads/Thread.h"
 #include "threads/platform/win/Win32Exception.h"
-#include "platform/win32/CharsetConverter.h"
-#include "platform/xbmc.h"
-#include "platform/XbmcContext.h"
-#include "settings/AdvancedSettings.h"
-#include "utils/CPUInfo.h"
-#include "utils/Environment.h"
 #include "utils/CharsetConverter.h" // Required to initialize converters before usage
 
+#include "platform/win32/CharsetConverter.h"
 
+#include <Objbase.h>
+#include <WinSock2.h>
 #include <dbghelp.h>
+#include <mmsystem.h>
 #include <shellapi.h>
 
 
@@ -50,8 +39,8 @@ LONG WINAPI CreateMiniDump(EXCEPTION_POINTERS* pEp)
 INT WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR commandLine, INT)
 {
   using KODI::PLATFORM::WINDOWS::ToW;
-  // this fixes crash if OPENSSL_CONF is set to existed openssl.cfg  
-  // need to set it as soon as possible  
+  // this fixes crash if OPENSSL_CONF is set to existed openssl.cfg
+  // need to set it as soon as possible
   CEnvironment::unsetenv("OPENSSL_CONF");
 
   // Initializes CreateMiniDump to handle exceptions.
@@ -71,7 +60,7 @@ INT WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR commandLine, INT)
 
   // check if Kodi is already running
   std::string appName = CCompileInfo::GetAppName();
-  CreateMutex(nullptr, FALSE, ToW(appName + " Media Center").c_str());
+  HANDLE appRunningMutex = CreateMutex(nullptr, FALSE, ToW(appName + " Media Center").c_str());
   if (GetLastError() == ERROR_ALREADY_EXISTS)
   {
     auto appNameW = ToW(appName);
@@ -82,12 +71,7 @@ INT WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR commandLine, INT)
       ShowWindow(hwnd, SW_RESTORE);
       SetForegroundWindow(hwnd);
     }
-    return 0;
-  }
-
-  if ((g_cpuInfo.GetCPUFeatures() & CPU_FEATURE_SSE2) == 0)
-  {
-    MessageBox(NULL, L"No SSE2 support detected", ToW(appName + ": Fatal Error").c_str(), MB_OK | MB_ICONERROR);
+    ReleaseMutex(appRunningMutex);
     return 0;
   }
 
@@ -124,11 +108,6 @@ INT WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR commandLine, INT)
 
   int status;
   {
-    // set up some xbmc specific relationships
-    XBMC::Context context;
-    // Initialize before CAppParamParser so it can set the log level
-    g_advancedSettings.Initialize();
-    
     CAppParamParser appParamParser;
     appParamParser.Parse(argv, argc);
     // Create and run the app
@@ -144,6 +123,7 @@ INT WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR commandLine, INT)
 
   WSACleanup();
   CoUninitialize();
+  ReleaseMutex(appRunningMutex);
 
   return status;
 }

@@ -1,29 +1,19 @@
 /*
- *      Copyright (C) 2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2013-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "SettingPath.h"
+
 #include "settings/lib/SettingsManager.h"
-#include "utils/log.h"
+#include "utils/FileExtensionProvider.h"
 #include "utils/StringUtils.h"
 #include "utils/XBMCTinyXML.h"
 #include "utils/XMLUtils.h"
+#include "utils/log.h"
 
 #define XML_ELM_DEFAULT     "default"
 #define XML_ELM_CONSTRAINTS "constraints"
@@ -35,7 +25,7 @@ CSettingPath::CSettingPath(const std::string &id, CSettingsManager *settingsMana
 CSettingPath::CSettingPath(const std::string &id, int label, const std::string &value, CSettingsManager *settingsManager /* = nullptr */)
   : CSettingString(id, label, value, settingsManager)
 { }
-  
+
 CSettingPath::CSettingPath(const std::string &id, const CSettingPath &setting)
   : CSettingString(id, setting)
 {
@@ -53,14 +43,14 @@ bool CSettingPath::Deserialize(const TiXmlNode *node, bool update /* = false */)
 
   if (!CSettingString::Deserialize(node, update))
     return false;
-    
+
   if (m_control != nullptr &&
-     (m_control->GetType() != "button" || (m_control->GetFormat() != "path" && m_control->GetFormat() != "file")))
+     (m_control->GetType() != "button" || (m_control->GetFormat() != "path" && m_control->GetFormat() != "file" && m_control->GetFormat() != "image")))
   {
     CLog::Log(LOGERROR, "CSettingPath: invalid <control> of \"%s\"", m_id.c_str());
     return false;
   }
-    
+
   auto constraints = node->FirstChild(XML_ELM_CONSTRAINTS);
   if (constraints != nullptr)
   {
@@ -102,7 +92,40 @@ bool CSettingPath::SetValue(const std::string &value)
   return CSettingString::SetValue(value);
 }
 
-void CSettingPath::copy(const CSettingPath &setting)
+std::string CSettingPath::GetMasking(const CFileExtensionProvider& fileExtensionProvider) const
+{
+  if (m_masking.empty())
+    return m_masking;
+
+  // setup masking
+  const auto audioMask = fileExtensionProvider.GetMusicExtensions();
+  const auto videoMask = fileExtensionProvider.GetVideoExtensions();
+  const auto imageMask = fileExtensionProvider.GetPictureExtensions();
+  auto execMask = "";
+#if defined(TARGET_WINDOWS)
+  execMask = ".exe|.bat|.cmd|.py";
+#endif // defined(TARGET_WINDOWS)
+
+  std::string masking = m_masking;
+  if (masking == "video")
+    return videoMask;
+  if (masking == "audio")
+    return audioMask;
+  if (masking == "image")
+    return imageMask;
+  if (masking == "executable")
+    return execMask;
+
+  // convert mask qualifiers
+  StringUtils::Replace(masking, "$AUDIO", audioMask);
+  StringUtils::Replace(masking, "$VIDEO", videoMask);
+  StringUtils::Replace(masking, "$IMAGE", imageMask);
+  StringUtils::Replace(masking, "$EXECUTABLE", execMask);
+
+  return masking;
+}
+
+void CSettingPath::copy(const CSettingPath& setting)
 {
   CSettingString::Copy(setting);
 

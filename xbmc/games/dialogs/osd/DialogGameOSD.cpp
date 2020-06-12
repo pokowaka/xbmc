@@ -1,94 +1,81 @@
 /*
- *      Copyright (C) 2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "DialogGameOSD.h"
-#include "guilib/GUIMessage.h"
-#include "guilib/GUIWindowManager.h"
-#include "input/Action.h"
-#include "input/ActionIDs.h"
+
+#include "DialogGameOSDHelp.h"
+#include "ServiceBroker.h"
+#include "games/GameServices.h"
+#include "games/GameSettings.h"
+#include "guilib/WindowIDs.h"
+#include "input/actions/Action.h"
+#include "input/actions/ActionIDs.h"
 
 using namespace KODI;
 using namespace GAME;
 
-CDialogGameOSD::CDialogGameOSD() :
-  CGUIDialog(WINDOW_DIALOG_GAME_OSD, "GameOSD.xml")
+CDialogGameOSD::CDialogGameOSD()
+  : CGUIDialog(WINDOW_DIALOG_GAME_OSD, "GameOSD.xml"), m_helpDialog(new CDialogGameOSDHelp(*this))
 {
   // Initialize CGUIWindow
   m_loadType = KEEP_IN_MEMORY;
 }
 
-bool CDialogGameOSD::OnAction(const CAction &action)
+bool CDialogGameOSD::OnAction(const CAction& action)
 {
   switch (action.GetID())
   {
-  case ACTION_SHOW_OSD:
-  {
-    Close();
-    return true;
-  }
-  case ACTION_PLAYER_PLAY:
-  case ACTION_PLAYER_RESET:
-  case ACTION_PREV_ITEM:
-  case ACTION_STOP:
-  {
-    Close(true);
-    break;
-  }
-  default:
-    break;
+    case ACTION_PARENT_DIR:
+    case ACTION_PREVIOUS_MENU:
+    case ACTION_NAV_BACK:
+    case ACTION_SHOW_OSD:
+    case ACTION_PLAYER_PLAY:
+    {
+      // Disable OSD help if visible
+      if (m_helpDialog->IsVisible() && CServiceBroker::IsServiceManagerUp())
+      {
+        GAME::CGameSettings& gameSettings = CServiceBroker::GetGameServices().GameSettings();
+        if (gameSettings.ShowOSDHelp())
+        {
+          gameSettings.SetShowOSDHelp(false);
+          return true;
+        }
+      }
+      break;
+    }
+    default:
+      break;
   }
 
   return CGUIDialog::OnAction(action);
 }
 
-bool CDialogGameOSD::OnMessage(CGUIMessage& message)
+void CDialogGameOSD::OnInitWindow()
 {
-  switch (message.GetMessage())
-  {
-  case GUI_MSG_WINDOW_DEINIT:  // Fired when OSD is hidden
-  {
-    CloseSubDialogs();
-    break;
-  }
-  default:
-    break;
-  }
+  // Init parent class
+  CGUIDialog::OnInitWindow();
 
-  return CGUIDialog::OnMessage(message);
+  // Init help dialog
+  m_helpDialog->OnInitWindow();
 }
 
-std::vector<int> CDialogGameOSD::GetSubDialogs()
+void CDialogGameOSD::OnDeinitWindow(int nextWindowID)
 {
-  return std::vector<int>{
-    WINDOW_DIALOG_GAME_VIDEO_SETTINGS,
-    WINDOW_DIALOG_GAME_CONTROLLERS,
-  };
+  CGUIDialog::OnDeinitWindow(nextWindowID);
+
+  if (CServiceBroker::IsServiceManagerUp())
+  {
+    GAME::CGameSettings& gameSettings = CServiceBroker::GetGameServices().GameSettings();
+    gameSettings.SetShowOSDHelp(false);
+  }
 }
 
-void CDialogGameOSD::CloseSubDialogs()
+bool CDialogGameOSD::PlayInBackground(int dialogId)
 {
-  // Remove our subdialogs if visible
-  for (auto windowId : GetSubDialogs())
-  {
-    CGUIDialog *pDialog = g_windowManager.GetDialog(windowId);
-    if (pDialog)
-      pDialog->Close(true);
-  }
+  return dialogId == WINDOW_DIALOG_GAME_VOLUME;
 }

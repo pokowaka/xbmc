@@ -1,29 +1,18 @@
 /*
- *      Copyright (C) 2016 Christian Browet
- *      http://xbmc.org
+ *  Copyright (C) 2016 Christian Browet
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "JNIXBMCAudioManagerOnAudioFocusChangeListener.h"
-#include <androidjni/jutils-details.hpp>
 
-#include <androidjni/Context.h>
 #include "CompileInfo.h"
 #include "XBMCApp.h"
+
+#include <androidjni/Context.h>
+#include <androidjni/jutils-details.hpp>
 
 using namespace jni;
 
@@ -54,7 +43,7 @@ void CJNIXBMCAudioManagerOnAudioFocusChangeListener::RegisterNatives(JNIEnv* env
   jclass cClass = env->FindClass(s_className.c_str());
   if(cClass)
   {
-    JNINativeMethod methods[] = 
+    JNINativeMethod methods[] =
     {
       {"_onAudioFocusChange", "(I)V", (void*)&CJNIXBMCAudioManagerOnAudioFocusChangeListener::_onAudioFocusChange},
     };
@@ -67,7 +56,7 @@ void CJNIXBMCAudioManagerOnAudioFocusChangeListener::_onAudioFocusChange(JNIEnv 
 {
   (void)env;
 
-  CJNIXBMCAudioManagerOnAudioFocusChangeListener *inst = find_instance(jhobject(thiz));
+  CJNIXBMCAudioManagerOnAudioFocusChangeListener *inst = find_instance(thiz);
   if (inst)
     inst->onAudioFocusChange(focusChange);
 }

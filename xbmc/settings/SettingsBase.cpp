@@ -1,25 +1,15 @@
 /*
- *      Copyright (C) 2016 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2016-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "SettingsBase.h"
+
 #include "settings/SettingUtils.h"
+#include "settings/SettingsValueXmlSerializer.h"
 #include "settings/lib/Setting.h"
 #include "settings/lib/SettingsManager.h"
 #include "utils/Variant.h"
@@ -28,8 +18,7 @@
 #define SETTINGS_XML_ROOT   "settings"
 
 CSettingsBase::CSettingsBase()
-  : m_initialized(false)
-  , m_settingsManager(new CSettingsManager())
+  : m_settingsManager(new CSettingsManager())
 { }
 
 CSettingsBase::~CSettingsBase()
@@ -64,7 +53,7 @@ bool CSettingsBase::Initialize()
 
   m_settingsManager->SetInitialized();
 
-  InitializeISettingsHandlers();  
+  InitializeISettingsHandlers();
   InitializeISubSettings();
   InitializeISettingCallbacks();
 
@@ -126,12 +115,15 @@ bool CSettingsBase::IsLoaded() const
 
 bool CSettingsBase::SaveValuesToXml(CXBMCTinyXML& xml) const
 {
-  TiXmlElement rootElement(SETTINGS_XML_ROOT);
-  TiXmlNode* xmlRoot = xml.InsertEndChild(rootElement);
-  if (xmlRoot == nullptr)
+  std::string serializedSettings;
+  auto xmlSerializer = std::make_unique<CSettingsValueXmlSerializer>();
+  if (!m_settingsManager->Save(xmlSerializer.get(), serializedSettings))
     return false;
 
-  return m_settingsManager->Save(xmlRoot);
+  if (!xml.Parse(serializedSettings))
+    return false;
+
+  return true;
 }
 
 void CSettingsBase::Unload()
@@ -147,6 +139,10 @@ void CSettingsBase::Uninitialize()
 
   // unregister setting option fillers
   UninitializeOptionFillers();
+
+  // unregister setting conditions
+  UninitializeConditions();
+
   // unregister ISettingCallback implementations
   UninitializeISettingCallbacks();
 

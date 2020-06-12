@@ -1,30 +1,19 @@
-#pragma once
 /*
- *      Copyright (C) 2016 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2016-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
+
+#include "settings/lib/ISettingCallback.h"
+#include "threads/CriticalSection.h"
 
 #include <set>
 #include <string>
 #include <vector>
-
-#include "settings/lib/ISettingCallback.h"
-#include "threads/CriticalSection.h"
 
 class CSetting;
 class CSettingSection;
@@ -235,6 +224,7 @@ protected:
   virtual void InitializeOptionFillers() { }
   virtual void UninitializeOptionFillers() { }
   virtual void InitializeConditions() { }
+  virtual void UninitializeConditions() { }
   virtual bool InitializeDefinitions() = 0;
   virtual void InitializeVisibility() { }
   virtual void InitializeDefaults() { }
@@ -280,7 +270,10 @@ protected:
   */
   bool LoadHiddenValuesFromXml(const TiXmlElement* root);
 
-  bool m_initialized;
+  bool m_initialized = false;
   CSettingsManager* m_settingsManager;
-  CCriticalSection m_critical;
+  mutable CCriticalSection m_critical;
+private:
+  CSettingsBase(const CSettingsBase&) = delete;
+  CSettingsBase& operator=(const CSettingsBase&) = delete;
 };

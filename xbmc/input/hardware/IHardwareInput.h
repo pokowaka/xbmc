@@ -1,44 +1,32 @@
 /*
- *      Copyright (C) 2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
+
+#include <string>
 
 namespace KODI
 {
 namespace HARDWARE
 {
+/*!
+ * \ingroup hardware
+ * \brief Handles events for hardware such as reset buttons on a game console
+ */
+class IHardwareInput
+{
+public:
+  virtual ~IHardwareInput() = default;
+
   /*!
-   * \ingroup hardware
-   * \brief Handles events for hardware such as reset buttons on a game console
+   * \brief A hardware reset button has been pressed
    */
-  class IHardwareInput
-  {
-  public:
-    virtual ~IHardwareInput() = default;
-    
-    /*!
-     * \brief A hardware reset button has been pressed
-     *
-     * \param port  The port belonging to the user who pressed the reset button,
-     *              or 0 (the default port) if unknown
-     */
-    virtual void OnResetButton(unsigned int port) = 0;
-  };
-}
-}
+  virtual void OnResetButton() = 0;
+};
+} // namespace HARDWARE
+} // namespace KODI

@@ -1,15 +1,13 @@
-//--------------------------------------------------------------------------------------
-// File: DXErr.cpp
-//
-// DirectX Error Library
-//
-// THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF
-// ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO
-// THE IMPLIED WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A
-// PARTICULAR PURPOSE.
-//
-// Copyright (c) Microsoft Corporation. All rights reserved.
-//--------------------------------------------------------------------------------------
+/*
+ *  File: DXErr.cpp
+ *
+ *  DirectX Error Library
+ *
+ *  Copyright (C) Microsoft Corporation. All rights reserved.
+ *
+ *  SPDX-License-Identifier: MIT
+ *  See LICENSES/README.md for more information.
+ */
 
 // This version only supports UNICODE.
 
@@ -21,6 +19,7 @@
 #if !defined(WINAPI_FAMILY) || (WINAPI_FAMILY == WINAPI_FAMILY_DESKTOP_APP)
 #include <ddraw.h>
 #include <d3d9.h>
+#include <mmsystem.h>
 #include <dsound.h>
 
 #define DIRECTINPUT_VERSION 0x800
@@ -3469,7 +3468,7 @@ void WINAPI DXGetErrorDescriptionW( _In_ HRESULT hr, _Out_cap_(count) WCHAR* des
     // First try to see if FormatMessage knows this hr
     UINT icount = static_cast<UINT>( std::min<size_t>( count, 32767 ) );
 
-    DWORD result = FormatMessageW( FORMAT_MESSAGE_FROM_SYSTEM, nullptr, hr, 
+    DWORD result = FormatMessageW( FORMAT_MESSAGE_FROM_SYSTEM, nullptr, hr,
                                    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), desc, icount, nullptr );
 
     if (result > 0)

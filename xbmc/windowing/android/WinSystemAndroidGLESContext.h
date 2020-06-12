@@ -1,36 +1,29 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
 
-#include "GLContextEGL.h"
-#include "rendering/gles/RenderSystemGLES.h"
-#include "utils/GlobalsHandling.h"
 #include "WinSystemAndroid.h"
+#include "rendering/gles/RenderSystemGLES.h"
+#include "utils/EGLUtils.h"
+#include "utils/GlobalsHandling.h"
+
+struct AVMasteringDisplayMetadata;
+struct AVContentLightMetadata;
 
 class CWinSystemAndroidGLESContext : public CWinSystemAndroid, public CRenderSystemGLES
 {
 public:
   CWinSystemAndroidGLESContext() = default;
-  virtual ~CWinSystemAndroidGLESContext() = default;
+  ~CWinSystemAndroidGLESContext() override = default;
 
+  // Implementation of CWinSystemBase via CWinSystemAndroid
+  CRenderSystemBase *GetRenderSystem() override { return this; }
   bool InitWindowSystem() override;
   bool CreateNewWindow(const std::string& name,
                        bool fullScreen,
@@ -39,7 +32,11 @@ public:
   bool ResizeWindow(int newWidth, int newHeight, int newLeft, int newTop) override;
   bool SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool blankOtherDisplays) override;
 
-  virtual std::unique_ptr<CVideoSync> GetVideoSync(void *clock) override;
+  std::unique_ptr<CVideoSync> GetVideoSync(void* clock) override;
+
+  float GetFrameLatencyAdjustment() override;
+  bool IsHDRDisplay() override;
+  bool SetHDR(const VideoPicture* videoPicture) override;
 
   EGLDisplay GetEGLDisplay() const;
   EGLSurface GetEGLSurface() const;
@@ -50,9 +47,13 @@ protected:
   void PresentRenderImpl(bool rendered) override;
 
 private:
-  CGLContextEGL m_pGLContext;
+  bool CreateSurface();
 
+  CEGLContextUtils m_pGLContext;
+  bool m_hasHDRConfig = false;
+
+  std::unique_ptr<AVMasteringDisplayMetadata> m_displayMetadata;
+  std::unique_ptr<AVContentLightMetadata> m_lightMetadata;
+  EGLint m_HDRColorSpace = EGL_NONE;
+  bool m_hasEGLHDRExtensions = false;
 };
-
-XBMC_GLOBAL_REF(CWinSystemAndroidGLESContext, g_Windowing);
-#define g_Windowing XBMC_GLOBAL_USE(CWinSystemAndroidGLESContext)

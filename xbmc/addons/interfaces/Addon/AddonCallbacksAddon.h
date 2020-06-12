@@ -1,24 +1,13 @@
-#pragma once
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      Copyright (C) 2015-2016 Team KODI
- *      http://kodi.tv
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with KODI; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "addons/interfaces/AddonInterfaces.h"
 #include "addons/kodi-addon-dev-kit/include/kodi/libXBMC_addon.h"
@@ -45,7 +34,7 @@ namespace AddOn
 class CAddonCallbacksAddon
 {
 public:
-  CAddonCallbacksAddon(ADDON::CAddon* addon);
+  explicit CAddonCallbacksAddon(ADDON::CAddon* addon);
   virtual ~CAddonCallbacksAddon();
 
   /*!
@@ -53,15 +42,16 @@ public:
    */
   CB_AddOnLib *GetCallbacks() { return m_callbacks; }
 
-  static void AddOnLog(void *addonData, const ADDON::addon_log_t addonLogLevel, const char *strMessage);
+  static void AddOnLog(void *addonData, const int addonLogLevel, const char *strMessage);
   static bool GetAddonSetting(void *addonData, const char *strSettingName, void *settingValue);
   static char *TranslateSpecialProtocol(const char *strSource);
-  static void QueueNotification(void *addonData, const ADDON::queue_msg_t type, const char *strMessage);
+  static void QueueNotification(void *addonData, const int type, const char *strMessage);
   static bool WakeOnLan(const char *mac);
   static char* UnknownToUTF8(const char *strSource);
   static char* GetLocalizedString(const void* addonData, long dwCode);
   static char* GetDVDMenuLanguage(const void* addonData);
   static void FreeString(const void* addonData, char* str);
+  static void FreeStringArray(const void* addonData, char** arr, int numElements);
 
   // file operations
   static void* OpenFile(const void* addonData, const char* strFileName, unsigned int flags);
@@ -79,6 +69,8 @@ public:
   static int GetFileChunkSize(const void* addonData, void* file);
   static bool FileExists(const void* addonData, const char *strFileName, bool bUseCache);
   static int StatFile(const void* addonData, const char *strFileName, struct __stat64* buffer);
+  static char *GetFilePropertyValue(const void* addonData, void* file, XFILE::FileProperty type, const char *name);
+  static char **GetFilePropertyValues(const void* addonData, void* file, XFILE::FileProperty type, const char *name, int *numValues);
   static bool DeleteFile(const void* addonData, const char *strFileName);
   static bool CanOpenDirectory(const void* addonData, const char* strURL);
   static bool CreateDirectory(const void* addonData, const char *strPath);
@@ -91,6 +83,9 @@ public:
   static bool CURLOpen(const void* addonData, void* curl, unsigned int flags);
 
 private:
+  CAddonCallbacksAddon(const CAddonCallbacksAddon&) = delete;
+  CAddonCallbacksAddon& operator=(const CAddonCallbacksAddon&) = delete;
+
   ADDON::CAddon* m_addon; /*!< the addon */
   CB_AddOnLib  *m_callbacks; /*!< callback addresses */
 };

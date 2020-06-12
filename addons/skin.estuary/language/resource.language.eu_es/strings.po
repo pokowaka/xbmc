@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: KODI Main\n"
-"Report-Msgid-Bugs-To: http://trac.kodi.tv/\n"
+"Report-Msgid-Bugs-To: https://github.com/xbmc/xbmc/issues/\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Kodi Translation Team\n"
@@ -55,6 +55,10 @@ msgstr "Gaitu kategoria widgetak"
 msgctxt "#31009"
 msgid "Download icons"
 msgstr "Deskargatu ikonoak"
+
+msgctxt "#31010"
+msgid "In progress movies"
+msgstr "Hasitako pelikulak"
 
 msgctxt "#31011"
 msgid "Most played albums"
@@ -116,6 +120,10 @@ msgctxt "#31025"
 msgid "No favourites found. You can add any item from media views to this list by using the context menu."
 msgstr "Ez da gogokorik aurkitu. Elementuak gehitu ditzakezu edozein multimedia ikuspegitik zerrenda honetara laster-menua erabiliz."
 
+msgctxt "#31026"
+msgid "Timeshift"
+msgstr "Denbora aldaketa"
+
 msgctxt "#31028"
 msgid "Show fanart"
 msgstr "Irakutsi fanart-a"
@@ -139,10 +147,6 @@ msgstr "Ordenatu"
 msgctxt "#31033"
 msgid "Your rating"
 msgstr "Zure balorazioa"
-
-msgctxt "#31034"
-msgid "Extended info"
-msgstr "Informazio zabaldua"
 
 msgctxt "#31035"
 msgid "Pages"
@@ -191,10 +195,6 @@ msgstr "Eskuragarri"
 msgctxt "#31050"
 msgid "Press [B]OK[/B] to stop"
 msgstr "Sakatu [B]Ados[/B] gelditzeko"
-
-msgctxt "#31051"
-msgid "Toggle language"
-msgstr "Txandakatu hizkuntza"
 
 msgctxt "#31052"
 msgid "filtered"
@@ -260,6 +260,10 @@ msgctxt "#31072"
 msgid "Power Options"
 msgstr "Energia-aukerak"
 
+msgctxt "#31074"
+msgid "Total duration"
+msgstr "Iraupen osoa"
+
 msgctxt "#31075"
 msgid "Movie sets"
 msgstr "Pelikula sortak"
@@ -270,7 +274,7 @@ msgstr "Aktoreen zerrenda ez dago eskuragarri"
 
 msgctxt "#31080"
 msgid "Ends at"
-msgstr "Amaiera ordua:"
+msgstr "Amaiera ordua"
 
 msgctxt "#31082"
 msgid "Lyrics add-on"
@@ -287,10 +291,6 @@ msgstr "Bistaratze-aukerak"
 msgctxt "#31089"
 msgid "Available groups"
 msgstr "Eskuragarri dauden taldeak"
-
-msgctxt "#31090"
-msgid "Search trailer"
-msgstr "Bilatu trailerra"
 
 msgctxt "#31092"
 msgid "Video menu"
@@ -372,10 +372,6 @@ msgctxt "#31114"
 msgid "Search YouTube"
 msgstr "Bilatu YouTube"
 
-msgctxt "#31115"
-msgid "Search TheMovieDB"
-msgstr "Bilatu TheMovieDB"
-
 msgctxt "#31116"
 msgid "Remove this main menu item"
 msgstr "Kendu menu nagusiko elementu hau"
@@ -408,10 +404,6 @@ msgctxt "#31123"
 msgid "Same director"
 msgstr "Zuzendari bera"
 
-msgctxt "#31124"
-msgid "Show images on map"
-msgstr "Erakutsi irudiak mapan"
-
 msgctxt "#31125"
 msgid "Press up for actor info"
 msgstr "Sakatu gora aktorearen informazioa ikusteko"
@@ -439,6 +431,14 @@ msgstr "Menu nagusiarekin erlazionatutako ezarpenak: Konfiguratu etxeko pantaila
 msgctxt "#31131"
 msgid "Choose skin fanart pack"
 msgstr "Aukeratu azalaren fanart paketea"
+
+msgctxt "#31132"
+msgid "Select Program"
+msgstr "Hautatu Programa"
+
+msgctxt "#31133"
+msgid "Select Resolution"
+msgstr "Hautatu Bereizmena"
 
 msgctxt "#31134"
 msgid "Remaining"
@@ -547,3 +547,7 @@ msgstr "Jokatu zure joko pertsonaletan edo deskargatu biltegi ofizialeko joko ge
 msgctxt "#31163"
 msgid "Show Fanart background"
 msgstr "Irakutsi fanart atzean"
+
+msgctxt "#31165"
+msgid "Profile name"
+msgstr "Profilaren izena"

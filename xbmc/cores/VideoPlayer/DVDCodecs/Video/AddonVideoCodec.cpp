@@ -1,40 +1,30 @@
 /*
- *      Copyright (C) 2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "AddonVideoCodec.h"
+
 #include "addons/binary-addons/BinaryAddonBase.h"
-#include "cores/VideoPlayer/DVDStreamInfo.h"
-#include "cores/VideoPlayer/DVDDemuxers/DemuxCrypto.h"
+#include "cores/VideoPlayer/Buffers/VideoBuffer.h"
 #include "cores/VideoPlayer/DVDCodecs/DVDCodecs.h"
-#include "cores/VideoPlayer/Process/VideoBuffer.h"
-#include "cores/VideoPlayer/TimingConstants.h"
+#include "cores/VideoPlayer/DVDStreamInfo.h"
+#include "cores/VideoPlayer/Interface/Addon/DemuxCrypto.h"
+#include "cores/VideoPlayer/Interface/Addon/TimingConstants.h"
 #include "utils/log.h"
-#include "settings/AdvancedSettings.h"
 
 using namespace kodi::addon;
 
-CAddonVideoCodec::CAddonVideoCodec(CProcessInfo &processInfo, ADDON::BinaryAddonBasePtr& addonInfo, kodi::addon::IAddonInstance* parentInstance)
+CAddonVideoCodec::CAddonVideoCodec(CProcessInfo& processInfo,
+                                   ADDON::BinaryAddonBasePtr& addonInfo,
+                                   KODI_HANDLE parentInstance)
   : CDVDVideoCodec(processInfo),
-    IAddonInstanceHandler(ADDON_INSTANCE_VIDEOCODEC, addonInfo, parentInstance)
-  , m_codecFlags(0)
-  , m_displayAspect(0.0f)
+    IAddonInstanceHandler(ADDON_INSTANCE_VIDEOCODEC, addonInfo, parentInstance),
+    m_codecFlags(0),
+    m_displayAspect(0.0f)
 {
   m_struct = { { 0 } };
   m_struct.toKodi.kodiInstance = this;
@@ -45,7 +35,6 @@ CAddonVideoCodec::CAddonVideoCodec(CProcessInfo &processInfo, ADDON::BinaryAddon
     CLog::Log(LOGERROR, "CInputStreamAddon: Failed to create add-on instance for '%s'", addonInfo->ID().c_str());
     return;
   }
-  m_processInfo.SetVideoDecoderName(GetName(), false);
 }
 
 CAddonVideoCodec::~CAddonVideoCodec()
@@ -99,6 +88,26 @@ bool CAddonVideoCodec::CopyToInitData(VIDEOCODEC_INITDATA &initData, CDVDStreamI
     break;
   case AV_CODEC_ID_VP9:
     initData.codec = VIDEOCODEC_INITDATA::CodecVp9;
+    switch (hints.profile)
+    {
+    case FF_PROFILE_UNKNOWN:
+      initData.codecProfile = STREAMCODEC_PROFILE::CodecProfileUnknown;
+      break;
+    case FF_PROFILE_VP9_0:
+      initData.codecProfile = STREAMCODEC_PROFILE::VP9CodecProfile0;
+      break;
+    case FF_PROFILE_VP9_1:
+      initData.codecProfile = STREAMCODEC_PROFILE::VP9CodecProfile1;
+      break;
+    case FF_PROFILE_VP9_2:
+      initData.codecProfile = STREAMCODEC_PROFILE::VP9CodecProfile2;
+      break;
+    case FF_PROFILE_VP9_3:
+      initData.codecProfile = STREAMCODEC_PROFILE::VP9CodecProfile3;
+      break;
+    default:
+      return false;
+    }
     break;
   default:
     return false;
@@ -115,6 +124,9 @@ bool CAddonVideoCodec::CopyToInitData(VIDEOCODEC_INITDATA &initData, CDVDStreamI
       break;
     case CRYPTO_SESSION_SYSTEM_PLAYREADY:
       initData.cryptoInfo.m_CryptoKeySystem = CRYPTO_INFO::CRYPTO_KEY_SYSTEM_PLAYREADY;
+      break;
+    case CRYPTO_SESSION_SYSTEM_WISEPLAY:
+      initData.cryptoInfo.m_CryptoKeySystem = CRYPTO_INFO::CRYPTO_KEY_SYSTEM_WISEPLAY;
       break;
     default:
       return false;
@@ -135,6 +147,9 @@ bool CAddonVideoCodec::CopyToInitData(VIDEOCODEC_INITDATA &initData, CDVDStreamI
   m_height = hints.height;
 
   m_processInfo.SetVideoDimensions(hints.width, hints.height);
+  m_processInfo.SetVideoDAR(m_displayAspect);
+  if (hints.fpsscale)
+    m_processInfo.SetVideoFps(static_cast<float>(hints.fpsrate) / hints.fpsscale);
 
   return true;
 }
@@ -148,14 +163,14 @@ bool CAddonVideoCodec::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options)
   m_formats[nformats++] = VideoFormatYV12;
   m_formats[nformats] = UnknownVideoFormat;
 
-  if (nformats == 0)
-    return false;
-
   VIDEOCODEC_INITDATA initData;
   if (!CopyToInitData(initData, hints))
     return false;
 
-  return m_struct.toAddon.open(&m_struct, &initData);
+  bool ret = m_struct.toAddon.open(&m_struct, &initData);
+  m_processInfo.SetVideoDecoderName(GetName(), false);
+
+  return ret;
 }
 
 bool CAddonVideoCodec::Reconfigure(CDVDStreamInfo &hints)
@@ -199,9 +214,24 @@ CDVDVideoCodec::VCReturn CAddonVideoCodec::GetPicture(VideoPicture* pVideoPictur
     pVideoPicture->iHeight = picture.height;
     pVideoPicture->pts = static_cast<double>(picture.pts);
     pVideoPicture->dts = DVD_NOPTS_VALUE;
-    pVideoPicture->color_range = 0;
-    pVideoPicture->color_matrix = 4;
     pVideoPicture->iFlags = 0;
+    pVideoPicture->chroma_position = 0;
+    pVideoPicture->colorBits = 8;
+    pVideoPicture->color_primaries = AVColorPrimaries::AVCOL_PRI_UNSPECIFIED;
+    pVideoPicture->color_range = 0;
+    pVideoPicture->color_space = AVCOL_SPC_UNSPECIFIED;
+    pVideoPicture->color_transfer = 0;
+    pVideoPicture->hasDisplayMetadata = false;
+    pVideoPicture->hasLightMetadata = false;
+    pVideoPicture->iDuration = 0;
+    pVideoPicture->iFrameType = 0;
+    pVideoPicture->iRepeatPicture = 0;
+    pVideoPicture->pict_type = 0;
+    pVideoPicture->qp_table = nullptr;
+    pVideoPicture->qscale_type = 0;
+    pVideoPicture->qstride = 0;
+    pVideoPicture->stereoMode.clear();
+
     if (m_codecFlags & DVD_CODEC_CTRL_DROP)
       pVideoPicture->iFlags |= DVP_FLAG_DROPPED;
 
@@ -230,9 +260,14 @@ CDVDVideoCodec::VCReturn CAddonVideoCodec::GetPicture(VideoPicture* pVideoPictur
       }
     }
 
-    if (g_advancedSettings.CanLogComponent(LOGVIDEO))
-      CLog::Log(LOGDEBUG, "CAddonVideoCodec: GetPicture::VC_PICTURE with pts %llu %dx%d (%dx%d) %f %p:%d offset:%d,%d,%d, stride:%d,%d,%d", picture.pts, pVideoPicture->iWidth, pVideoPicture->iHeight, pVideoPicture->iDisplayWidth, pVideoPicture->iDisplayHeight, m_displayAspect,
-          picture.decodedData, picture.decodedDataSize, picture.planeOffsets[0], picture.planeOffsets[1], picture.planeOffsets[2], picture.stride[0], picture.stride[1], picture.stride[2]);
+    CLog::Log(LOGDEBUG, LOGVIDEO,
+              "CAddonVideoCodec: GetPicture::VC_PICTURE with pts {} {}x{} ({}x{}) {} {}:{} "
+              "offset:{},{},{}, stride:{},{},{}",
+              picture.pts, pVideoPicture->iWidth, pVideoPicture->iHeight,
+              pVideoPicture->iDisplayWidth, pVideoPicture->iDisplayHeight, m_displayAspect,
+              fmt::ptr(picture.decodedData), picture.decodedDataSize, picture.planeOffsets[0],
+              picture.planeOffsets[1], picture.planeOffsets[2], picture.stride[0],
+              picture.stride[1], picture.stride[2]);
 
     if (picture.width != m_width || picture.height != m_height)
     {
@@ -243,6 +278,7 @@ CDVDVideoCodec::VCReturn CAddonVideoCodec::GetPicture(VideoPicture* pVideoPictur
 
     return CDVDVideoCodec::VC_PICTURE;
   case VIDEOCODEC_RETVAL::VC_EOF:
+    CLog::Log(LOGINFO, "CAddonVideoCodec: GetPicture: EOF");
     return CDVDVideoCodec::VC_EOF;
   default:
     return CDVDVideoCodec::VC_ERROR;
@@ -282,7 +318,7 @@ void CAddonVideoCodec::Reset()
 
 bool CAddonVideoCodec::GetFrameBuffer(VIDEOCODEC_PICTURE &picture)
 {
-  CVideoBuffer *videoBuffer = m_processInfo.GetVideoBufferManager().Get(AV_PIX_FMT_YUV420P, picture.decodedDataSize);
+  CVideoBuffer *videoBuffer = m_processInfo.GetVideoBufferManager().Get(AV_PIX_FMT_YUV420P, picture.decodedDataSize, nullptr);
   if (!videoBuffer)
   {
     CLog::Log(LOGERROR,"CAddonVideoCodec::GetFrameBuffer Failed to allocate buffer");
@@ -294,10 +330,10 @@ bool CAddonVideoCodec::GetFrameBuffer(VIDEOCODEC_PICTURE &picture)
   return true;
 }
 
-void CAddonVideoCodec::ReleaseFrameBuffer(void *buffer)
+void CAddonVideoCodec::ReleaseFrameBuffer(KODI_HANDLE videoBufferHandle)
 {
-  if (buffer)
-    static_cast<CVideoBuffer*>(buffer)->Release();
+  if (videoBufferHandle)
+    static_cast<CVideoBuffer*>(videoBufferHandle)->Release();
 }
 
 /*********************     ADDON-TO-KODI    **********************/
@@ -310,10 +346,10 @@ bool CAddonVideoCodec::get_frame_buffer(void* kodiInstance, VIDEOCODEC_PICTURE *
   return static_cast<CAddonVideoCodec*>(kodiInstance)->GetFrameBuffer(*picture);
 }
 
-void CAddonVideoCodec::release_frame_buffer(void* kodiInstance, void *buffer)
+void CAddonVideoCodec::release_frame_buffer(void* kodiInstance, KODI_HANDLE videoBufferHandle)
 {
   if (!kodiInstance)
     return;
 
-  static_cast<CAddonVideoCodec*>(kodiInstance)->ReleaseFrameBuffer(buffer);
+  static_cast<CAddonVideoCodec*>(kodiInstance)->ReleaseFrameBuffer(videoBufferHandle);
 }

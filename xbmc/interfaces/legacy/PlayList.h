@@ -1,30 +1,17 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
 
-#include "playlists/PlayList.h"
 #include "AddonClass.h"
 #include "Exception.h"
-
 #include "ListItem.h"
+#include "playlists/PlayList.h"
 
 namespace XBMCAddon
 {
@@ -65,14 +52,13 @@ namespace XBMCAddon
       PLAYLIST::CPlayList *pPlayList;
 
     public:
-      PlayList(int playList);
+      explicit PlayList(int playList);
       ~PlayList() override;
 
 #ifdef DOXYGEN_SHOULD_USE_THIS
       ///
       /// \ingroup python_PlayList
       /// @brief \python_func{ getPlayListId() }
-      ///-----------------------------------------------------------------------
       /// Get the PlayList Identifier
       ///
       /// @return                    Id as an integer.
@@ -86,7 +72,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_PlayList
       /// @brief \python_func{ add(url[, listitem, index]) }
-      ///-----------------------------------------------------------------------
       /// Adds a new file to the playlist.
       ///
       /// @param url                 string or unicode - filename or url to add.
@@ -119,7 +104,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_PlayList
       /// @brief \python_func{ load(filename) }
-      ///-----------------------------------------------------------------------
       /// Load a playlist.
       ///
       /// Clear current playlist and copy items from the file to this Playlist
@@ -137,7 +121,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_PlayList
       /// @brief \python_func{ remove(filename) }
-      ///-----------------------------------------------------------------------
       /// Remove an item with this filename from the playlist.
       ///
       /// @param filename            The file to remove from list.
@@ -151,7 +134,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_PlayList
       /// @brief \python_func{ clear() }
-      ///-----------------------------------------------------------------------
       /// Clear all items in the playlist.
       ///
       clear();
@@ -163,7 +145,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_PlayList
       /// @brief \python_func{ size() }
-      ///-----------------------------------------------------------------------
       /// Returns the total number of PlayListItems in this playlist.
       ///
       /// @return                    Amount of playlist entries.
@@ -177,7 +158,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_PlayList
       /// @brief \python_func{ shuffle() }
-      ///-----------------------------------------------------------------------
       /// Shuffle the playlist.
       ///
       shuffle();
@@ -189,7 +169,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_PlayList
       /// @brief \python_func{ unshuffle() }
-      ///-----------------------------------------------------------------------
       /// Unshuffle the playlist.
       ///
       unshuffle();
@@ -201,7 +180,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_PlayList
       /// @brief \python_func{ getposition() }
-      ///-----------------------------------------------------------------------
       /// Returns the position of the current song in this playlist.
       ///
       /// @return                    Position of the current song
@@ -215,12 +193,13 @@ namespace XBMCAddon
       ///
       /// \ingroup python_PlayList
       /// @brief \python_func{ [] }
-      ///-----------------------------------------------------------------------
-      /// Retrieve the item at the given position. A negative index means
-      /// from the ending rather than from the start.
+      /// Retrieve the item at the given position.
       ///
       /// @param i                   Pointer in list
       /// @return                    The selected item on list
+      ///
+      /// @note A negative index means
+      /// from the end rather than from the start.
       ///
       [](...);
 #else

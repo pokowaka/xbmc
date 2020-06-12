@@ -1,32 +1,20 @@
- /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+/*
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
 
+#include "Window.h"
+#include "WindowDialogMixin.h"
+#include "swighelper.h"
+#include "windows/GUIMediaWindow.h"
+
 #include <limits.h>
 #include <vector>
-
-#include "Window.h"
-#include "windows/GUIMediaWindow.h"
-#include "swighelper.h"
-#include "WindowDialogMixin.h"
 
 namespace XBMCAddon
 {
@@ -56,7 +44,7 @@ namespace XBMCAddon
     ///                             skins path to look in for the xml.
     ///                             (default='Default')
     /// @param defaultRes           [opt] string - default skins resolution.
-    ///                             (default='720p')
+    ///                             (1080i, 720p, ntsc16x9, ntsc, pal16x9 or pal. default='720p')
     /// @param isMedia              [opt] bool - if False, create a regular window.
     ///                             if True, create a mediawindow.
     ///                             (default=False)
@@ -74,7 +62,7 @@ namespace XBMCAddon
     /// **Example:**
     /// ~~~~~~~~~~~~~{.py}
     /// ..
-    /// win = xbmcgui.WindowXML('script-Lyrics-main.xml', xbmcaddon.Addon().getAddonInfo('path').decode('utf-8'), 'default', '1080p', False)
+    /// win = xbmcgui.WindowXML('script-Lyrics-main.xml', xbmcaddon.Addon().getAddonInfo('path').decode('utf-8'), 'default', '1080i', False)
     /// win.doModal()
     /// del win
     /// ..
@@ -125,7 +113,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_window_xml
       /// @brief \python_func{ addItem(item[, position]) }
-      ///-----------------------------------------------------------------------
       /// Add a new item to this Window List.
       ///
       /// @param item            string, unicode or ListItem - item to add.
@@ -152,7 +139,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_window_xml
       /// @brief \python_func{ addItems(items) }
-      ///-----------------------------------------------------------------------
       /// Add a list of items to to the window list.
       ///
       ///
@@ -177,7 +163,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_window_xml
       /// @brief \python_func{ removeItem(position) }
-      ///-----------------------------------------------------------------------
       /// Removes a specified item based on position, from the Window List.
       ///
       /// @param position        integer - position of item to remove.
@@ -202,7 +187,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_window_xml
       /// @brief \python_func{ getCurrentListPosition() }
-      ///-----------------------------------------------------------------------
       /// Gets the current position in the Window List.
       ///
       ///
@@ -225,7 +209,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_window_xml
       /// @brief \python_func{ setCurrentListPosition(position) }
-      ///-----------------------------------------------------------------------
       /// Set the current position in the Window List.
       ///
       /// @param position        integer - position of item to set.
@@ -250,7 +233,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_window_xml
       /// @brief \python_func{ getListItem(position) }
-      ///-----------------------------------------------------------------------
       /// Returns a given ListItem in this Window List.
       ///
       /// @param position        integer - position of item to return.
@@ -275,7 +257,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_window_xml
       /// @brief \python_func{ getListSize() }
-      ///-----------------------------------------------------------------------
       /// Returns the number of items in this Window List.
       ///
       ///
@@ -298,10 +279,7 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_window_xml
       /// @brief \python_func{ clearList() }
-      ///-----------------------------------------------------------------------
       /// Clear the Window List.
-      ///
-      ///
       ///
       /// ------------------------------------------------------------------------
       ///
@@ -314,12 +292,6 @@ namespace XBMCAddon
       ///
       clearList();
 #else
-      /**
-       * clearList() -- Clear the Window List.
-       *
-       * example:\n
-       *   - self.clearList()
-       */
       SWIGHIDDENVIRTUAL void clearList();
 #endif
 
@@ -327,7 +299,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_window_xml
       /// @brief \python_func{ setContainerProperty(key, value) }
-      ///-----------------------------------------------------------------------
       /// Sets a container property, similar to an infolabel.
       ///
       /// @param key            string - property name.
@@ -358,7 +329,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_window_xml
       /// @brief \python_func{ setContent(value) }
-      ///-----------------------------------------------------------------------
       /// Sets the content type of the container.
       ///
       /// @param value          string or unicode - content value.
@@ -408,7 +378,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_xbmcgui_window_xml
       /// @brief \python_func{ getCurrentContainerId() }
-      ///-----------------------------------------------------------------------
       /// Get the id of the currently visible container.
       ///
       /// ------------------------------------------------------------------------
@@ -428,15 +397,19 @@ namespace XBMCAddon
 
 #ifndef SWIG
       // CGUIWindow
-      SWIGHIDDENVIRTUAL bool OnMessage(CGUIMessage& message) override;
-      SWIGHIDDENVIRTUAL bool OnAction(const CAction &action) override;
+      bool OnMessage(CGUIMessage& message) override;
+      bool OnAction(const CAction& action) override;
       SWIGHIDDENVIRTUAL void AllocResources(bool forceLoad = false);
       SWIGHIDDENVIRTUAL void FreeResources(bool forceUnLoad = false);
       SWIGHIDDENVIRTUAL bool OnClick(int iItem);
       SWIGHIDDENVIRTUAL bool OnDoubleClick(int iItem);
       SWIGHIDDENVIRTUAL void Process(unsigned int currentTime, CDirtyRegionList &dirtyregions);
 
-      SWIGHIDDENVIRTUAL bool IsMediaWindow() const override { XBMC_TRACE; return m_isMedia; };
+      bool IsMediaWindow() const override
+      {
+        XBMC_TRACE;
+        return m_isMedia;
+      };
 
       // This method is identical to the Window::OnDeinitWindow method
       //  except it passes the message on to their respective parents.
@@ -495,7 +468,7 @@ namespace XBMCAddon
     ///                                 skins path to look in for the xml.
     ///                                 (default='Default')
     /// @param defaultRes               [opt] string - default skins resolution.
-    ///                                 (default='720p')
+    ///                                 (1080i, 720p, ntsc16x9, ntsc, pal16x9 or pal. default='720p')
     /// @throws Exception               if more then 200 windows are created.
     ///
     /// @note Skin folder structure is e.g. **resources/skins/Default/720p**
@@ -506,7 +479,7 @@ namespace XBMCAddon
     /// **Example:**
     /// ~~~~~~~~~~~~~{.py}
     /// ..
-    /// dialog = xbmcgui.WindowXMLDialog('script-Lyrics-main.xml', xbmcaddon.Addon().getAddonInfo('path').decode('utf-8'), 'default', '1080p')
+    /// dialog = xbmcgui.WindowXMLDialog('script-Lyrics-main.xml', xbmcaddon.Addon().getAddonInfo('path').decode('utf-8'), 'default', '1080i')
     /// dialog.doModal()
     /// del dialog
     /// ..
@@ -541,18 +514,42 @@ namespace XBMCAddon
       ~WindowXMLDialog() override;
 
 #ifndef SWIG
-      SWIGHIDDENVIRTUAL bool OnMessage(CGUIMessage &message) override;
-      SWIGHIDDENVIRTUAL bool IsDialogRunning() const override { XBMC_TRACE; return WindowDialogMixin::IsDialogRunning(); }
-      SWIGHIDDENVIRTUAL bool IsDialog() const override { XBMC_TRACE; return true;};
-      SWIGHIDDENVIRTUAL bool IsModalDialog() const override { XBMC_TRACE; return true; };
-      SWIGHIDDENVIRTUAL bool IsMediaWindow() const override { XBMC_TRACE; return false; };
-      SWIGHIDDENVIRTUAL bool OnAction(const CAction &action) override;
-      SWIGHIDDENVIRTUAL void OnDeinitWindow(int nextWindowID) override;
+      bool OnMessage(CGUIMessage& message) override;
+      bool IsDialogRunning() const override
+      {
+        XBMC_TRACE;
+        return WindowDialogMixin::IsDialogRunning();
+      }
+      bool IsDialog() const override
+      {
+        XBMC_TRACE;
+        return true;
+      };
+      bool IsModalDialog() const override
+      {
+        XBMC_TRACE;
+        return true;
+      };
+      bool IsMediaWindow() const override
+      {
+        XBMC_TRACE;
+        return false;
+      };
+      bool OnAction(const CAction& action) override;
+      void OnDeinitWindow(int nextWindowID) override;
 
-      SWIGHIDDENVIRTUAL bool LoadXML(const String &strPath, const String &strPathLower) override;
+      bool LoadXML(const String& strPath, const String& strPathLower) override;
 
-      SWIGHIDDENVIRTUAL inline void show() override { XBMC_TRACE; WindowDialogMixin::show(); }
-      SWIGHIDDENVIRTUAL inline void close() override { XBMC_TRACE; WindowDialogMixin::close(); }
+      inline void show() override
+      {
+        XBMC_TRACE;
+        WindowDialogMixin::show();
+      }
+      inline void close() override
+      {
+        XBMC_TRACE;
+        WindowDialogMixin::close();
+      }
 
       friend class DialogJumper;
 #endif

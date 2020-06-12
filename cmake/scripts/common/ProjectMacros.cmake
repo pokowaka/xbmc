@@ -46,7 +46,7 @@ function(copy_skin_to_buildtree skin)
 endfunction()
 
 # Get GTest tests as CMake tests.
-# Copied from FindGTest.cmake 
+# Copied from FindGTest.cmake
 # Thanks to Daniel Blezek <blezek@gmail.com> for the GTEST_ADD_TESTS code
 function(GTEST_ADD_TESTS executable extra_args)
     if(NOT ARGN)
@@ -73,6 +73,39 @@ function(GTEST_ADD_TESTS executable extra_args)
           add_test(${test_prefix}.${filter_name} ${executable} --gtest_filter=${filter_name}* ${extra_args})
         endforeach()
     endforeach()
+endfunction()
+
+function(sca_add_tests)
+  find_program(CLANGCHECK_COMMAND clang-check)
+  find_program(CPPCHECK_COMMAND cppcheck)
+  if(CLANGCHECK_COMMAND AND CMAKE_EXPORT_COMPILE_COMMANDS)
+    configure_file(${PROJECT_SOURCE_DIR}/cmake/scripts/linux/clang-check-test.sh.in
+                   ${CORE_BUILD_DIR}/clang-check-test.sh)
+  endif()
+  if(CPPCHECK_COMMAND)
+    configure_file(${PROJECT_SOURCE_DIR}/cmake/scripts/linux/cppcheck-test.sh.in
+                   ${CORE_BUILD_DIR}/cppcheck-test.sh)
+    set(CPPCHECK_INCLUDES)
+    foreach(inc ${INCLUDES})
+      list(APPEND CPPCHECK_INCLUDES -I ${inc})
+    endforeach()
+  endif()
+  foreach(src ${sca_sources})
+    file(RELATIVE_PATH name ${PROJECT_SOURCE_DIR} ${src})
+    get_filename_component(EXT ${src} EXT)
+    if(EXT STREQUAL .cpp)
+      if(CLANGCHECK_COMMAND AND CMAKE_EXPORT_COMPILE_COMMANDS)
+        add_test(NAME clang-check+${name}
+                 COMMAND ${CORE_BUILD_DIR}/clang-check-test.sh ${CLANGCHECK_COMMAND} ${src}
+                 CONFIGURATIONS analyze clang-check)
+      endif()
+      if(CPPCHECK_COMMAND)
+        add_test(NAME cppcheck+${name}
+                 COMMAND ${CORE_BUILD_DIR}/cppcheck-test.sh ${CPPCHECK_COMMAND} ${src} ${CPPCHECK_INCLUDES}
+                 CONFIGURATIONS analyze cppcheck)
+      endif()
+    endif()
+  endforeach()
 endfunction()
 
 function(whole_archive output)

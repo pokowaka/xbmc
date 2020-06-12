@@ -1,27 +1,18 @@
 /*
- *      Copyright (C) 2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2013-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "SettingUtils.h"
+
 #include "settings/lib/Setting.h"
 #include "utils/StringUtils.h"
 #include "utils/Variant.h"
+
+#include <algorithm>
 
 std::vector<CVariant> CSettingUtils::GetList(std::shared_ptr<const CSettingList> settingList)
 {
@@ -49,19 +40,19 @@ std::vector<CVariant> CSettingUtils::ListToValues(std::shared_ptr<const CSetting
     switch (setting->GetElementType())
     {
       case SettingType::Boolean:
-        realValues.push_back(std::static_pointer_cast<const CSettingBool>(value)->GetValue());
+        realValues.emplace_back(std::static_pointer_cast<const CSettingBool>(value)->GetValue());
         break;
 
       case SettingType::Integer:
-        realValues.push_back(std::static_pointer_cast<const CSettingInt>(value)->GetValue());
+        realValues.emplace_back(std::static_pointer_cast<const CSettingInt>(value)->GetValue());
         break;
 
       case SettingType::Number:
-        realValues.push_back(std::static_pointer_cast<const CSettingNumber>(value)->GetValue());
+        realValues.emplace_back(std::static_pointer_cast<const CSettingNumber>(value)->GetValue());
         break;
 
       case SettingType::String:
-        realValues.push_back(std::static_pointer_cast<const CSettingString>(value)->GetValue());
+        realValues.emplace_back(std::static_pointer_cast<const CSettingString>(value)->GetValue());
         break;
 
       default:
@@ -128,4 +119,17 @@ bool CSettingUtils::ValuesToList(std::shared_ptr<const CSettingList> setting, co
   }
 
   return true;
+}
+
+bool CSettingUtils::FindIntInList(std::shared_ptr<const CSettingList> settingList, int value)
+{
+  if (settingList == nullptr || settingList->GetElementType() != SettingType::Integer)
+    return false;
+
+  const auto values = settingList->GetValue();
+  const auto matchingValue =
+      std::find_if(values.begin(), values.end(), [value](const SettingPtr& setting) {
+        return std::static_pointer_cast<CSettingInt>(setting)->GetValue() == value;
+      });
+  return matchingValue != values.end();
 }

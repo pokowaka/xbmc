@@ -1,30 +1,20 @@
 /*
- *      Copyright (C) 2014 Arne Morten Kvarving
+ *  Copyright (C) 2014 Arne Morten Kvarving
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "AudioBookFileDirectory.h"
-#include "filesystem/File.h"
+
 #include "FileItem.h"
-#include "utils/StringUtils.h"
-#include "music/tags/MusicInfoTag.h"
 #include "TextureDatabase.h"
-#include "guilib/LocalizeStrings.h"
 #include "URL.h"
+#include "Util.h"
+#include "filesystem/File.h"
+#include "guilib/LocalizeStrings.h"
+#include "music/tags/MusicInfoTag.h"
+#include "utils/StringUtils.h"
 
 using namespace XFILE;
 
@@ -41,11 +31,6 @@ static int64_t cfile_file_seek(void *h, int64_t pos, int whence)
     return pFile->GetLength();
   else
     return pFile->Seek(pos, whence & ~AVSEEK_FORCE);
-}
-
-CAudioBookFileDirectory::CAudioBookFileDirectory(void) :
-  m_ioctx(nullptr), m_fctx(nullptr)
-{
 }
 
 CAudioBookFileDirectory::~CAudioBookFileDirectory(void)
@@ -72,11 +57,11 @@ bool CAudioBookFileDirectory::GetDirectory(const CURL& url,
   AVDictionaryEntry* tag=nullptr;
   while ((tag = av_dict_get(m_fctx->metadata, "", tag, AV_DICT_IGNORE_SUFFIX)))
   {
-    if (strcasecmp(tag->key,"title") == 0)
+    if (StringUtils::CompareNoCase(tag->key, "title") == 0)
       title = tag->value;
-    else if (strcasecmp(tag->key,"album") == 0)
+    else if (StringUtils::CompareNoCase(tag->key, "album") == 0)
       album = tag->value;
-    else if (strcasecmp(tag->key,"artist") == 0)
+    else if (StringUtils::CompareNoCase(tag->key, "artist") == 0)
       author = tag->value;
   }
 
@@ -92,11 +77,11 @@ bool CAudioBookFileDirectory::GetDirectory(const CURL& url,
     std::string chapalbum;
     while ((tag=av_dict_get(m_fctx->chapters[i]->metadata, "", tag, AV_DICT_IGNORE_SUFFIX)))
     {
-      if (strcasecmp(tag->key,"title") == 0)
+      if (StringUtils::CompareNoCase(tag->key, "title") == 0)
         chaptitle = tag->value;
-      else if (strcasecmp(tag->key,"artist") == 0)
+      else if (StringUtils::CompareNoCase(tag->key, "artist") == 0)
         chapauthor = tag->value;
-      else if (strcasecmp(tag->key,"album") == 0)
+      else if (StringUtils::CompareNoCase(tag->key, "album") == 0)
         chapalbum = tag->value;
     }
     CFileItemPtr item(new CFileItem(url.Get(),false));
@@ -117,7 +102,7 @@ bool CAudioBookFileDirectory::GetDirectory(const CURL& url,
     item->SetLabel(StringUtils::Format("{0:02}. {1} - {2}",i+1,
                    item->GetMusicInfoTag()->GetAlbum().c_str(),
                    item->GetMusicInfoTag()->GetTitle()).c_str());
-    item->m_lStartOffset = m_fctx->chapters[i]->start*av_q2d(m_fctx->chapters[i]->time_base)*75;
+    item->m_lStartOffset = CUtil::ConvertSecsToMilliSecs(m_fctx->chapters[i]->start*av_q2d(m_fctx->chapters[i]->time_base));
     item->m_lEndOffset = m_fctx->chapters[i]->end*av_q2d(m_fctx->chapters[i]->time_base);
     int compare = m_fctx->duration / (AV_TIME_BASE);
     if (item->m_lEndOffset < 0 || item->m_lEndOffset > compare)
@@ -127,8 +112,8 @@ bool CAudioBookFileDirectory::GetDirectory(const CURL& url,
       else
         item->m_lEndOffset = compare;
     }
-    item->m_lEndOffset *= 75;
-    item->GetMusicInfoTag()->SetDuration((item->m_lEndOffset-item->m_lStartOffset)/75);
+    item->m_lEndOffset = CUtil::ConvertSecsToMilliSecs(item->m_lEndOffset);
+    item->GetMusicInfoTag()->SetDuration(CUtil::ConvertMilliSecsToSecsInt(item->m_lEndOffset - item->m_lStartOffset));
     item->SetProperty("item_start", item->m_lStartOffset);
     if (!thumb.empty())
       item->SetArt("thumb", thumb);

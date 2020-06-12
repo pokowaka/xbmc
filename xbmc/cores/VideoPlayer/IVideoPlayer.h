@@ -1,40 +1,24 @@
+/*
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
 #pragma once
 
-/*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
- *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- */
+#include "DVDClock.h"
 
 #include <string>
 #include <utility>
 #include <vector>
-
-#include "DVDClock.h"
 
 #define VideoPlayer_AUDIO    1
 #define VideoPlayer_VIDEO    2
 #define VideoPlayer_SUBTITLE 3
 #define VideoPlayer_TELETEXT 4
 #define VideoPlayer_RDS      5
-
-
-template <typename T> class CRectGen;
-typedef CRectGen<float>  CRect;
 
 class CDVDMsg;
 class CDVDStreamInfo;
@@ -51,7 +35,7 @@ public:
 class IDVDStreamPlayer
 {
 public:
-  IDVDStreamPlayer(CProcessInfo &processInfo) : m_processInfo(processInfo) {};
+  explicit IDVDStreamPlayer(CProcessInfo &processInfo) : m_processInfo(processInfo) {};
   virtual ~IDVDStreamPlayer() = default;
   virtual bool OpenStream(CDVDStreamInfo hint) = 0;
   virtual void CloseStream(bool bWaitForBuffers) = 0;
@@ -90,7 +74,7 @@ class CDVDVideoCodec;
 class IDVDStreamPlayerVideo : public IDVDStreamPlayer
 {
 public:
-  IDVDStreamPlayerVideo(CProcessInfo &processInfo) : IDVDStreamPlayer(processInfo) {};
+  explicit IDVDStreamPlayerVideo(CProcessInfo &processInfo) : IDVDStreamPlayer(processInfo) {};
   ~IDVDStreamPlayerVideo() override = default;
   bool OpenStream(CDVDStreamInfo hint) override = 0;
   void CloseStream(bool bWaitForBuffers) override = 0;
@@ -101,7 +85,6 @@ public:
   void SendMessage(CDVDMsg* pMsg, int priority = 0) override = 0;
   virtual void EnableSubtitle(bool bEnable) = 0;
   virtual bool IsSubtitleEnabled() = 0;
-  virtual void EnableFullscreen(bool bEnable) = 0;
   virtual double GetSubtitleDelay() = 0;
   virtual void SetSubtitleDelay(double delay) = 0;
   bool IsStalled() const override = 0;
@@ -110,7 +93,6 @@ public:
   virtual double GetOutputDelay() = 0;
   virtual std::string GetPlayerInfo() = 0;
   virtual int GetVideoBitrate() = 0;
-  virtual std::string GetStereoMode() = 0;
   virtual void SetSpeed(int iSpeed) = 0;
   virtual bool IsEOS() { return false; };
   virtual bool SupportsExtention() const = 0;
@@ -120,7 +102,7 @@ class CDVDAudioCodec;
 class IDVDStreamPlayerAudio : public IDVDStreamPlayer
 {
 public:
-  IDVDStreamPlayerAudio(CProcessInfo &processInfo) : IDVDStreamPlayer(processInfo) {};
+  explicit IDVDStreamPlayerAudio(CProcessInfo &processInfo) : IDVDStreamPlayer(processInfo) {};
   ~IDVDStreamPlayerAudio() override = default;
   bool OpenStream(CDVDStreamInfo hints) override = 0;
   void CloseStream(bool bWaitForBuffers) override = 0;

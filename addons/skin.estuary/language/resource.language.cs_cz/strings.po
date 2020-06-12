@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: KODI Main\n"
-"Report-Msgid-Bugs-To: http://trac.kodi.tv/\n"
+"Report-Msgid-Bugs-To: https://github.com/xbmc/xbmc/issues/\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Kodi Translation Team\n"
@@ -148,10 +148,6 @@ msgctxt "#31033"
 msgid "Your rating"
 msgstr "Vaše hodnocení"
 
-msgctxt "#31034"
-msgid "Extended info"
-msgstr "Rozšířené informace"
-
 msgctxt "#31035"
 msgid "Pages"
 msgstr "Stránky"
@@ -159,6 +155,10 @@ msgstr "Stránky"
 msgctxt "#31036"
 msgid "items"
 msgstr "položky"
+
+msgctxt "#31037"
+msgid "Selected track"
+msgstr "Vybraná stopa"
 
 msgctxt "#31038"
 msgid "Rewind"
@@ -200,10 +200,6 @@ msgctxt "#31050"
 msgid "Press [B]OK[/B] to stop"
 msgstr "Stiskněte [B]OK[/B] pro zastavení"
 
-msgctxt "#31051"
-msgid "Toggle language"
-msgstr "Přepnout jazyk"
-
 msgctxt "#31052"
 msgid "filtered"
 msgstr "filtrováno"
@@ -234,7 +230,7 @@ msgstr "Položky hlavní nabídky"
 
 msgctxt "#31062"
 msgid "Choose weather fanart pack"
-msgstr "Zvolte balíček fanatrů počasí"
+msgstr "Zvolte balíček fanartů počasí"
 
 msgctxt "#31063"
 msgid "Sections"
@@ -268,9 +264,17 @@ msgctxt "#31072"
 msgid "Power Options"
 msgstr "Možnosti napájení"
 
+msgctxt "#31073"
+msgid "Total length"
+msgstr "Celková délka"
+
+msgctxt "#31074"
+msgid "Total duration"
+msgstr "Celková doba trvání"
+
 msgctxt "#31075"
 msgid "Movie sets"
-msgstr "Kolekce filmů"
+msgstr "Sbírky filmů"
 
 msgctxt "#31079"
 msgid "Cast not available"
@@ -295,10 +299,6 @@ msgstr "Nastavení vizualizací"
 msgctxt "#31089"
 msgid "Available groups"
 msgstr "Dostupné skupiny"
-
-msgctxt "#31090"
-msgid "Search trailer"
-msgstr "Vyhledat upoutávku"
 
 msgctxt "#31092"
 msgid "Video menu"
@@ -326,7 +326,7 @@ msgstr "Vyberte svůj uživatelský profil Kodi[CR]pro přihlášení a pokračo
 
 msgctxt "#31099"
 msgid "IconWall"
-msgstr "Zeď ikon"
+msgstr "Stěna ikon"
 
 msgctxt "#31100"
 msgid "Shift"
@@ -334,7 +334,7 @@ msgstr "Posun"
 
 msgctxt "#31101"
 msgid "InfoWall"
-msgstr "Zeď informací"
+msgstr "Infostěna"
 
 msgctxt "#31102"
 msgid "Wall"
@@ -342,7 +342,7 @@ msgstr "Zeď"
 
 msgctxt "#31103"
 msgid "Enter text here..."
-msgstr "Sem zadejte text..."
+msgstr "Sem zadejte text…"
 
 msgctxt "#31104"
 msgid "Your library is currently empty. In order to populate it with your personal media, enter \"Files\" section, add a media source and configure it. After the source has been added and indexed you will be able to browse your library."
@@ -380,10 +380,6 @@ msgctxt "#31114"
 msgid "Search YouTube"
 msgstr "Vyhledat na YouTube"
 
-msgctxt "#31115"
-msgid "Search TheMovieDB"
-msgstr "Vyhledat na TheMovieDB"
-
 msgctxt "#31116"
 msgid "Remove this main menu item"
 msgstr "Odebrat tuto položku hlavní nabídky"
@@ -416,17 +412,13 @@ msgctxt "#31123"
 msgid "Same director"
 msgstr "Stejný režisér"
 
-msgctxt "#31124"
-msgid "Show images on map"
-msgstr "Zobrazit obrázky na mapě"
-
 msgctxt "#31125"
 msgid "Press up for actor info"
 msgstr "Stiskněte nahoru pro zobrazení informací o herci"
 
 msgctxt "#31126"
 msgid "Press OK to read plot"
-msgstr "Stiskněte OK pro přečtení děje"
+msgstr "Stisknutím OK si přečtete zápletku"
 
 msgctxt "#31127"
 msgid "Show icons"
@@ -446,7 +438,15 @@ msgstr "Nastavení související s hlavní nabídkou: Konfigurujte domovskou obr
 
 msgctxt "#31131"
 msgid "Choose skin fanart pack"
-msgstr "Zvolte balíček fanatrů vzhledu"
+msgstr "Zvolte balíček fanartů vzhledu"
+
+msgctxt "#31132"
+msgid "Select Program"
+msgstr "Vybrat program"
+
+msgctxt "#31133"
+msgid "Select Resolution"
+msgstr "Vyberte rozlišení"
 
 msgctxt "#31134"
 msgid "Remaining"
@@ -454,7 +454,7 @@ msgstr "Zbývá"
 
 msgctxt "#31136"
 msgid "Click here to see latest changes..."
-msgstr "Klikněte sem pro zobrazení posledních změn..."
+msgstr "Klikněte sem pro zobrazení posledních změn…"
 
 msgctxt "#31137"
 msgid "PVR info"
@@ -470,7 +470,7 @@ msgstr "Dekodér videa"
 
 msgctxt "#31140"
 msgid "Pixel format"
-msgstr "Formát pixelu"
+msgstr "Formát obrazového bodu"
 
 msgctxt "#31141"
 msgid "Changes for version"
@@ -498,7 +498,7 @@ msgstr "Kategorie"
 
 msgctxt "#31149"
 msgid "Select genre fanart pack"
-msgstr "Zvolte balíček fanatrů žánru"
+msgstr "Zvolte balíček fanartů žánru"
 
 msgctxt "#31150"
 msgid "Repository"
@@ -522,7 +522,7 @@ msgstr "Stiskněte OK pro přepnutí mezi umístěními"
 
 msgctxt "#31155"
 msgid "No bookmarks created yet."
-msgstr "Zatím nebyly vytvořeny žádné záložky"
+msgstr "Zatím nebyly vytvořeny žádné záložky."
 
 msgctxt "#31156"
 msgid "Choose background pattern"
@@ -538,7 +538,7 @@ msgstr "Dotykový režim"
 
 msgctxt "#31159"
 msgid "Artwork"
-msgstr "Umělecké dílo"
+msgstr "Obrázek"
 
 msgctxt "#31160"
 msgid "Show media flags"
@@ -555,3 +555,19 @@ msgstr "Hrajte své vlastní hry nebo si stáhněte jeden z mnoha doplňků her 
 msgctxt "#31163"
 msgid "Show Fanart background"
 msgstr "Zobrazit fanart na pozadí"
+
+msgctxt "#31164"
+msgid "Choose kind of profile identification"
+msgstr "Zvolte typ identifikace profilu"
+
+msgctxt "#31165"
+msgid "Profile name"
+msgstr "Název profilu"
+
+msgctxt "#31166"
+msgid "Profile avatar"
+msgstr "Avatar profilu"
+
+msgctxt "#31167"
+msgid "Animate background"
+msgstr "Animovat pozadí"

@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2012-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "ScraperParser.h"
@@ -202,18 +190,18 @@ void CScraperParser::ParseExpression(const std::string& input, std::string& dest
     bool bInsensitive=true;
     const char* sensitive = pExpression->Attribute("cs");
     if (sensitive)
-      if (stricmp(sensitive,"yes") == 0)
+      if (StringUtils::CompareNoCase(sensitive, "yes") == 0)
         bInsensitive=false; // match case sensitive
 
     CRegExp::utf8Mode eUtf8 = CRegExp::autoUtf8;
     const char* const strUtf8 = pExpression->Attribute("utf8");
     if (strUtf8)
     {
-      if (stricmp(strUtf8, "yes") == 0)
+      if (StringUtils::CompareNoCase(strUtf8, "yes") == 0)
         eUtf8 = CRegExp::forceUtf8;
-      else if (stricmp(strUtf8, "no") == 0)
+      else if (StringUtils::CompareNoCase(strUtf8, "no") == 0)
         eUtf8 = CRegExp::asciiOnly;
-      else if (stricmp(strUtf8, "auto") == 0)
+      else if (StringUtils::CompareNoCase(strUtf8, "auto") == 0)
         eUtf8 = CRegExp::autoUtf8;
     }
 
@@ -234,12 +222,12 @@ void CScraperParser::ParseExpression(const std::string& input, std::string& dest
     bool bRepeat = false;
     const char* szRepeat = pExpression->Attribute("repeat");
     if (szRepeat)
-      if (stricmp(szRepeat,"yes") == 0)
+      if (StringUtils::CompareNoCase(szRepeat, "yes") == 0)
         bRepeat = true;
 
     const char* szClear = pExpression->Attribute("clear");
     if (szClear)
-      if (stricmp(szClear,"yes") == 0)
+      if (StringUtils::CompareNoCase(szClear, "yes") == 0)
         dest=""; // clear no matter if regexp fails
 
     bool bClean[MAX_SCRAPER_BUFFERS];
@@ -285,7 +273,7 @@ void CScraperParser::ParseExpression(const std::string& input, std::string& dest
 
       if (iOptional > -1) // check that required param is there
       {
-        char temp[4];
+        char temp[12];
         sprintf(temp,"\\%i",iOptional);
         std::string szParam = reg.GetReplaceString(temp);
         CRegExp reg2;
@@ -477,7 +465,7 @@ const std::string CScraperParser::Parse(const std::string& strTag,
   std::string tmp = m_param[iResult-1];
 
   const char* szClearBuffers = pChildElement->Attribute("clearbuffers");
-  if (!szClearBuffers || stricmp(szClearBuffers,"no") != 0)
+  if (!szClearBuffers || StringUtils::CompareNoCase(szClearBuffers, "no") != 0)
     ClearBuffers();
 
   return tmp;
@@ -582,8 +570,8 @@ void CScraperParser::ConvertJSON(std::string &string)
 void CScraperParser::ClearBuffers()
 {
   //clear all m_param strings
-  for (int i=0;i<MAX_SCRAPER_BUFFERS;++i)
-    m_param[i].clear();
+  for (std::string& param : m_param)
+    param.clear();
 }
 
 void CScraperParser::GetBufferParams(bool* result, const char* attribute, bool defvalue)

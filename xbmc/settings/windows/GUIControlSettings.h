@@ -1,31 +1,20 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <stdlib.h>
-#include <functional>
-#include <memory>
-#include <string>
+#pragma once
 
 #include "guilib/ISliderCallback.h"
 #include "utils/ILocalizer.h"
+
+#include <functional>
+#include <memory>
+#include <stdlib.h>
+#include <string>
 
 class CGUIControl;
 class CGUIImage;
@@ -49,7 +38,7 @@ class CGUIControlBaseSetting : protected ILocalizer
 public:
   CGUIControlBaseSetting(int id, std::shared_ptr<CSetting> pSetting, ILocalizer* localizer);
   ~CGUIControlBaseSetting() override = default;
-  
+
   int GetID() const { return m_id; }
   std::shared_ptr<CSetting> GetSetting() { return m_pSetting; }
 
@@ -89,11 +78,14 @@ public:
 
   virtual CGUIControl* GetControl() { return NULL; }
   virtual bool OnClick() { return false; }
-  virtual void Update(bool updateDisplayOnly = false);
-  virtual void Clear() = 0;  ///< Clears the attached control
+  void UpdateFromControl();
+  void UpdateFromSetting(bool updateDisplayOnly = false);
+  virtual void Clear() = 0; ///< Clears the attached control
 protected:
   // implementation of ILocalizer
   std::string Localize(std::uint32_t code) const override;
+
+  virtual void Update(bool fromControl, bool updateDisplayOnly);
 
   int m_id;
   std::shared_ptr<CSetting> m_pSetting;
@@ -105,119 +97,183 @@ protected:
 class CGUIControlRadioButtonSetting : public CGUIControlBaseSetting
 {
 public:
-  CGUIControlRadioButtonSetting(CGUIRadioButtonControl* pRadioButton, int id, std::shared_ptr<CSetting> pSetting, ILocalizer* localizer);
+  CGUIControlRadioButtonSetting(CGUIRadioButtonControl* pRadioButton,
+                                int id,
+                                std::shared_ptr<CSetting> pSetting,
+                                ILocalizer* localizer);
   ~CGUIControlRadioButtonSetting() override;
 
   void Select(bool bSelect);
 
-  CGUIControl* GetControl() override { return (CGUIControl*)m_pRadioButton; }
+  CGUIControl* GetControl() override { return reinterpret_cast<CGUIControl*>(m_pRadioButton); }
   bool OnClick() override;
-  void Update(bool updateDisplayOnly = false) override;
   void Clear() override { m_pRadioButton = NULL; }
+
+protected:
+  // specialization of CGUIControlBaseSetting
+  void Update(bool fromControl, bool updateDisplayOnly) override;
+
 private:
-  CGUIRadioButtonControl *m_pRadioButton;
+  CGUIRadioButtonControl* m_pRadioButton;
 };
 
 class CGUIControlSpinExSetting : public CGUIControlBaseSetting
 {
 public:
-  CGUIControlSpinExSetting(CGUISpinControlEx* pSpin, int id, std::shared_ptr<CSetting> pSetting, ILocalizer* localizer);
+  CGUIControlSpinExSetting(CGUISpinControlEx* pSpin,
+                           int id,
+                           std::shared_ptr<CSetting> pSetting,
+                           ILocalizer* localizer);
   ~CGUIControlSpinExSetting() override;
 
-  CGUIControl* GetControl() override { return (CGUIControl*)m_pSpin; }
+  CGUIControl* GetControl() override { return reinterpret_cast<CGUIControl*>(m_pSpin); }
   bool OnClick() override;
-  void Update(bool updateDisplayOnly = false) override;
   void Clear() override { m_pSpin = NULL; }
+
+protected:
+  // specialization of CGUIControlBaseSetting
+  void Update(bool fromControl, bool updateDisplayOnly) override;
+
 private:
-  void FillControl();
-  void FillIntegerSettingControl();
-  CGUISpinControlEx *m_pSpin;
+  void FillControl(bool updateDisplayOnly);
+  void FillIntegerSettingControl(bool updateValues);
+  void FillFloatSettingControl();
+  void FillStringSettingControl(bool updateValues);
+  CGUISpinControlEx* m_pSpin;
 };
 
 class CGUIControlListSetting : public CGUIControlBaseSetting
 {
 public:
-  CGUIControlListSetting(CGUIButtonControl* pButton, int id, std::shared_ptr<CSetting> pSetting, ILocalizer* localizer);
+  CGUIControlListSetting(CGUIButtonControl* pButton,
+                         int id,
+                         std::shared_ptr<CSetting> pSetting,
+                         ILocalizer* localizer);
   ~CGUIControlListSetting() override;
 
-  CGUIControl* GetControl() override { return (CGUIControl*)m_pButton; }
+  CGUIControl* GetControl() override { return reinterpret_cast<CGUIControl*>(m_pButton); }
   bool OnClick() override;
-  void Update(bool updateDisplayOnly = false) override;
   void Clear() override { m_pButton = NULL; }
-private:
-  bool GetItems(std::shared_ptr<const CSetting> setting, CFileItemList &items) const;
-  bool GetIntegerItems(std::shared_ptr<const CSetting> setting, CFileItemList &items) const;
-  bool GetStringItems(std::shared_ptr<const CSetting> setting, CFileItemList &items) const;
 
-  CGUIButtonControl *m_pButton;
+protected:
+  // specialization of CGUIControlBaseSetting
+  void Update(bool fromControl, bool updateDisplayOnly) override;
+
+private:
+  bool GetItems(std::shared_ptr<const CSetting> setting,
+                CFileItemList& items,
+                bool updateItems) const;
+  bool GetIntegerItems(std::shared_ptr<const CSetting> setting,
+                       CFileItemList& items,
+                       bool updateItems) const;
+  bool GetStringItems(std::shared_ptr<const CSetting> setting,
+                      CFileItemList& items,
+                      bool updateItems) const;
+
+  CGUIButtonControl* m_pButton;
 };
 
 class CGUIControlButtonSetting : public CGUIControlBaseSetting, protected ISliderCallback
 {
 public:
-  CGUIControlButtonSetting(CGUIButtonControl* pButton, int id, std::shared_ptr<CSetting> pSetting, ILocalizer* localizer);
+  CGUIControlButtonSetting(CGUIButtonControl* pButton,
+                           int id,
+                           std::shared_ptr<CSetting> pSetting,
+                           ILocalizer* localizer);
   ~CGUIControlButtonSetting() override;
 
-  CGUIControl* GetControl() override { return (CGUIControl*)m_pButton; }
+  CGUIControl* GetControl() override { return reinterpret_cast<CGUIControl*>(m_pButton); }
   bool OnClick() override;
-  void Update(bool updateDisplayOnly = false) override;
   void Clear() override { m_pButton = NULL; }
 
   static bool GetPath(std::shared_ptr<CSettingPath> pathSetting, ILocalizer* localizer);
+
 protected:
+  // specialization of CGUIControlBaseSetting
+  void Update(bool fromControl, bool updateDisplayOnly) override;
+
   // implementations of ISliderCallback
-  void OnSliderChange(void *data, CGUISliderControl *slider) override;
+  void OnSliderChange(void* data, CGUISliderControl* slider) override;
 
 private:
-  CGUIButtonControl *m_pButton;
+  CGUIButtonControl* m_pButton;
 };
 
 class CGUIControlEditSetting : public CGUIControlBaseSetting
 {
 public:
-  CGUIControlEditSetting(CGUIEditControl* pButton, int id, std::shared_ptr<CSetting> pSetting, ILocalizer* localizer);
+  CGUIControlEditSetting(CGUIEditControl* pButton,
+                         int id,
+                         std::shared_ptr<CSetting> pSetting,
+                         ILocalizer* localizer);
   ~CGUIControlEditSetting() override;
 
-  CGUIControl* GetControl() override { return (CGUIControl*)m_pEdit; }
+  CGUIControl* GetControl() override { return reinterpret_cast<CGUIControl*>(m_pEdit); }
   bool OnClick() override;
-  void Update(bool updateDisplayOnly = false) override;
   void Clear() override { m_pEdit = NULL; }
-private:
-  static bool InputValidation(const std::string &input, void *data);
 
-  CGUIEditControl *m_pEdit;
+protected:
+  // specialization of CGUIControlBaseSetting
+  void Update(bool fromControl, bool updateDisplayOnly) override;
+
+private:
+  static bool InputValidation(const std::string& input, void* data);
+
+  CGUIEditControl* m_pEdit;
 };
 
 class CGUIControlSliderSetting : public CGUIControlBaseSetting
 {
 public:
-  CGUIControlSliderSetting(CGUISettingsSliderControl* pSlider, int id, std::shared_ptr<CSetting> pSetting, ILocalizer* localizer);
+  CGUIControlSliderSetting(CGUISettingsSliderControl* pSlider,
+                           int id,
+                           std::shared_ptr<CSetting> pSetting,
+                           ILocalizer* localizer);
   ~CGUIControlSliderSetting() override;
 
-  CGUIControl* GetControl() override { return (CGUIControl*)m_pSlider; }
+  CGUIControl* GetControl() override { return reinterpret_cast<CGUIControl*>(m_pSlider); }
   bool OnClick() override;
-  void Update(bool updateDisplayOnly = false) override;
   void Clear() override { m_pSlider = NULL; }
 
-  static std::string GetText(std::shared_ptr<const CSettingControlSlider> control, const CVariant &value, const CVariant &minimum, const CVariant &step, const CVariant &maximum, ILocalizer* localizer);
+  static std::string GetText(std::shared_ptr<CSetting> setting,
+                             const CVariant& value,
+                             const CVariant& minimum,
+                             const CVariant& step,
+                             const CVariant& maximum,
+                             ILocalizer* localizer);
+
+protected:
+  // specialization of CGUIControlBaseSetting
+  void Update(bool fromControl, bool updateDisplayOnly) override;
 
 private:
-  CGUISettingsSliderControl *m_pSlider;
+  static bool FormatText(const std::string& formatString,
+                         const CVariant& value,
+                         const std::string& settingId,
+                         std::string& formattedText);
+
+  CGUISettingsSliderControl* m_pSlider;
 };
 
 class CGUIControlRangeSetting : public CGUIControlBaseSetting
 {
 public:
-  CGUIControlRangeSetting(CGUISettingsSliderControl* pSlider, int id, std::shared_ptr<CSetting> pSetting, ILocalizer* localizer);
+  CGUIControlRangeSetting(CGUISettingsSliderControl* pSlider,
+                          int id,
+                          std::shared_ptr<CSetting> pSetting,
+                          ILocalizer* localizer);
   ~CGUIControlRangeSetting() override;
-  
-  CGUIControl* GetControl() override { return (CGUIControl*)m_pSlider; }
+
+  CGUIControl* GetControl() override { return reinterpret_cast<CGUIControl*>(m_pSlider); }
   bool OnClick() override;
-  void Update(bool updateDisplayOnly = false) override;
   void Clear() override { m_pSlider = NULL; }
 
+protected:
+  // specialization of CGUIControlBaseSetting
+  void Update(bool fromControl, bool updateDisplayOnly) override;
+
 private:
-  CGUISettingsSliderControl *m_pSlider;
+  CGUISettingsSliderControl* m_pSlider;
 };
 
 class CGUIControlSeparatorSetting : public CGUIControlBaseSetting
@@ -226,13 +282,12 @@ public:
   CGUIControlSeparatorSetting(CGUIImage* pImage, int id, ILocalizer* localizer);
   ~CGUIControlSeparatorSetting() override;
 
-  CGUIControl* GetControl() override { return (CGUIControl*)m_pImage; }
+  CGUIControl* GetControl() override { return reinterpret_cast<CGUIControl*>(m_pImage); }
   bool OnClick() override { return false; }
-  using CGUIControlBaseSetting::Update;
-  void Update() {}
   void Clear() override { m_pImage = NULL; }
+
 private:
-  CGUIImage *m_pImage;
+  CGUIImage* m_pImage;
 };
 
 class CGUIControlGroupTitleSetting : public CGUIControlBaseSetting
@@ -241,24 +296,26 @@ public:
   CGUIControlGroupTitleSetting(CGUILabelControl* pLabel, int id, ILocalizer* localizer);
   ~CGUIControlGroupTitleSetting() override;
 
-  CGUIControl* GetControl() override { return (CGUIControl*)m_pLabel; }
+  CGUIControl* GetControl() override { return reinterpret_cast<CGUIControl*>(m_pLabel); }
   bool OnClick() override { return false; }
-  using CGUIControlBaseSetting::Update;
-  void Update() {}
   void Clear() override { m_pLabel = NULL; }
+
 private:
-  CGUILabelControl *m_pLabel;
+  CGUILabelControl* m_pLabel;
 };
 
 class CGUIControlLabelSetting : public CGUIControlBaseSetting
 {
 public:
-  CGUIControlLabelSetting(CGUIButtonControl* pButton, int id, std::shared_ptr<CSetting> pSetting, ILocalizer* localizer);
+  CGUIControlLabelSetting(CGUIButtonControl* pButton,
+                          int id,
+                          std::shared_ptr<CSetting> pSetting,
+                          ILocalizer* localizer);
   ~CGUIControlLabelSetting() override = default;
 
-  CGUIControl* GetControl() override { return (CGUIControl*)m_pButton; }
+  CGUIControl* GetControl() override { return reinterpret_cast<CGUIControl*>(m_pButton); }
   void Clear() override { m_pButton = NULL; }
 
 private:
-  CGUIButtonControl *m_pButton;
+  CGUIButtonControl* m_pButton;
 };

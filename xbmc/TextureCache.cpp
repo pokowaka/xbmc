@@ -1,34 +1,26 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "TextureCache.h"
+
+#include "ServiceBroker.h"
 #include "TextureCacheJob.h"
+#include "URL.h"
 #include "filesystem/File.h"
-#include "profiles/ProfilesManager.h"
+#include "guilib/Texture.h"
+#include "profiles/ProfileManager.h"
+#include "settings/AdvancedSettings.h"
+#include "settings/SettingsComponent.h"
 #include "threads/SingleLock.h"
 #include "utils/Crc32.h"
-#include "settings/AdvancedSettings.h"
-#include "utils/log.h"
-#include "utils/URIUtils.h"
 #include "utils/StringUtils.h"
-#include "URL.h"
+#include "utils/URIUtils.h"
+#include "utils/log.h"
 
 using namespace XFILE;
 
@@ -62,15 +54,17 @@ bool CTextureCache::IsCachedImage(const std::string &url) const
 {
   if (url.empty())
     return false;
+
   if (!CURL::IsFullPath(url))
     return true;
-  if (URIUtils::PathHasParent(url, "special://skin", true) ||
+
+  const std::shared_ptr<CProfileManager> profileManager = CServiceBroker::GetSettingsComponent()->GetProfileManager();
+
+  return URIUtils::PathHasParent(url, "special://skin", true) ||
       URIUtils::PathHasParent(url, "special://temp", true) ||
       URIUtils::PathHasParent(url, "resource://", true) ||
       URIUtils::PathHasParent(url, "androidapp://", true)   ||
-      URIUtils::PathHasParent(url, CProfilesManager::GetInstance().GetThumbnailsFolder(), true))
-    return true;
-  return false;
+      URIUtils::PathHasParent(url, profileManager->GetThumbnailsFolder(), true);
 }
 
 bool CTextureCache::HasCachedImage(const std::string &url)
@@ -100,7 +94,8 @@ std::string CTextureCache::GetCachedImage(const std::string &image, CTextureDeta
 
 bool CTextureCache::CanCacheImageURL(const CURL &url)
 {
-  return (url.GetUserName().empty() || url.GetUserName() == "music");
+  return url.GetUserName().empty() || url.GetUserName() == "music" ||
+          StringUtils::StartsWith(url.GetUserName(), "video_");
 }
 
 std::string CTextureCache::CheckCachedImage(const std::string &url, bool &needsRecaching)
@@ -165,7 +160,20 @@ std::string CTextureCache::CacheImage(const std::string &image, CBaseTexture **t
   CTextureDetails tempDetails;
   if (!details)
     details = &tempDetails;
-  return GetCachedImage(url, *details, true);
+
+  std::string cachedpath = GetCachedImage(url, *details, true);
+  if (!cachedpath.empty())
+  {
+    if (texture)
+      *texture = CBaseTexture::LoadFromFile(cachedpath, 0, 0);
+  }
+  else
+  {
+    CLog::Log(LOGDEBUG, "CTextureCache::%s - Return NULL texture because cache is not ready",
+              __FUNCTION__);
+  }
+
+  return cachedpath;
 }
 
 bool CTextureCache::CacheImage(const std::string &image, CTextureDetails &details)
@@ -260,7 +268,9 @@ std::string CTextureCache::GetCacheFile(const std::string &url)
 
 std::string CTextureCache::GetCachedPath(const std::string &file)
 {
-  return URIUtils::AddFileToFolder(CProfilesManager::GetInstance().GetThumbnailsFolder(), file);
+  const std::shared_ptr<CProfileManager> profileManager = CServiceBroker::GetSettingsComponent()->GetProfileManager();
+
+  return URIUtils::AddFileToFolder(profileManager->GetThumbnailsFolder(), file);
 }
 
 void CTextureCache::OnCachingComplete(bool success, CTextureCacheJob *job)
@@ -286,7 +296,7 @@ void CTextureCache::OnCachingComplete(bool success, CTextureCacheJob *job)
 void CTextureCache::OnJobComplete(unsigned int jobID, bool success, CJob *job)
 {
   if (strcmp(job->GetType(), kJobTypeCacheImage) == 0)
-    OnCachingComplete(success, (CTextureCacheJob *)job);
+    OnCachingComplete(success, static_cast<CTextureCacheJob*>(job));
   return CJobQueue::OnJobComplete(jobID, success, job);
 }
 
@@ -296,7 +306,7 @@ void CTextureCache::OnJobProgress(unsigned int jobID, unsigned int progress, uns
   { // check our processing list
     {
       CSingleLock lock(m_processingSection);
-      const CTextureCacheJob *cacheJob = (CTextureCacheJob *)job;
+      const CTextureCacheJob *cacheJob = static_cast<const CTextureCacheJob*>(job);
       std::set<std::string>::iterator i = m_processinglist.find(cacheJob->m_url);
       if (i == m_processinglist.end())
       {

@@ -3,7 +3,7 @@
 # -------
 # Finds the DBUS library
 #
-# This will will define the following variables::
+# This will define the following variables::
 #
 # DBUS_FOUND - system has DBUS
 # DBUS_INCLUDE_DIRS - the DBUS include directory
@@ -38,14 +38,14 @@ find_package_handle_standard_args(DBus
 if(DBUS_FOUND)
   set(DBUS_LIBRARIES ${DBUS_LIBRARY})
   set(DBUS_INCLUDE_DIRS ${DBUS_INCLUDE_DIR} ${DBUS_ARCH_INCLUDE_DIR})
-  set(DBUS_DEFINITIONS -DHAVE_DBUS=1)
+  set(DBUS_DEFINITIONS -DHAS_DBUS=1)
 
   if(NOT TARGET DBus::DBus)
     add_library(DBus::DBus UNKNOWN IMPORTED)
     set_target_properties(DBus::DBus PROPERTIES
                                    IMPORTED_LOCATION "${DBUS_LIBRARY}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${DBUS_INCLUDE_DIR}"
-                                   INTERFACE_COMPILE_DEFINITIONS HAVE_DBUS=1)
+                                   INTERFACE_COMPILE_DEFINITIONS HAS_DBUS=1)
   endif()
 endif()
 

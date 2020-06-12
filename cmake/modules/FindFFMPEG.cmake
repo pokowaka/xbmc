@@ -18,7 +18,7 @@
 #               usage: -DWITH_FFMPEG=/path/to/ffmpeg_install_prefix
 #
 # --------
-# This module will will define the following variables:
+# This module will define the following variables:
 #
 # FFMPEG_FOUND - system has FFmpeg
 # FFMPEG_INCLUDE_DIRS - FFmpeg include directory
@@ -33,14 +33,14 @@
 #
 
 # required ffmpeg library versions
-set(REQUIRED_FFMPEG_VERSION 3.3)
-set(_avcodec_ver ">=57.89.100")
-set(_avfilter_ver ">=6.82.100")
-set(_avformat_ver ">=57.71.100")
-set(_avutil_ver ">=55.58.100")
-set(_swscale_ver ">=4.6.100")
-set(_swresample_ver ">=2.7.100")
-set(_postproc_ver ">=54.5.100")
+set(REQUIRED_FFMPEG_VERSION 4.2)
+set(_avcodec_ver ">=58.54.100")
+set(_avfilter_ver ">=7.57.100")
+set(_avformat_ver ">=58.29.100")
+set(_avutil_ver ">=56.31.100")
+set(_swscale_ver ">=5.5.100")
+set(_swresample_ver ">=3.5.100")
+set(_postproc_ver ">=55.5.100")
 
 
 # Allows building with external ffmpeg not found in system paths,
@@ -67,7 +67,6 @@ endif()
 # external FFMPEG
 if(NOT ENABLE_INTERNAL_FFMPEG OR KODI_DEPENDSBUILD)
   if(FFMPEG_PATH)
-    set(ENV{PKG_CONFIG_PATH} "${FFMPEG_PATH}/lib/pkgconfig")
     list(APPEND CMAKE_PREFIX_PATH ${FFMPEG_PATH})
   endif()
 
@@ -224,11 +223,21 @@ if(NOT FFMPEG_FOUND)
   if(FFMPEG_URL)
     get_filename_component(FFMPEG_URL "${FFMPEG_URL}" ABSOLUTE)
   else()
-    set(FFMPEG_URL ${FFMPEG_BASE_URL}/${FFMPEG_VER}.tar.gz)
+    set(FFMPEG_URL ${FFMPEG_BASE_URL}/archive/${FFMPEG_VER}.tar.gz)
   endif()
   if(VERBOSE)
     message(STATUS "FFMPEG_URL: ${FFMPEG_URL}")
   endif()
+
+  if (NOT DAV1D_FOUND)
+    message(STATUS "dav1d not found, internal ffmpeg build will be missing AV1 support!")
+  endif()
+
+  set(FFMPEG_OPTIONS -DENABLE_CCACHE=${ENABLE_CCACHE}
+                     -DCCACHE_PROGRAM=${CCACHE_PROGRAM}
+                     -DENABLE_VAAPI=${ENABLE_VAAPI}
+                     -DENABLE_VDPAU=${ENABLE_VDPAU}
+                     -DENABLE_DAV1D=${DAV1D_FOUND})
 
   if(KODI_DEPENDSBUILD)
     set(CROSS_ARGS -DDEPENDS_PATH=${DEPENDS_PATH}
@@ -236,10 +245,10 @@ if(NOT FFMPEG_FOUND)
                    -DCROSSCOMPILING=${CMAKE_CROSSCOMPILING}
                    -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
                    -DOS=${OS}
-                   -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-                   -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
                    -DCMAKE_AR=${CMAKE_AR})
   endif()
+  set(LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS})
+  list(APPEND LINKER_FLAGS ${SYSTEM_LDFLAGS})
 
   externalproject_add(ffmpeg
                       URL ${FFMPEG_URL}
@@ -250,12 +259,18 @@ if(NOT FFMPEG_FOUND)
                                  -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                                  -DFFMPEG_VER=${FFMPEG_VER}
                                  -DCORE_SYSTEM_NAME=${CORE_SYSTEM_NAME}
+                                 -DCORE_PLATFORM_NAME=${CORE_PLATFORM_NAME_LC}
                                  -DCPU=${CPU}
                                  -DENABLE_NEON=${ENABLE_NEON}
+                                 -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                                 -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+                                 -DENABLE_CCACHE=${ENABLE_CCACHE}
                                  -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS}
                                  -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}
-                                 -DCMAKE_EXE_LINKER_FLAGS=${CMAKE_EXE_LINKER_FLAGS}
+                                 -DCMAKE_EXE_LINKER_FLAGS=${LINKER_FLAGS}
                                  ${CROSS_ARGS}
+                                 ${FFMPEG_OPTIONS}
+                                 -DPKG_CONFIG_PATH=${CMAKE_BINARY_DIR}/${CORE_BUILD_DIR}/lib/pkgconfig
                       PATCH_COMMAND ${CMAKE_COMMAND} -E copy
                                     ${CMAKE_SOURCE_DIR}/tools/depends/target/ffmpeg/CMakeLists.txt
                                     <SOURCE_DIR> &&
@@ -274,9 +289,17 @@ if(NOT FFMPEG_FOUND)
                                     patch -p1 < ${CMAKE_SOURCE_DIR}/tools/depends/target/ffmpeg/0001-ffmpeg-Call-get_format-to-fix-an-issue-with-MMAL-ren.patch
                      )
 
+  if (ENABLE_INTERNAL_DAV1D)
+    add_dependencies(ffmpeg dav1d)
+  endif()
+
+  find_program(BASH_COMMAND bash)
+  if(NOT BASH_COMMAND)
+    message(FATAL_ERROR "Internal FFmpeg requires bash.")
+  endif()
   file(WRITE ${CMAKE_BINARY_DIR}/${CORE_BUILD_DIR}/ffmpeg/ffmpeg-link-wrapper
-"#!/bin/bash
-if [[ $@ == *${APP_NAME_LC}.bin* || $@ == *${APP_NAME_LC}.so* || $@ == *${APP_NAME_LC}-test* ]]
+"#!${BASH_COMMAND}
+if [[ $@ == *${APP_NAME_LC}.bin* || $@ == *${APP_NAME_LC}${APP_BINARY_SUFFIX}* || $@ == *${APP_NAME_LC}.so* || $@ == *${APP_NAME_LC}-test* ]]
 then
   avformat=`PKG_CONFIG_PATH=${CMAKE_BINARY_DIR}/${CORE_BUILD_DIR}/lib/pkgconfig ${PKG_CONFIG_EXECUTABLE} --libs --static libavcodec`
   avcodec=`PKG_CONFIG_PATH=${CMAKE_BINARY_DIR}/${CORE_BUILD_DIR}/lib/pkgconfig ${PKG_CONFIG_EXECUTABLE} --libs --static libavformat`

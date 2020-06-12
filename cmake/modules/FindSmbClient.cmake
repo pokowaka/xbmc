@@ -3,7 +3,7 @@
 # -------------
 # Finds the SMB Client library
 #
-# This will will define the following variables::
+# This will define the following variables::
 #
 # SMBCLIENT_FOUND - system has SmbClient
 # SMBCLIENT_INCLUDE_DIRS - the SmbClient include directory
@@ -32,15 +32,18 @@ find_package_handle_standard_args(SmbClient
 
 if(SMBCLIENT_FOUND)
   set(SMBCLIENT_LIBRARIES ${SMBCLIENT_LIBRARY})
+  if(${SMBCLIENT_LIBRARY} MATCHES ".+\.a$" AND PC_SMBCLIENT_STATIC_LIBRARIES)
+    list(APPEND SMBCLIENT_LIBRARIES ${PC_SMBCLIENT_STATIC_LIBRARIES})
+  endif()
   set(SMBCLIENT_INCLUDE_DIRS ${SMBCLIENT_INCLUDE_DIR})
-  set(SMBCLIENT_DEFINITIONS -DHAVE_LIBSMBCLIENT=1)
+  set(SMBCLIENT_DEFINITIONS -DHAS_FILESYSTEM_SMB=1)
 
   if(NOT TARGET SmbClient::SmbClient)
     add_library(SmbClient::SmbClient UNKNOWN IMPORTED)
     set_target_properties(SmbClient::SmbClient PROPERTIES
                                    IMPORTED_LOCATION "${SMBCLIENT_LIBRARY}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${SMBCLIENT_INCLUDE_DIR}"
-                                   INTERFACE_COMPILE_DEFINITIONS HAVE_LIBSMBCLIENT=1)
+                                   INTERFACE_COMPILE_DEFINITIONS HAS_FILESYSTEM_SMB=1)
   endif()
 endif()
 

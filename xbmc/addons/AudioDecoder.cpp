@@ -1,27 +1,15 @@
 /*
- *      Copyright (C) 2013 Arne Morten Kvarving
+ *  Copyright (C) 2013 Arne Morten Kvarving
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "AudioDecoder.h"
 
+#include "cores/AudioEngine/Utils/AEUtil.h"
 #include "music/tags/MusicInfoTag.h"
 #include "music/tags/TagLoaderTagLib.h"
-#include "cores/AudioEngine/Utils/AEUtil.h"
 
 namespace ADDON
 {
@@ -31,6 +19,7 @@ CAudioDecoder::CAudioDecoder(const BinaryAddonBasePtr& addonInfo)
 {
   m_CodecName = addonInfo->Type(ADDON_AUDIODECODER)->GetValue("@name").asString();
   m_strExt = m_CodecName + "stream";
+  m_hasTags = addonInfo->Type(ADDON_AUDIODECODER)->GetValue("@tags").asBoolean();
   m_struct = {{ 0 }};
 }
 
@@ -52,12 +41,12 @@ bool CAudioDecoder::Init(const CFileItem& file, unsigned int filecache)
 
   // for replaygain
   CTagLoaderTagLib tag;
-  tag.Load(file.GetPath(), XFILE::CMusicFileDirectory::m_tag, NULL);
+  tag.Load(file.GetDynPath(), XFILE::CMusicFileDirectory::m_tag, NULL);
 
   int channels;
   int sampleRate;
 
- bool ret = m_struct.toAddon.init(&m_struct, file.GetPath().c_str(), filecache,
+ bool ret = m_struct.toAddon.init(&m_struct, file.GetDynPath().c_str(), filecache,
                                   &channels, &sampleRate,
                                   &m_bitsPerSample, &m_TotalTime,
                                   &m_bitRate, &m_format.m_dataFormat, &m_channel);
@@ -90,7 +79,7 @@ bool CAudioDecoder::Seek(int64_t time)
 
 bool CAudioDecoder::Load(const std::string& fileName,
                          MUSIC_INFO::CMusicInfoTag& tag,
-                         MUSIC_INFO::EmbeddedArt* art)
+                         EmbeddedArt* art)
 {
   if (!m_struct.toAddon.read_tag)
     return false;
@@ -116,10 +105,18 @@ int CAudioDecoder::GetTrackCount(const std::string& strPath)
 
   int result = m_struct.toAddon.track_count(&m_struct, strPath.c_str());
 
-  if (result > 1 && !Load(strPath, XFILE::CMusicFileDirectory::m_tag, nullptr))
-    return 0;
+  if (result > 1)
+  {
+    if (m_hasTags)
+    {
+      if (!Load(strPath, XFILE::CMusicFileDirectory::m_tag, nullptr))
+        return 0;
+    }
+    else
+      XFILE::CMusicFileDirectory::m_tag.SetTitle(CURL(strPath).GetFileNameWithoutPath());
+    XFILE::CMusicFileDirectory::m_tag.SetLoaded(true);
+  }
 
-  XFILE::CMusicFileDirectory::m_tag.SetLoaded(true);
   return result;
 }
 

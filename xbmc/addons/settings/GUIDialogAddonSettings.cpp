@@ -1,34 +1,33 @@
 /*
- *      Copyright (C) 2005-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIDialogAddonSettings.h"
+
 #include "GUIPassword.h"
 #include "GUIUserMessages.h"
+#include "ServiceBroker.h"
 #include "addons/settings/AddonSettings.h"
-#include "dialogs/GUIDialogOK.h"
+#include "guilib/GUIComponent.h"
 #include "guilib/GUIWindowManager.h"
-#include "guilib/WindowIDs.h"
 #include "guilib/LocalizeStrings.h"
+#include "guilib/WindowIDs.h"
+#include "input/Key.h"
+#include "messaging/helpers/DialogOKHelper.h"
+#include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
 #include "settings/lib/SettingsManager.h"
 #include "utils/StringUtils.h"
 #include "utils/Variant.h"
+#include "view/ViewStateSettings.h"
+
+#define CONTROL_BTN_LEVELS               20
+
+using namespace KODI::MESSAGING;
 
 CGUIDialogAddonSettings::CGUIDialogAddonSettings()
   : CGUIDialogSettingsManagerBase(WINDOW_DIALOG_ADDON_SETTINGS, "DialogAddonSettings.xml")
@@ -69,6 +68,53 @@ bool CGUIDialogAddonSettings::OnMessage(CGUIMessage &message)
   return CGUIDialogSettingsManagerBase::OnMessage(message);
 }
 
+bool CGUIDialogAddonSettings::OnAction(const CAction& action)
+{
+  switch (action.GetID())
+  {
+    case ACTION_SETTINGS_LEVEL_CHANGE:
+    {
+      // Test if we can access the new level
+      if (!g_passwordManager.CheckSettingLevelLock(CViewStateSettings::GetInstance().GetNextSettingLevel(), true))
+        return false;
+
+      CViewStateSettings::GetInstance().CycleSettingLevel();
+      CServiceBroker::GetSettingsComponent()->GetSettings()->Save();
+
+      // try to keep the current position
+      std::string oldCategory;
+      if (m_iCategory >= 0 && m_iCategory < static_cast<int>(m_categories.size()))
+        oldCategory = m_categories[m_iCategory]->GetId();
+
+      SET_CONTROL_LABEL(CONTROL_BTN_LEVELS, 10036 + static_cast<int>(CViewStateSettings::GetInstance().GetSettingLevel()));
+      // only re-create the categories, the settings will be created later
+      SetupControls(false);
+
+      m_iCategory = 0;
+      // try to find the category that was previously selected
+      if (!oldCategory.empty())
+      {
+        for (int i = 0; i < static_cast<int>(m_categories.size()); i++)
+        {
+          if (m_categories[i]->GetId() == oldCategory)
+          {
+            m_iCategory = i;
+            break;
+          }
+        }
+      }
+
+      CreateSettings();
+      return true;
+    }
+
+    default:
+      break;
+  }
+
+  return CGUIDialogSettingsManagerBase::OnAction(action);
+}
+
 bool CGUIDialogAddonSettings::ShowForAddon(const ADDON::AddonPtr &addon, bool saveToDisk /* = true */)
 {
   if (addon == nullptr)
@@ -80,12 +126,12 @@ bool CGUIDialogAddonSettings::ShowForAddon(const ADDON::AddonPtr &addon, bool sa
   if (!addon->HasSettings())
   {
     // addon does not support settings, inform user
-    CGUIDialogOK::ShowAndGetInput(CVariant{ 24000 }, CVariant{ 24030 });
+    HELPERS::ShowOKDialogText(CVariant{ 24000 }, CVariant{ 24030 });
     return false;
   }
 
   // Create the dialog
-  CGUIDialogAddonSettings* dialog = g_windowManager.GetWindow<CGUIDialogAddonSettings>(WINDOW_DIALOG_ADDON_SETTINGS);
+  CGUIDialogAddonSettings* dialog = CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogAddonSettings>(WINDOW_DIALOG_ADDON_SETTINGS);
   if (dialog == nullptr)
     return false;
 
@@ -108,7 +154,7 @@ void CGUIDialogAddonSettings::SaveAndClose()
     return;
 
   // get the dialog
-  CGUIDialogAddonSettings* dialog = g_windowManager.GetWindow<CGUIDialogAddonSettings>(WINDOW_DIALOG_ADDON_SETTINGS);
+  CGUIDialogAddonSettings* dialog = CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogAddonSettings>(WINDOW_DIALOG_ADDON_SETTINGS);
   if (dialog == nullptr || !dialog->IsActive())
     return;
 
@@ -149,6 +195,7 @@ void CGUIDialogAddonSettings::SetupView()
   SET_CONTROL_LABEL(CONTROL_SETTINGS_OKAY_BUTTON, 186);
   SET_CONTROL_LABEL(CONTROL_SETTINGS_CANCEL_BUTTON, 222);
   SET_CONTROL_LABEL(CONTROL_SETTINGS_CUSTOM_BUTTON, 409);
+  SET_CONTROL_LABEL(CONTROL_BTN_LEVELS, 10036 + static_cast<int>(CViewStateSettings::GetInstance().GetSettingLevel()));
 }
 
 std::string CGUIDialogAddonSettings::GetLocalizedString(uint32_t labelId) const
@@ -179,7 +226,7 @@ std::string CGUIDialogAddonSettings::GetSettingsLabel(std::shared_ptr<ISetting> 
 
 int CGUIDialogAddonSettings::GetSettingLevel() const
 {
-  return static_cast<int>(SettingLevel::Standard);
+  return static_cast<int>(CViewStateSettings::GetInstance().GetSettingLevel());
 }
 
 std::shared_ptr<CSettingSection> CGUIDialogAddonSettings::GetSection()
@@ -201,4 +248,12 @@ CSettingsManager* CGUIDialogAddonSettings::GetSettingsManager() const
     return nullptr;
 
   return m_addon->GetSettings()->GetSettingsManager();
+}
+
+void CGUIDialogAddonSettings::OnSettingAction(std::shared_ptr<const CSetting> setting)
+{
+  if (m_addon == nullptr || m_addon->GetSettings() == nullptr)
+    return;
+
+  m_addon->GetSettings()->OnSettingAction(setting);
 }

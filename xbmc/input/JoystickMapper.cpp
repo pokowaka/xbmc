@@ -1,30 +1,18 @@
 /*
- *      Copyright (C) 2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "JoystickMapper.h"
-#include "ActionIDs.h"
-#include "ActionTranslator.h"
-#include "input/joysticks/JoystickIDs.h"
+
+#include "input/WindowKeymap.h"
+#include "input/actions/ActionIDs.h"
+#include "input/actions/ActionTranslator.h"
 #include "input/joysticks/JoystickTranslator.h"
 #include "input/joysticks/JoystickUtils.h"
-#include "input/WindowKeymap.h"
 #include "utils/StringUtils.h"
 #include "utils/XBMCTinyXML.h"
 
@@ -34,21 +22,29 @@
 
 using namespace KODI;
 
-#define JOYSTICK_XML_NODE_PROFILE    "profile"
-#define JOYSTICK_XML_ATTR_DIRECTION  "direction"
-#define JOYSTICK_XML_ATTR_HOLDTIME   "holdtime"
-#define JOYSTICK_XML_ATTR_HOTKEY     "hotkey"
+#define JOYSTICK_XML_NODE_PROFILE "profile"
+#define JOYSTICK_XML_ATTR_DIRECTION "direction"
+#define JOYSTICK_XML_ATTR_HOLDTIME "holdtime"
+#define JOYSTICK_XML_ATTR_HOTKEY "hotkey"
 
-CJoystickMapper::~CJoystickMapper()
-{
-}
-
-void CJoystickMapper::MapActions(int windowID, const TiXmlNode *pDevice)
+void CJoystickMapper::MapActions(int windowID, const TiXmlNode* pDevice)
 {
   std::string controllerId;
   DeserializeJoystickNode(pDevice, controllerId);
+  if (controllerId.empty())
+    return;
 
-  const TiXmlElement *pButton = pDevice->FirstChildElement();
+  // Update Controller IDs
+  if (std::find(m_controllerIds.begin(), m_controllerIds.end(), controllerId) ==
+      m_controllerIds.end())
+    m_controllerIds.emplace_back(controllerId);
+
+  // Create/overwrite keymap
+  auto& keymap = m_joystickKeymaps[controllerId];
+  if (!keymap)
+    keymap.reset(new CWindowKeymap(controllerId));
+
+  const TiXmlElement* pButton = pDevice->FirstChildElement();
   while (pButton != nullptr)
   {
     std::string feature;
@@ -58,26 +54,18 @@ void CJoystickMapper::MapActions(int windowID, const TiXmlNode *pDevice)
     std::string actionString;
     if (DeserializeButton(pButton, feature, dir, holdtimeMs, hotkeys, actionString))
     {
-      // Update Controller IDs
-      if (std::find(m_controllerIds.begin(), m_controllerIds.end(), controllerId) == m_controllerIds.end())
-        m_controllerIds.emplace_back(controllerId);
-
-      // Find/create keymap
-      auto &keymap = m_joystickKeymaps[controllerId];
-      if (!keymap)
-        keymap.reset(new CWindowKeymap(controllerId));
-
       // Update keymap
       unsigned int actionId = ACTION_NONE;
       if (CActionTranslator::TranslateString(actionString, actionId))
       {
         JOYSTICK::KeymapAction action = {
-          actionId,
-          std::move(actionString),
-          holdtimeMs,
-          std::move(hotkeys),
+            actionId,
+            std::move(actionString),
+            holdtimeMs,
+            std::move(hotkeys),
         };
-        keymap->MapAction(windowID, JOYSTICK::CJoystickUtils::MakeKeyName(feature, dir), std::move(action));
+        keymap->MapAction(windowID, JOYSTICK::CJoystickUtils::MakeKeyName(feature, dir),
+                          std::move(action));
       }
     }
     pButton = pButton->NextSiblingElement();
@@ -94,7 +82,7 @@ std::vector<std::shared_ptr<const IWindowKeymap>> CJoystickMapper::GetJoystickKe
 {
   std::vector<std::shared_ptr<const IWindowKeymap>> keymaps;
 
-  for (const auto &controllerId : m_controllerIds)
+  for (const auto& controllerId : m_controllerIds)
   {
     auto it = m_joystickKeymaps.find(controllerId);
     if (it != m_joystickKeymaps.end())
@@ -104,21 +92,29 @@ std::vector<std::shared_ptr<const IWindowKeymap>> CJoystickMapper::GetJoystickKe
   return keymaps;
 }
 
-void CJoystickMapper::DeserializeJoystickNode(const TiXmlNode* pDevice, std::string &controllerId)
+void CJoystickMapper::DeserializeJoystickNode(const TiXmlNode* pDevice, std::string& controllerId)
 {
-  controllerId = DEFAULT_CONTROLLER_ID;
-
   const TiXmlElement* deviceElem = pDevice->ToElement();
   if (deviceElem != nullptr)
     deviceElem->QueryValueAttribute(JOYSTICK_XML_NODE_PROFILE, &controllerId);
 }
 
-bool CJoystickMapper::DeserializeButton(const TiXmlElement *pButton, std::string &feature, JOYSTICK::ANALOG_STICK_DIRECTION &dir, unsigned int& holdtimeMs, std::set<std::string>& hotkeys, std::string &actionStr)
+bool CJoystickMapper::DeserializeButton(const TiXmlElement* pButton,
+                                        std::string& feature,
+                                        JOYSTICK::ANALOG_STICK_DIRECTION& dir,
+                                        unsigned int& holdtimeMs,
+                                        std::set<std::string>& hotkeys,
+                                        std::string& actionStr)
 {
-  const char *szButton = pButton->Value();
+  const char* szButton = pButton->Value();
   if (szButton != nullptr)
   {
-    const char *szAction = pButton->FirstChild()->Value();
+    const char* szAction = nullptr;
+
+    const TiXmlNode* actionNode = pButton->FirstChild();
+    if (actionNode != nullptr)
+      szAction = actionNode->Value();
+
     if (szAction != nullptr)
     {
       feature = szButton;
@@ -130,17 +126,17 @@ bool CJoystickMapper::DeserializeButton(const TiXmlElement *pButton, std::string
   if (!feature.empty() && !actionStr.empty())
   {
     // Handle direction
-    dir = JOYSTICK::ANALOG_STICK_DIRECTION::UNKNOWN;
-    const char *szDirection = pButton->Attribute(JOYSTICK_XML_ATTR_DIRECTION);
+    dir = JOYSTICK::ANALOG_STICK_DIRECTION::NONE;
+    const char* szDirection = pButton->Attribute(JOYSTICK_XML_ATTR_DIRECTION);
     if (szDirection != nullptr)
-      dir = JOYSTICK::CJoystickTranslator::TranslateDirection(szDirection);
+      dir = JOYSTICK::CJoystickTranslator::TranslateAnalogStickDirection(szDirection);
 
     // Process holdtime parameter
     holdtimeMs = 0;
     std::string strHoldTime;
     if (pButton->QueryValueAttribute(JOYSTICK_XML_ATTR_HOLDTIME, &strHoldTime) == TIXML_SUCCESS)
     {
-      std::stringstream ss(std::move(strHoldTime));
+      std::istringstream ss(std::move(strHoldTime));
       ss >> holdtimeMs;
     }
 

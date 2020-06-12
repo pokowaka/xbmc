@@ -1,36 +1,29 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2020 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "FileOperations.h"
-#include "VideoLibrary.h"
+
 #include "AudioLibrary.h"
+#include "FileItem.h"
 #include "MediaSource.h"
+#include "ServiceBroker.h"
+#include "URL.h"
+#include "Util.h"
+#include "VideoLibrary.h"
 #include "filesystem/Directory.h"
 #include "filesystem/File.h"
-#include "FileItem.h"
+#include "media/MediaLockState.h"
 #include "settings/AdvancedSettings.h"
 #include "settings/MediaSourceSettings.h"
-#include "Util.h"
-#include "URL.h"
-#include "utils/URIUtils.h"
+#include "settings/SettingsComponent.h"
+#include "utils/FileExtensionProvider.h"
 #include "utils/FileUtils.h"
+#include "utils/URIUtils.h"
 #include "utils/Variant.h"
 #include "video/VideoDatabase.h"
 
@@ -49,7 +42,7 @@ JSONRPC_STATUS CFileOperations::GetRootDirectory(const std::string &method, ITra
     for (unsigned int i = 0; i < (unsigned int)sources->size(); i++)
     {
       // Do not show sources which are locked
-      if (sources->at(i).m_iHasLock == 2)
+      if (sources->at(i).m_iHasLock == LOCK_STATE_LOCKED)
         continue;
 
       items.Add(CFileItemPtr(new CFileItem(sources->at(i))));
@@ -89,21 +82,21 @@ JSONRPC_STATUS CFileOperations::GetDirectory(const std::string &method, ITranspo
   std::string extensions;
   if (media == "video")
   {
-    regexps = g_advancedSettings.m_videoExcludeFromListingRegExps;
-    extensions = g_advancedSettings.m_videoExtensions;
+    regexps = CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_videoExcludeFromListingRegExps;
+    extensions = CServiceBroker::GetFileExtensionProvider().GetVideoExtensions();
   }
   else if (media == "music")
   {
-    regexps = g_advancedSettings.m_audioExcludeFromListingRegExps;
-    extensions = g_advancedSettings.GetMusicExtensions();
+    regexps = CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_audioExcludeFromListingRegExps;
+    extensions = CServiceBroker::GetFileExtensionProvider().GetMusicExtensions();
   }
   else if (media == "pictures")
   {
-    regexps = g_advancedSettings.m_pictureExcludeFromListingRegExps;
-    extensions = g_advancedSettings.GetPictureExtensions();
+    regexps = CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_pictureExcludeFromListingRegExps;
+    extensions = CServiceBroker::GetFileExtensionProvider().GetPictureExtensions();
   }
 
-  if (CDirectory::GetDirectory(strPath, items, extensions))
+  if (CDirectory::GetDirectory(strPath, items, extensions, DIR_FLAG_DEFAULTS))
   {
     // we might need to get additional information for music items
     if (media == "music")
@@ -182,10 +175,15 @@ JSONRPC_STATUS CFileOperations::GetFileDetails(const std::string &method, ITrans
   std::string path = URIUtils::GetDirectory(file);
 
   CFileItemList items;
-  if (path.empty() || !CDirectory::GetDirectory(path, items) || !items.Contains(file))
+  if (path.empty())
     return InvalidParams;
 
-  CFileItemPtr item = items.Get(file);
+  CFileItemPtr item;
+  if (CDirectory::GetDirectory(path, items, "", DIR_FLAG_DEFAULTS) && items.Contains(file))
+    item = items.Get(file);
+  else
+    item = CFileItemPtr(new CFileItem(file, false));
+
   if (!URIUtils::IsUPnP(file))
     FillFileItem(item, item, parameterObject["media"].asString(), parameterObject);
 
@@ -255,7 +253,7 @@ JSONRPC_STATUS CFileOperations::SetFileDetails(const std::string &method, ITrans
   CVideoLibrary::UpdateResumePoint(parameterObject, infos, videodatabase);
 
   videodatabase.GetFileInfo("", infos, fileId);
-  CJSONRPCUtils::NotifyItemUpdated(infos);
+  CJSONRPCUtils::NotifyItemUpdated(infos, std::map<std::string, std::string>{});
   return ACK;
 }
 
@@ -273,7 +271,7 @@ JSONRPC_STATUS CFileOperations::PrepareDownload(const std::string &method, ITran
 
     return OK;
   }
-  
+
   return InvalidParams;
 }
 
@@ -351,24 +349,28 @@ bool CFileOperations::FillFileItemList(const CVariant &parameterObject, CFileIte
 
       if (media == "video")
       {
-        regexps = g_advancedSettings.m_videoExcludeFromListingRegExps;
-        extensions = g_advancedSettings.m_videoExtensions;
+        regexps = CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_videoExcludeFromListingRegExps;
+        extensions = CServiceBroker::GetFileExtensionProvider().GetVideoExtensions();
       }
       else if (media == "music")
       {
-        regexps = g_advancedSettings.m_audioExcludeFromListingRegExps;
-        extensions = g_advancedSettings.GetMusicExtensions();
+        regexps = CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_audioExcludeFromListingRegExps;
+        extensions = CServiceBroker::GetFileExtensionProvider().GetMusicExtensions();
       }
       else if (media == "pictures")
       {
-        regexps = g_advancedSettings.m_pictureExcludeFromListingRegExps;
-        extensions = g_advancedSettings.GetPictureExtensions();
+        regexps = CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_pictureExcludeFromListingRegExps;
+        extensions = CServiceBroker::GetFileExtensionProvider().GetPictureExtensions();
       }
 
       CDirectory directory;
-      if (directory.GetDirectory(strPath, items, extensions))
+      if (directory.GetDirectory(strPath, items, extensions, DIR_FLAG_DEFAULTS))
       {
-        items.Sort(SortByFile, SortOrderAscending);
+        // Sort folders and files by filename to avoid reverse item order bug on some platforms,
+        // but leave items from a playlist, smartplaylist or upnp container in order supplied
+        if (!items.IsPlayList() && !items.IsSmartPlayList() && !URIUtils::IsUPnP(items.GetPath()))
+          items.Sort(SortByFile, SortOrderAscending);
+
         CFileItemList filteredDirectories;
         for (unsigned int i = 0; i < (unsigned int)items.Size(); i++)
         {

@@ -1,37 +1,26 @@
 /*
- *      Copyright (C) 2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "KeyboardTranslator.h"
+
 #include "Key.h"
 #include "XBMC_keytable.h"
-#include "utils/log.h"
 #include "utils/StringUtils.h"
 #include "utils/XBMCTinyXML.h"
+#include "utils/log.h"
 
 #include <string>
 #include <vector>
 
-uint32_t CKeyboardTranslator::TranslateButton(const TiXmlElement *pButton)
+uint32_t CKeyboardTranslator::TranslateButton(const TiXmlElement* pButton)
 {
   uint32_t button_id = 0;
-  const char *szButton = pButton->Value();
+  const char* szButton = pButton->Value();
 
   if (szButton == nullptr)
     return 0;
@@ -42,8 +31,8 @@ uint32_t CKeyboardTranslator::TranslateButton(const TiXmlElement *pButton)
     std::string strID;
     if (pButton->QueryValueAttribute("id", &strID) == TIXML_SUCCESS)
     {
-      const char *str = strID.c_str();
-      char *endptr;
+      const char* str = strID.c_str();
+      char* endptr;
       long int id = strtol(str, &endptr, 0);
       if (endptr - str != (int)strlen(str) || id <= 0 || id > 0x00FFFFFF)
         CLog::Log(LOGDEBUG, "%s - invalid key id %s", __FUNCTION__, strID.c_str());
@@ -80,14 +69,15 @@ uint32_t CKeyboardTranslator::TranslateButton(const TiXmlElement *pButton)
       else if (substr == "longpress")
         button_id |= CKey::MODIFIER_LONG;
       else
-        CLog::Log(LOGERROR, "Keyboard Translator: Unknown key modifier %s in %s", substr.c_str(), strMod.c_str());
+        CLog::Log(LOGERROR, "Keyboard Translator: Unknown key modifier %s in %s", substr.c_str(),
+                  strMod.c_str());
     }
   }
 
   return button_id;
 }
 
-uint32_t CKeyboardTranslator::TranslateString(const std::string &szButton)
+uint32_t CKeyboardTranslator::TranslateString(const std::string& szButton)
 {
   uint32_t buttonCode = 0;
   XBMCKEYTABLE keytable;

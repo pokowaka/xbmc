@@ -1,25 +1,14 @@
-#pragma once
 /*
-*      Copyright (C) 2005-2013 Team XBMC
-*      http://xbmc.org
-*
-*  This Program is free software; you can redistribute it and/or modify
-*  it under the terms of the GNU General Public License as published by
-*  the Free Software Foundation; either version 2, or (at your option)
-*  any later version.
-*
-*  This Program is distributed in the hope that it will be useful,
-*  but WITHOUT ANY WARRANTY; without even the implied warranty of
-*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-*  GNU General Public License for more details.
-*
-*  You should have received a copy of the GNU General Public License
-*  along with XBMC; see the file COPYING.  If not, see
-*  <http://www.gnu.org/licenses/>.
-*
-*/
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
 
-#include "AddonInfo.h"
+#pragma once
+
+#include "addons/addoninfo/AddonInfo.h"
 
 #include <memory>
 #include <set>
@@ -28,7 +17,6 @@ class TiXmlElement;
 
 namespace ADDON
 {
-
   class IAddon;
   typedef std::shared_ptr<IAddon> AddonPtr;
   class CInstanceVisualization;
@@ -45,9 +33,9 @@ namespace ADDON
   {
   public:
     virtual ~IAddon() = default;
+    virtual TYPE MainType() const = 0;
     virtual TYPE Type() const =0;
-    virtual TYPE FullType() const =0;
-    virtual bool IsType(TYPE type) const =0;
+    virtual bool HasType(TYPE type) const = 0;
     virtual std::string ID() const =0;
     virtual std::string Name() const =0;
     virtual bool IsInUse() const =0;
@@ -85,17 +73,18 @@ namespace ADDON
     virtual bool GetSettingNumber(const std::string& key, double& value) = 0;
     virtual bool GetSettingString(const std::string& key, std::string& value) = 0;
     virtual CAddonSettings* GetSettings() const =0;
-    virtual const ADDONDEPS &GetDeps() const =0;
+    virtual const std::vector<DependencyInfo> &GetDependencies() const =0;
     virtual AddonVersion GetDependencyVersion(const std::string &dependencyID) const =0;
-    virtual bool MeetsVersion(const AddonVersion &version) const =0;
+    virtual bool MeetsVersion(const AddonVersion& versionMin,
+                              const AddonVersion& version) const = 0;
     virtual bool ReloadSettings() =0;
-    virtual void OnDisabled() =0;
-    virtual void OnEnabled() =0;
     virtual AddonPtr GetRunningInstance() const=0;
     virtual void OnPreInstall() =0;
     virtual void OnPostInstall(bool update, bool modal) =0;
     virtual void OnPreUnInstall() =0;
     virtual void OnPostUnInstall() =0;
+
+    // Derived property
+    bool IsBroken() const { return !Broken().empty(); }
   };
 };
-

@@ -1,37 +1,24 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
 #include "MusicInfoTagLoaderFactory.h"
-#include "TagLoaderTagLib.h"
+
+#include "FileItem.h"
 #include "MusicInfoTagLoaderCDDA.h"
-#include "MusicInfoTagLoaderShn.h"
 #include "MusicInfoTagLoaderDatabase.h"
 #include "MusicInfoTagLoaderFFmpeg.h"
+#include "MusicInfoTagLoaderShn.h"
+#include "ServiceBroker.h"
+#include "TagLoaderTagLib.h"
+#include "addons/AudioDecoder.h"
+#include "addons/binary-addons/BinaryAddonBase.h"
 #include "utils/StringUtils.h"
 #include "utils/URIUtils.h"
-#include "FileItem.h"
-#include "ServiceBroker.h"
-
-#include "addons/binary-addons/BinaryAddonBase.h"
-#include "addons/AudioDecoder.h"
 
 using namespace ADDON;
 
@@ -61,25 +48,29 @@ IMusicInfoTagLoader* CMusicInfoTagLoaderFactory::CreateLoader(const CFileItem& i
   CServiceBroker::GetBinaryAddonManager().GetAddonInfos(addonInfos, true, ADDON_AUDIODECODER);
   for (const auto& addonInfo : addonInfos)
   {
-    if (CAudioDecoder::HasTags(addonInfo) &&
-        CAudioDecoder::GetExtensions(addonInfo).find("."+strExtension) != std::string::npos)
+    if (CAudioDecoder::HasTags(addonInfo))
     {
-      CAudioDecoder* result = new CAudioDecoder(addonInfo);
-      if (!result->CreateDecoder())
+      auto exts = StringUtils::Split(CAudioDecoder::GetExtensions(addonInfo), "|");
+      if (std::find(exts.begin(), exts.end(), "." + strExtension) != exts.end())
       {
-        delete result;
-        return nullptr;
+        CAudioDecoder* result = new CAudioDecoder(addonInfo);
+        if (!result->CreateDecoder())
+        {
+          delete result;
+          return nullptr;
+        }
+        return result;
       }
-      return result;
     }
   }
 
   if (strExtension == "aac" ||
       strExtension == "ape" || strExtension == "mac" ||
-      strExtension == "mp3" || 
-      strExtension == "wma" || 
-      strExtension == "flac" || 
+      strExtension == "mp3" ||
+      strExtension == "wma" ||
+      strExtension == "flac" ||
       strExtension == "m4a" || strExtension == "mp4" || strExtension == "m4b" ||
+      strExtension == "m4v" ||
       strExtension == "mpc" || strExtension == "mpp" || strExtension == "mp+" ||
       strExtension == "ogg" || strExtension == "oga" || strExtension == "oggstream" ||
       strExtension == "opus" ||
@@ -90,19 +81,19 @@ IMusicInfoTagLoader* CMusicInfoTagLoaderFactory::CreateLoader(const CFileItem& i
       strExtension == "wv")
   {
     CTagLoaderTagLib *pTagLoader = new CTagLoaderTagLib();
-    return (IMusicInfoTagLoader*)pTagLoader;
+    return pTagLoader;
   }
 #ifdef HAS_DVD_DRIVE
   else if (strExtension == "cdda")
   {
     CMusicInfoTagLoaderCDDA *pTagLoader = new CMusicInfoTagLoaderCDDA();
-    return (IMusicInfoTagLoader*)pTagLoader;
+    return pTagLoader;
   }
 #endif
   else if (strExtension == "shn")
   {
     CMusicInfoTagLoaderSHN *pTagLoader = new CMusicInfoTagLoaderSHN();
-    return (IMusicInfoTagLoader*)pTagLoader;
+    return pTagLoader;
   }
   else if (strExtension == "mka" || strExtension == "dsf" ||
            strExtension == "dff")

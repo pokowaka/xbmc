@@ -1,65 +1,34 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#ifndef TARGET_WINDOWS
-#ifndef __cdecl
-#define __cdecl
-#endif
-#ifndef __declspec
-#define __declspec(X)
-#endif
-#endif
-#include <string.h>
-#include <stdint.h>
-#include <stdio.h>
+#pragma once
 
-#include "xbmc_addon_types.h"
-#include "xbmc_epg_types.h"
+#include "AddonBase.h"
+
+#ifdef BUILD_KODI_ADDON
+#include "InputStreamConstants.h"
+#else
+#include "cores/VideoPlayer/Interface/Addon/InputStreamConstants.h"
+#endif
 
 /*! @note Define "USE_DEMUX" at compile time if demuxing in the PVR add-on is used.
- *        Also XBMC's "DVDDemuxPacket.h" file must be in the include path of the add-on,
+ *        Also, "DVDDemuxPacket.h" file must be in the include path of the add-on,
  *        and the add-on should set bHandlesDemuxing to true.
  */
 #ifdef USE_DEMUX
-#include "DVDDemuxPacket.h"
+#include "DemuxPacket.h"
 #else
 struct DemuxPacket;
 #endif
 
-#undef ATTRIBUTE_PACKED
-#undef PRAGMA_PACK_BEGIN
-#undef PRAGMA_PACK_END
-
-#if defined(__GNUC__)
-#if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 95)
-#define ATTRIBUTE_PACKED __attribute__ ((packed))
-#define PRAGMA_PACK 0
-#endif
-#endif
-
-#if !defined(ATTRIBUTE_PACKED)
-#define ATTRIBUTE_PACKED
-#define PRAGMA_PACK 1
-#endif
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 
 #define PVR_ADDON_NAME_STRING_LENGTH          1024
 #define PVR_ADDON_URL_STRING_LENGTH           1024
@@ -69,13 +38,61 @@ struct DemuxPacket;
 #define PVR_ADDON_TIMERTYPE_ARRAY_SIZE        32
 #define PVR_ADDON_TIMERTYPE_VALUES_ARRAY_SIZE 512
 #define PVR_ADDON_TIMERTYPE_VALUES_ARRAY_SIZE_SMALL 128
-#define PVR_ADDON_TIMERTYPE_STRING_LENGTH     64
-#define PVR_ADDON_ATTRIBUTE_DESC_LENGTH 64
+#define PVR_ADDON_TIMERTYPE_STRING_LENGTH     128
+#define PVR_ADDON_ATTRIBUTE_DESC_LENGTH       128
 #define PVR_ADDON_ATTRIBUTE_VALUES_ARRAY_SIZE 512
 #define PVR_ADDON_DESCRAMBLE_INFO_STRING_LENGTH 64
+#define PVR_ADDON_DATE_STRING_LENGTH          32
 
 #define XBMC_INVALID_CODEC_ID   0
 #define XBMC_INVALID_CODEC      { XBMC_CODEC_TYPE_UNKNOWN, XBMC_INVALID_CODEC_ID }
+
+//============================================================================
+/// @brief **PVR related stream property values**
+///
+/// This is used to pass additional data to Kodi on a given PVR stream.
+///
+/// Then transferred to livestream, recordings or EPG Tag stream using the
+/// properties.
+///
+//@{
+
+/// @brief the URL of the stream that should be played.
+///
+#define PVR_STREAM_PROPERTY_STREAMURL "streamurl"
+
+/// @brief To define in stream properties the name of the inputstream add-on
+/// that should be used.
+///
+/// Leave blank to use Kodi's built-in playing capabilities or to allow ffmpeg
+/// to handle directly set to @ref PVR_STREAM_PROPERTY_VALUE_INPUTSTREAMFFMPEG.
+///
+#define PVR_STREAM_PROPERTY_INPUTSTREAM STREAM_PROPERTY_INPUTSTREAM
+
+/// @brief the MIME type of the stream that should be played.
+///
+#define PVR_STREAM_PROPERTY_MIMETYPE "mimetype"
+
+/// @brief "true" to denote that the stream that should be played is a realtime
+/// stream.
+///
+/// Any other value indicates that this is no realtime stream.
+///
+#define PVR_STREAM_PROPERTY_ISREALTIMESTREAM STREAM_PROPERTY_ISREALTIMESTREAM
+
+/// @brief "true" to denote that if the stream is from an EPG tag.
+///
+/// It should be played is a live stream. Otherwise if it's a EPG tag it will
+/// play as normal video.
+///
+#define PVR_STREAM_PROPERTY_EPGPLAYBACKASLIVE "epgplaybackaslive"
+
+/// @brief Special value for @ref PVR_STREAM_PROPERTY_INPUTSTREAM to use
+/// ffmpeg to directly play a stream URL.
+#define PVR_STREAM_PROPERTY_VALUE_INPUTSTREAMFFMPEG STREAM_PROPERTY_VALUE_INPUTSTREAMFFMPEG
+
+//@}
+//-------------------------------------------------------------------------------
 
 /* using the default avformat's MAX_STREAMS value to be safe */
 #define PVR_STREAM_MAX_STREAMS 20
@@ -102,6 +119,104 @@ extern "C" {
     xbmc_codec_type_t codec_type;
     xbmc_codec_id_t   codec_id;
   } xbmc_codec_t;
+
+  //--==----==----==----==----==----==----==----==----==----==----==----==----==
+  //                             PVR EPG "C" definitions
+
+  /*! @name EPG entry content event types */
+  //@{
+  /* These IDs come from the DVB-SI EIT table "content descriptor"
+   * Also known under the name "E-book genre assignments"
+   */
+  typedef enum
+  {
+    EPG_EVENT_CONTENTMASK_UNDEFINED = 0x00,
+    EPG_EVENT_CONTENTMASK_MOVIEDRAMA = 0x10,
+    EPG_EVENT_CONTENTMASK_NEWSCURRENTAFFAIRS = 0x20,
+    EPG_EVENT_CONTENTMASK_SHOW = 0x30,
+    EPG_EVENT_CONTENTMASK_SPORTS = 0x40,
+    EPG_EVENT_CONTENTMASK_CHILDRENYOUTH = 0x50,
+    EPG_EVENT_CONTENTMASK_MUSICBALLETDANCE = 0x60,
+    EPG_EVENT_CONTENTMASK_ARTSCULTURE = 0x70,
+    EPG_EVENT_CONTENTMASK_SOCIALPOLITICALECONOMICS = 0x80,
+    EPG_EVENT_CONTENTMASK_EDUCATIONALSCIENCE = 0x90,
+    EPG_EVENT_CONTENTMASK_LEISUREHOBBIES = 0xA0,
+    EPG_EVENT_CONTENTMASK_SPECIAL = 0xB0,
+    EPG_EVENT_CONTENTMASK_USERDEFINED = 0xF0
+  } EPG_EVENT_CONTENTMASK;
+  //@}
+
+  /* Set EPGTAG.iGenreType or EPGTAG.iGenreSubType to EPG_GENRE_USE_STRING to transfer genre strings to Kodi */
+  #define EPG_GENRE_USE_STRING 0x100
+
+  /* Separator to use in strings containing different tokens, for example writers, directors, actors of an event. */
+  #define EPG_STRING_TOKEN_SEPARATOR ","
+
+  /* EPG_TAG.iFlags values */
+  const unsigned int EPG_TAG_FLAG_UNDEFINED   = 0x00000000; /*!< nothing special to say about this entry */
+  const unsigned int EPG_TAG_FLAG_IS_SERIES   = 0x00000001; /*!< this EPG entry is part of a series */
+  const unsigned int EPG_TAG_FLAG_IS_NEW      = 0x00000002; /*!< this EPG entry will be flagged as new */
+  const unsigned int EPG_TAG_FLAG_IS_PREMIERE = 0x00000004; /*!< this EPG entry will be flagged as a premiere */
+  const unsigned int EPG_TAG_FLAG_IS_FINALE   = 0x00000008; /*!< this EPG entry will be flagged as a finale */
+  const unsigned int EPG_TAG_FLAG_IS_LIVE     = 0x00000010; /*!< this EPG entry will be flagged as live */
+
+  /* Special EPG_TAG.iUniqueBroadcastId value */
+
+  /*!
+   * @brief special EPG_TAG.iUniqueBroadcastId value to indicate that a tag has not a valid EPG event uid.
+   */
+  const unsigned int EPG_TAG_INVALID_UID = 0;
+
+  /*!
+   * @brief special EPG_TAG.iSeriesNumber, EPG_TAG.iEpisodeNumber and EPG_TAG.iEpisodePartNumber value to indicate it is not to be used
+   */
+  const int EPG_TAG_INVALID_SERIES_EPISODE = -1;
+
+  /*!
+   * @brief EPG event states. Used with EpgEventStateChange callback.
+   */
+  typedef enum
+  {
+    EPG_EVENT_CREATED = 0,  /*!< event created */
+    EPG_EVENT_UPDATED = 1,  /*!< event updated */
+    EPG_EVENT_DELETED = 2,  /*!< event deleted */
+  } EPG_EVENT_STATE;
+
+  /*!
+   * @brief Representation of an EPG event.
+   */
+  typedef struct EPG_TAG
+  {
+    unsigned int  iUniqueBroadcastId;  /*!< (required) identifier for this event. Event uids must be unique for a channel. Valid uids must be greater than EPG_TAG_INVALID_UID. */
+    unsigned int  iUniqueChannelId;    /*!< (required) unique identifier of the channel this event belongs to. */
+    const char *  strTitle;            /*!< (required) this event's title */
+    time_t        startTime;           /*!< (required) start time in UTC */
+    time_t        endTime;             /*!< (required) end time in UTC */
+    const char *  strPlotOutline;      /*!< (optional) plot outline */
+    const char *  strPlot;             /*!< (optional) plot */
+    const char *  strOriginalTitle;    /*!< (optional) originaltitle */
+    const char *  strCast;             /*!< (optional) cast. Use EPG_STRING_TOKEN_SEPARATOR to separate different persons. */
+    const char *  strDirector;         /*!< (optional) director(s). Use EPG_STRING_TOKEN_SEPARATOR to separate different persons. */
+    const char *  strWriter;           /*!< (optional) writer(s). Use EPG_STRING_TOKEN_SEPARATOR to separate different persons. */
+    int           iYear;               /*!< (optional) year */
+    const char *  strIMDBNumber;       /*!< (optional) IMDBNumber */
+    const char *  strIconPath;         /*!< (optional) icon path */
+    int           iGenreType;          /*!< (optional) genre type */
+    int           iGenreSubType;       /*!< (optional) genre sub type */
+    const char *  strGenreDescription; /*!< (optional) genre. Will be used only when iGenreType == EPG_GENRE_USE_STRING or iGenreSubType == EPG_GENRE_USE_STRING. Use EPG_STRING_TOKEN_SEPARATOR to separate different genres. */
+    const char *  strFirstAired;       /*!< (optional) first aired date of the event. Used only for display purposes. Specify in W3C date format "YYYY-MM-DD". */
+    int           iParentalRating;     /*!< (optional) parental rating */
+    int           iStarRating;         /*!< (optional) star rating */
+    int           iSeriesNumber;       /*!< (optional) series number. Set to "0" for specials/pilot. For 'invalid' set to EPG_TAG_INVALID_SERIES_EPISODE */
+    int           iEpisodeNumber;      /*!< (optional) episode number. For 'invalid' set to EPG_TAG_INVALID_SERIES_EPISODE */
+    int           iEpisodePartNumber;  /*!< (optional) episode part number. For 'invalid' set to EPG_TAG_INVALID_SERIES_EPISODE */
+    const char *  strEpisodeName;      /*!< (optional) episode name */
+    unsigned int  iFlags;              /*!< (optional) bit field of independent flags associated with the EPG entry */
+    const char *  strSeriesLink;       /*!< (optional) series link for this event */
+  } ATTRIBUTE_PACKED EPG_TAG;
+
+  //--==----==----==----==----==----==----==----==----==----==----==----==----==
+  //                            PVR timers "C" definitions
 
   /*!
    * @brief numeric PVR timer type definitions (PVR_TIMER.iTimerType values)
@@ -155,10 +270,15 @@ extern "C" {
   const unsigned int PVR_TIMER_TYPE_SUPPORTS_START_ANYTIME            = 0x00040000; /*!< @brief enables an 'Any Time' over-ride option for startTime (using PVR_TIMER.bStartAnyTime) */
   const unsigned int PVR_TIMER_TYPE_SUPPORTS_END_ANYTIME              = 0x00080000; /*!< @brief enables a separate 'Any Time' over-ride for endTime (using PVR_TIMER.bEndAnyTime) */
   const unsigned int PVR_TIMER_TYPE_SUPPORTS_MAX_RECORDINGS           = 0x00100000; /*!< @brief this type supports specifying a maximum recordings setting' (PVR_TIMER.iMaxRecordings) */
-  const unsigned int PVR_TIMER_TYPE_REQUIRES_EPG_TAG_ON_CREATE        = 0x00200000; /*!< @brief this type shold not appear on any create menus which don't provide an associated EPG tag */
+  const unsigned int PVR_TIMER_TYPE_REQUIRES_EPG_TAG_ON_CREATE        = 0x00200000; /*!< @brief this type should not appear on any create menus which don't provide an associated EPG tag */
   const unsigned int PVR_TIMER_TYPE_FORBIDS_EPG_TAG_ON_CREATE         = 0x00400000; /*!< @brief this type should not appear on any create menus which provide an associated EPG tag */
-  const unsigned int PVR_TIMER_TYPE_REQUIRES_EPG_SERIES_ON_CREATE     = 0x00800000; /*!< @brief this type should not appear on any create menus unless associated with an EPG tag with 'series' attributes (EPG_TAG.iFlags & EPG_TAG_FLAG_IS_SERIES || EPG_TAG.iSeriesNumber > 0 || EPG_TAG.iEpisodeNumber > 0 || EPG_TAG.iEpisodePartNumber > 0). Implies PVR_TIMER_TYPE_REQUIRES_EPG_TAG_ON_CREATE */
+  const unsigned int PVR_TIMER_TYPE_REQUIRES_EPG_SERIES_ON_CREATE     = 0x00800000; /*!< @brief this type should not appear on any create menus unless associated with an EPG tag with 'series' attributes (EPG_TAG.iFlags & EPG_TAG_FLAG_IS_SERIES || EPG_TAG.iSeriesNumber >= 0 || EPG_TAG.iEpisodeNumber >= 0 || EPG_TAG.iEpisodePartNumber >= 0). Implies PVR_TIMER_TYPE_REQUIRES_EPG_TAG_ON_CREATE */
   const unsigned int PVR_TIMER_TYPE_SUPPORTS_ANY_CHANNEL              = 0x01000000; /*!< @brief this type supports 'any channel', for example when defining a timer rule that should match any channel instaed of a particular channel */
+  const unsigned int PVR_TIMER_TYPE_REQUIRES_EPG_SERIESLINK_ON_CREATE = 0x02000000; /*!< @brief this type should not appear on any create menus which don't provide an associated EPG tag with a series link */
+  const unsigned int PVR_TIMER_TYPE_SUPPORTS_READONLY_DELETE          = 0x04000000; /*!< @brief this type allows deletion of an otherwise read-only timer */
+  const unsigned int PVR_TIMER_TYPE_IS_REMINDER                       = 0x08000000; /*!< @brief timers of this type do trigger a reminder if time is up by calling the Kodi callback 'ReminderNotification'. */
+  const unsigned int PVR_TIMER_TYPE_SUPPORTS_START_MARGIN             = 0x10000000; /*!< @brief this type supports pre record time (PVR_TIMER.iMarginStart) */
+  const unsigned int PVR_TIMER_TYPE_SUPPORTS_END_MARGIN               = 0x20000000; /*!< @brief this type supports post record time (PVR_TIMER.iMarginEnd) */
 
   /*!
    * @brief PVR timer weekdays (PVR_TIMER.iWeekdays values)
@@ -197,7 +317,7 @@ extern "C" {
   {
     PVR_ERROR_NO_ERROR           = 0,  /*!< @brief no error occurred */
     PVR_ERROR_UNKNOWN            = -1, /*!< @brief an unknown error occurred */
-    PVR_ERROR_NOT_IMPLEMENTED    = -2, /*!< @brief the method that XBMC called is not implemented by the add-on */
+    PVR_ERROR_NOT_IMPLEMENTED    = -2, /*!< @brief the method that Kodi called is not implemented by the add-on */
     PVR_ERROR_SERVER_ERROR       = -3, /*!< @brief the backend reported an error, or the add-on isn't connected */
     PVR_ERROR_SERVER_TIMEOUT     = -4, /*!< @brief the command was sent to the backend, but the response timed out */
     PVR_ERROR_REJECTED           = -5, /*!< @brief the command was rejected by the backend */
@@ -265,14 +385,22 @@ extern "C" {
   } PVR_RECORDING_CHANNEL_TYPE;
 
   /*!
+   * @brief Representation of a named value
+   */
+  typedef struct PVR_NAMED_VALUE {
+    char  strName[PVR_ADDON_NAME_STRING_LENGTH];  /*!< @brief (required) name */
+    char  strValue[PVR_ADDON_NAME_STRING_LENGTH]; /*!< @brief (required) value */
+  } ATTRIBUTE_PACKED PVR_NAMED_VALUE;
+
+  /*!
    * @brief Properties passed to the Create() method of an add-on.
    */
-  typedef struct PVR_PROPERTIES
+  typedef struct AddonProperties_PVR
   {
     const char* strUserPath;           /*!< @brief path to the user profile */
     const char* strClientPath;         /*!< @brief path to this add-on */
     int iEpgMaxDays;                   /*!< @brief if > EPG_TIMEFRAME_UNLIMITED, in async epg mode, deliver only events in the range from 'end time > now' to 'start time < now + iEpgMaxDays. EPG_TIMEFRAME_UNLIMITED, notify all events. */
-  } PVR_PROPERTIES;
+  } AddonProperties_PVR;
 
   /*!
    * @brief Representation of a general attribute integer value.
@@ -290,6 +418,7 @@ extern "C" {
   typedef struct PVR_ADDON_CAPABILITIES
   {
     bool bSupportsEPG;                  /*!< @brief true if the add-on provides EPG information */
+    bool bSupportsEPGEdl;               /*!< @brief true if the backend supports retrieving an edit decision list for an EPG tag. */
     bool bSupportsTV;                   /*!< @brief true if this add-on provides TV channels */
     bool bSupportsRadio;                /*!< @brief true if this add-on supports radio channels */
     bool bSupportsRecordings;           /*!< @brief true if this add-on supports playback of recordings stored on the backend */
@@ -297,8 +426,8 @@ extern "C" {
     bool bSupportsTimers;               /*!< @brief true if this add-on supports the creation and editing of timers */
     bool bSupportsChannelGroups;        /*!< @brief true if this add-on supports channel groups */
     bool bSupportsChannelScan;          /*!< @brief true if this add-on support scanning for new channels on the backend */
-    bool bSupportsChannelSettings;      /*!< @brief true if this add-on supports the following functions: DeleteChannel, RenameChannel, MoveChannel, DialogChannelSettings and DialogAddChannel */
-    bool bHandlesInputStream;           /*!< @brief true if this add-on provides an input stream. false if XBMC handles the stream. */
+    bool bSupportsChannelSettings;      /*!< @brief true if this add-on supports the following functions: DeleteChannel, RenameChannel, DialogChannelSettings and DialogAddChannel */
+    bool bHandlesInputStream;           /*!< @brief true if this add-on provides an input stream. false if Kodi handles the stream. */
     bool bHandlesDemuxing;              /*!< @brief true if this add-on demultiplexes packets. */
     bool bSupportsRecordingPlayCount;   /*!< @brief true if the backend supports play count for recordings. */
     bool bSupportsLastPlayedPosition;   /*!< @brief true if the backend supports store/retrieve of last played position for recordings. */
@@ -306,6 +435,8 @@ extern "C" {
     bool bSupportsRecordingsRename;     /*!< @brief true if the backend supports renaming recordings. */
     bool bSupportsRecordingsLifetimeChange; /*!< @brief true if the backend supports changing lifetime for recordings. */
     bool bSupportsDescrambleInfo;       /*!< @brief true if the backend supports descramble information for playing channels. */
+    bool bSupportsAsyncEPGTransfer;     /*!< @brief true if this addon-on supports asynchronous transfer of epg events to Kodi using the callback function EpgEventStateChange. */
+    bool bSupportsRecordingSize;        /*!< @brief true if this addon-on supports retrieving size of recordings. */
 
     unsigned int iRecordingsLifetimesSize; /*!< @brief (required) Count of possible values for PVR_RECORDING.iLifetime. 0 means lifetime is not supported for recordings or no own value definition wanted, but to use Kodi defaults of 1..365. */
     PVR_ATTRIBUTE_INT_VALUE recordingsLifetimeValues[PVR_ADDON_ATTRIBUTE_VALUES_ARRAY_SIZE]; /*!< @brief (optional) Array containing the possible values for PVR_RECORDING.iLifetime. Must be filled if iLifetimesSize > 0 */
@@ -334,8 +465,8 @@ extern "C" {
       int               iBlockAlign;        /*!< @brief (required) block alignment */
       int               iBitRate;           /*!< @brief (required) bit rate */
       int               iBitsPerSample;     /*!< @brief (required) bits per sample */
-     } stream[PVR_STREAM_MAX_STREAMS];      /*!< @brief (required) the streams */
-   } ATTRIBUTE_PACKED PVR_STREAM_PROPERTIES;
+    } stream[PVR_STREAM_MAX_STREAMS];       /*!< @brief (required) the streams */
+  } ATTRIBUTE_PACKED PVR_STREAM_PROPERTIES;
 
   /*!
    * @brief Signal status information
@@ -381,6 +512,11 @@ extern "C" {
   } ATTRIBUTE_PACKED PVR_MENUHOOK;
 
   /*!
+   * @brief special PVR_CHANNEL.iOrder and PVR_CHANNEL_GROUP_MEMBER.iOrder value to indicate this channel has an unknown order
+   */
+  const int PVR_CHANNEL_UNKNOWN_ORDER = 0; /*!< @brief channel has an unknown order. */
+
+  /*!
    * @brief Representation of a TV or radio channel.
    */
   typedef struct PVR_CHANNEL
@@ -392,12 +528,11 @@ extern "C" {
     char         strChannelName[PVR_ADDON_NAME_STRING_LENGTH];         /*!< @brief (optional) channel name given to this channel */
     char         strInputFormat[PVR_ADDON_INPUT_FORMAT_STRING_LENGTH]; /*!< @brief (optional) input format type. types can be found in ffmpeg/libavformat/allformats.c
                                                                                    leave empty if unknown */
-    char         strStreamURL[PVR_ADDON_URL_STRING_LENGTH];            /*!< @brief (optional) the URL to use to access this channel.
-                                                                                   leave empty to use this add-on to access the stream.
-                                                                                   set to a path that's supported by XBMC otherwise. */
     unsigned int iEncryptionSystem;                                    /*!< @brief (optional) the encryption ID or CaID of this channel */
     char         strIconPath[PVR_ADDON_URL_STRING_LENGTH];             /*!< @brief (optional) path to the channel icon (if present) */
     bool         bIsHidden;                                            /*!< @brief (optional) true if this channel is marked as hidden */
+    bool         bHasArchive;                                          /*!< @brief (optional) true if this channel has a server-side back buffer */
+    int          iOrder;                                               /*!< @brief (optional) The value denoting the order of this channel in the 'All channels' group */
   } ATTRIBUTE_PACKED PVR_CHANNEL;
 
   typedef struct PVR_CHANNEL_GROUP
@@ -412,6 +547,8 @@ extern "C" {
     char         strGroupName[PVR_ADDON_NAME_STRING_LENGTH]; /*!< @brief (required) name of the channel group to add the channel to */
     unsigned int iChannelUniqueId;                           /*!< @brief (required) unique id of the member */
     unsigned int iChannelNumber;                             /*!< @brief (optional) channel number within the group */
+    unsigned int iSubChannelNumber;                          /*!< @brief (optional) sub channel number within the group (ATSC) */
+    int          iOrder;                                     /*!< @brief (optional) The value denoting the order of this channel in this group */
   } ATTRIBUTE_PACKED PVR_CHANNEL_GROUP_MEMBER;
 
   /*!
@@ -500,7 +637,7 @@ extern "C" {
     int             iMaxRecordings;                            /*!< @brief (optional) maximum number of recordings this timer shall create. > 0 number of recordings, < 0 addon defined integer list reference, == 0 disabled */
     unsigned int    iRecordingGroup;                           /*!< @brief (optional) integer ref to addon/backend defined list of recording groups*/
     time_t          firstDay;                                  /*!< @brief (optional) the first day this timer is active, for repeating timers */
-    unsigned int    iWeekdays;                                 /*!< @brief (optional) week days, for repeating timers */
+    unsigned int    iWeekdays;                                 /*!< @brief (optional) week days, for repeating timers (see PVR_WEEKDAY_* constant values) */
     unsigned int    iPreventDuplicateEpisodes;                 /*!< @brief (optional) 1 if backend should only record new episodes in case of a repeating epg-based timer, 0 if all episodes shall be recorded (no duplicate detection). Actual algorithm for
                                                                     duplicate detection is defined by the backend. Addons may define own values for different duplicate detection algorithms, thus this is not just a bool.*/
     unsigned int    iEpgUid;                                   /*!< @brief (optional) EPG event id associated with this timer. Event ids must be unique for a channel. Valid ids must be greater than EPG_TAG_INVALID_UID. */
@@ -508,7 +645,24 @@ extern "C" {
     unsigned int    iMarginEnd;                                /*!< @brief (optional) if set, the backend ends the recording iMarginEnd minutes after endTime. */
     int             iGenreType;                                /*!< @brief (optional) genre type */
     int             iGenreSubType;                             /*!< @brief (optional) genre sub type */
+    char            strSeriesLink[PVR_ADDON_URL_STRING_LENGTH]; /*!< @brief (optional) series link for this timer. If set for an epg-based timer rule, matching events will be found by checking strSeriesLink instead of strTitle (and bFullTextEpgSearch) */
+
   } ATTRIBUTE_PACKED PVR_TIMER;
+
+  /* PVR_RECORDING.iFlags values */
+  const unsigned int PVR_RECORDING_FLAG_UNDEFINED   = 0x00000000; /*!< @brief nothing special to say about this recording */
+  const unsigned int PVR_RECORDING_FLAG_IS_SERIES   = 0x00000001; /*!< @brief this recording is part of a series */
+  const unsigned int PVR_RECORDING_FLAG_IS_NEW      = 0x00000002; /*!< @brief this recording will be flagged as new */
+  const unsigned int PVR_RECORDING_FLAG_IS_PREMIERE = 0x00000004; /*!< @brief this recording will be flagged as a premiere */
+  const unsigned int PVR_RECORDING_FLAG_IS_FINALE   = 0x00000008; /*!< @brief this recording will be flagged as a finale */
+  const unsigned int PVR_RECORDING_FLAG_IS_LIVE     = 0x00000010; /*!< @brief this recording will be flagged as live */
+
+  /*!
+   * @brief special PVR_RECORDING.iSeriesNumber and PVR_RECORDING.iEpisodeNumber value to indicate it is not to be used
+   * 
+   * Used if recording has no valid season and/or episode info.
+   */
+  const unsigned int PVR_RECORDING_INVALID_SERIES_EPISODE = EPG_TAG_INVALID_SERIES_EPISODE;
 
   /*!
    * @brief Representation of a recording.
@@ -517,16 +671,15 @@ extern "C" {
     char   strRecordingId[PVR_ADDON_NAME_STRING_LENGTH];  /*!< @brief (required) unique id of the recording on the client. */
     char   strTitle[PVR_ADDON_NAME_STRING_LENGTH];        /*!< @brief (required) the title of this recording */
     char   strEpisodeName[PVR_ADDON_NAME_STRING_LENGTH];  /*!< @brief (optional) episode name (also known as subtitle) */
-    int    iSeriesNumber;                                 /*!< @brief (optional) series number (usually called season). Set to "0" for specials/pilot. For 'invalid' see iEpisodeNumber or set to -1 */
-    int    iEpisodeNumber;                                /*!< @brief (optional) episode number within the "iSeriesNumber" season. For 'invalid' set to -1 or iSeriesNumber=iEpisodeNumber=0 to show both are invalid */
+    int    iSeriesNumber;                                 /*!< @brief (optional) series number (usually called season). Set to "0" for specials/pilot. For 'invalid' set to PVR_RECORDING_INVALID_SERIES_EPISODE */
+    int    iEpisodeNumber;                                /*!< @brief (optional) episode number within the "iSeriesNumber" season. For 'invalid' set to PVR_RECORDING_INVALID_SERIES_EPISODE */
     int    iYear;                                         /*!< @brief (optional) year of first release (use to identify a specific movie re-make) / first airing for TV shows. Set to '0' for invalid. */
-    char   strStreamURL[PVR_ADDON_URL_STRING_LENGTH];     /*!< @brief (required) stream URL to access this recording */
     char   strDirectory[PVR_ADDON_URL_STRING_LENGTH];     /*!< @brief (optional) directory of this recording on the client */
     char   strPlotOutline[PVR_ADDON_DESC_STRING_LENGTH];  /*!< @brief (optional) plot outline */
     char   strPlot[PVR_ADDON_DESC_STRING_LENGTH];         /*!< @brief (optional) plot */
-    char   strGenreDescription[PVR_ADDON_DESC_STRING_LENGTH]; /*!< @brief (optional) genre. Will be used only when iGenreType = EPG_GENRE_USE_STRING */
+    char   strGenreDescription[PVR_ADDON_DESC_STRING_LENGTH]; /*!< @brief (optional) genre. Will be used only when iGenreType = EPG_GENRE_USE_STRING or iGenreSubType = EPG_GENRE_USE_STRING */
     char   strChannelName[PVR_ADDON_NAME_STRING_LENGTH];  /*!< @brief (optional) channel name */
-    char   strIconPath[PVR_ADDON_URL_STRING_LENGTH];      /*!< @brief (optional) icon path */
+    char   strIconPath[PVR_ADDON_URL_STRING_LENGTH];      /*!< @brief (optional) channel logo (icon) path */
     char   strThumbnailPath[PVR_ADDON_URL_STRING_LENGTH]; /*!< @brief (optional) thumbnail path */
     char   strFanartPath[PVR_ADDON_URL_STRING_LENGTH];    /*!< @brief (optional) fanart path */
     time_t recordingTime;                                 /*!< @brief (optional) start time of the recording */
@@ -541,6 +694,9 @@ extern "C" {
     unsigned int iEpgEventId;                             /*!< @brief (optional) EPG event id associated with this recording. Valid ids must be greater than EPG_TAG_INVALID_UID. */
     int    iChannelUid;                                   /*!< @brief (optional) unique identifier of the channel for this recording. PVR_CHANNEL_INVALID_UID denotes that channel uid is not available. */
     PVR_RECORDING_CHANNEL_TYPE channelType;               /*!< @brief (optional) channel type. Set to PVR_RECORDING_CHANNEL_TYPE_UNKNOWN if the type cannot be determined. */
+    char   strFirstAired[PVR_ADDON_DATE_STRING_LENGTH];   /*!< @brief (optional) first aired date of this recording. Used only for display purposes. Specify in W3C date format "YYYY-MM-DD". */
+    unsigned int iFlags;                                  /*!< @brief (optional) bit field of independent flags associated with the recording */
+    int64_t sizeInBytes;                                  /*!< @brief (optional) size of the recording in bytes */
   } ATTRIBUTE_PACKED PVR_RECORDING;
 
   /*!
@@ -575,124 +731,205 @@ extern "C" {
     } data;
   } ATTRIBUTE_PACKED PVR_MENUHOOK_DATA;
 
+  /*!
+   * @brief times of playing stream (Live TV and recordings)
+   */
+  typedef struct PVR_STREAM_TIMES
+  {
+    time_t startTime; /*!< @brief For recordings, this must be zero. For Live TV, this is a reference time in units of time_t (UTC) from which time elapsed starts. Ideally start of tv show, but can be any other value. */
+    int64_t ptsStart; /*!< @brief the pts of startTime */
+    int64_t ptsBegin; /*!< @brief earliest pts player can seek back. Value is in micro seconds, relative to ptsStart. For recordings, this must be zero. For Live TV, this must be zero if not timeshifting and must point to begin of the timeshift buffer, otherwise. */
+    int64_t ptsEnd;   /*!< @brief latest pts player can seek forward. Value is in micro seconds, relative to ptsStart. For recordings, this must be the total length. For Live TV, this must be zero if not timeshifting and must point to end of the timeshift buffer, otherwise. */
+  } ATTRIBUTE_PACKED PVR_STREAM_TIMES;
+
   typedef struct AddonToKodiFuncTable_PVR
   {
+    // Pointer inside Kodi where used from him to find his class
     KODI_HANDLE kodiInstance;
 
-    void (*TransferEpgEntry)(void* kodiInstance, const ADDON_HANDLE handle, const EPG_TAG *epgentry);
-    void (*TransferChannelEntry)(void* kodiInstance, const ADDON_HANDLE handle, const PVR_CHANNEL *chan);
-    void (*TransferTimerEntry)(void* kodiInstance, const ADDON_HANDLE handle, const PVR_TIMER *timer);
-    void (*TransferRecordingEntry)(void* kodiInstance, const ADDON_HANDLE handle, const PVR_RECORDING *recording);
-    void (*AddMenuHook)(void* kodiInstance, PVR_MENUHOOK *hook);
-    void (*Recording)(void* kodiInstance, const char *Name, const char *FileName, bool On);
+    //--==----==----==----==----==----==----==----==----==----==----==----==----==
+    // General callback functions
+    void (*AddMenuHook)(void* kodiInstance, PVR_MENUHOOK* hook);
+    void (*Recording)(void* kodiInstance, const char* Name, const char* FileName, bool On);
+    void (*ConnectionStateChange)(void* kodiInstance,
+                                  const char* strConnectionString,
+                                  PVR_CONNECTION_STATE newState,
+                                  const char* strMessage);
+    void (*EpgEventStateChange)(void* kodiInstance, EPG_TAG* tag, EPG_EVENT_STATE newState);
+
+    //--==----==----==----==----==----==----==----==----==----==----==----==----==
+    // Transfer functions where give data back to Kodi, e.g. GetChannels calls TransferChannelEntry
+    void (*TransferChannelEntry)(void* kodiInstance,
+                                 const ADDON_HANDLE handle,
+                                 const PVR_CHANNEL* chan);
+    void (*TransferChannelGroup)(void* kodiInstance,
+                                 const ADDON_HANDLE handle,
+                                 const PVR_CHANNEL_GROUP* group);
+    void (*TransferChannelGroupMember)(void* kodiInstance,
+                                       const ADDON_HANDLE handle,
+                                       const PVR_CHANNEL_GROUP_MEMBER* member);
+    void (*TransferEpgEntry)(void* kodiInstance,
+                             const ADDON_HANDLE handle,
+                             const EPG_TAG* epgentry);
+    void (*TransferRecordingEntry)(void* kodiInstance,
+                                   const ADDON_HANDLE handle,
+                                   const PVR_RECORDING* recording);
+    void (*TransferTimerEntry)(void* kodiInstance,
+                               const ADDON_HANDLE handle,
+                               const PVR_TIMER* timer);
+
+    //--==----==----==----==----==----==----==----==----==----==----==----==----==
+    // Kodi inform interface functions
     void (*TriggerChannelUpdate)(void* kodiInstance);
-    void (*TriggerTimerUpdate)(void* kodiInstance);
-    void (*TriggerRecordingUpdate)(void* kodiInstance);
     void (*TriggerChannelGroupsUpdate)(void* kodiInstance);
     void (*TriggerEpgUpdate)(void* kodiInstance, unsigned int iChannelUid);
+    void (*TriggerRecordingUpdate)(void* kodiInstance);
+    void (*TriggerTimerUpdate)(void* kodiInstance);
 
-    void (*TransferChannelGroup)(void* kodiInstance, const ADDON_HANDLE handle, const PVR_CHANNEL_GROUP *group);
-    void (*TransferChannelGroupMember)(void* kodiInstance, const ADDON_HANDLE handle, const PVR_CHANNEL_GROUP_MEMBER *member);
-
+    //--==----==----==----==----==----==----==----==----==----==----==----==----==
+    // Stream demux interface functions
     void (*FreeDemuxPacket)(void* kodiInstance, DemuxPacket* pPacket);
     DemuxPacket* (*AllocateDemuxPacket)(void* kodiInstance, int iDataSize);
-    
-    void (*ConnectionStateChange)(void* kodiInstance, const char* strConnectionString, PVR_CONNECTION_STATE newState, const char *strMessage);
-    void (*EpgEventStateChange)(void* kodiInstance, EPG_TAG* tag, unsigned int iUniqueChannelId, EPG_EVENT_STATE newState);
-
     xbmc_codec_t (*GetCodecByName)(const void* kodiInstance, const char* strCodecName);
+
+    //--==----==----==----==----==----==----==----==----==----==----==----==----==
+    // New functions becomes added below and can be on another API change (where
+    // breaks min API version) moved up.
   } AddonToKodiFuncTable_PVR;
 
   /*!
-   * @brief Structure to transfer the methods from xbmc_pvr_dll.h to XBMC
+   * @brief Structure to transfer the methods from xbmc_pvr_dll.h to Kodi
    */
   typedef struct KodiToAddonFuncTable_PVR
   {
+    // Pointer inside addon where used on them to find his instance class (currently unused!)
     KODI_HANDLE addonInstance;
 
-    PVR_ERROR (__cdecl* GetAddonCapabilities)(PVR_ADDON_CAPABILITIES*);
-    PVR_ERROR (__cdecl* GetStreamProperties)(PVR_STREAM_PROPERTIES*);
-    const char* (__cdecl* GetBackendName)(void);
-    const char* (__cdecl* GetBackendVersion)(void);
-    const char* (__cdecl* GetConnectionString)(void);
-    PVR_ERROR (__cdecl* GetDriveSpace)(long long*, long long*);
-    PVR_ERROR (__cdecl* MenuHook)(const PVR_MENUHOOK&, const PVR_MENUHOOK_DATA&);
-    PVR_ERROR (__cdecl* GetEpg)(ADDON_HANDLE, const PVR_CHANNEL&, time_t, time_t);
-    int (__cdecl* GetChannelGroupsAmount)(void);
-    PVR_ERROR (__cdecl* GetChannelGroups)(ADDON_HANDLE, bool);
-    PVR_ERROR (__cdecl* GetChannelGroupMembers)(ADDON_HANDLE, const PVR_CHANNEL_GROUP&);
-    PVR_ERROR (__cdecl* OpenDialogChannelScan)(void);
-    int (__cdecl* GetChannelsAmount)(void);
-    PVR_ERROR (__cdecl* GetChannels)(ADDON_HANDLE, bool);
-    PVR_ERROR (__cdecl* DeleteChannel)(const PVR_CHANNEL&);
-    PVR_ERROR (__cdecl* RenameChannel)(const PVR_CHANNEL&);
-    PVR_ERROR (__cdecl* MoveChannel)(const PVR_CHANNEL&);
-    PVR_ERROR (__cdecl* OpenDialogChannelSettings)(const PVR_CHANNEL&);
-    PVR_ERROR (__cdecl* OpenDialogChannelAdd)(const PVR_CHANNEL&);
-    int (__cdecl* GetRecordingsAmount)(bool);
-    PVR_ERROR (__cdecl* GetRecordings)(ADDON_HANDLE, bool);
-    PVR_ERROR (__cdecl* DeleteRecording)(const PVR_RECORDING&);
-    PVR_ERROR (__cdecl* UndeleteRecording)(const PVR_RECORDING&);
-    PVR_ERROR (__cdecl* DeleteAllRecordingsFromTrash)(void);
-    PVR_ERROR (__cdecl* RenameRecording)(const PVR_RECORDING&);
-    PVR_ERROR (__cdecl* SetRecordingLifetime)(const PVR_RECORDING*);
-    PVR_ERROR (__cdecl* SetRecordingPlayCount)(const PVR_RECORDING&, int);
-    PVR_ERROR (__cdecl* SetRecordingLastPlayedPosition)(const PVR_RECORDING&, int);
-    int (__cdecl* GetRecordingLastPlayedPosition)(const PVR_RECORDING&);
-    PVR_ERROR (__cdecl* GetRecordingEdl)(const PVR_RECORDING&, PVR_EDL_ENTRY[], int*);
-    PVR_ERROR (__cdecl* GetTimerTypes)(PVR_TIMER_TYPE[], int*);
-    int (__cdecl* GetTimersAmount)(void);
-    PVR_ERROR (__cdecl* GetTimers)(ADDON_HANDLE);
-    PVR_ERROR (__cdecl* AddTimer)(const PVR_TIMER&);
-    PVR_ERROR (__cdecl* DeleteTimer)(const PVR_TIMER&, bool);
-    PVR_ERROR (__cdecl* UpdateTimer)(const PVR_TIMER&);
-    bool (__cdecl* OpenLiveStream)(const PVR_CHANNEL&);
-    void (__cdecl* CloseLiveStream)(void);
-    int (__cdecl* ReadLiveStream)(unsigned char*, unsigned int);
-    long long (__cdecl* SeekLiveStream)(long long, int);
-    long long (__cdecl* PositionLiveStream)(void);
-    long long (__cdecl* LengthLiveStream)(void);
-    bool (__cdecl* SwitchChannel)(const PVR_CHANNEL&);
-    PVR_ERROR (__cdecl* SignalStatus)(PVR_SIGNAL_STATUS&);
-    PVR_ERROR (__cdecl* GetDescrambleInfo)(PVR_DESCRAMBLE_INFO*);
-    const char*  (__cdecl* GetLiveStreamURL)(const PVR_CHANNEL&);
-    bool (__cdecl* OpenRecordedStream)(const PVR_RECORDING&);
-    void (__cdecl* CloseRecordedStream)(void);
-    int (__cdecl* ReadRecordedStream)(unsigned char*, unsigned int);
-    long long (__cdecl* SeekRecordedStream)(long long, int);
-    long long (__cdecl* PositionRecordedStream)(void);
-    long long (__cdecl* LengthRecordedStream)(void);
-    void (__cdecl* DemuxReset)(void);
-    void (__cdecl* DemuxAbort)(void);
-    void (__cdecl* DemuxFlush)(void);
-    DemuxPacket* (__cdecl* DemuxRead)(void);
-    unsigned int (__cdecl* GetChannelSwitchDelay)(void);
-    bool (__cdecl* CanPauseStream)(void);
-    void (__cdecl* PauseStream)(bool);
-    bool (__cdecl* CanSeekStream)(void);
-    bool (__cdecl* SeekTime)(double, bool, double*);
-    void (__cdecl* SetSpeed)(int);
-    time_t (__cdecl* GetPlayingTime)(void);
-    time_t (__cdecl* GetBufferTimeStart)(void);
-    time_t (__cdecl* GetBufferTimeEnd)(void);
-    const char* (__cdecl* GetBackendHostname)(void);
-    bool (__cdecl* IsTimeshifting)(void);
-    bool (__cdecl* IsRealTimeStream)(void);
-    PVR_ERROR (__cdecl* SetEPGTimeFrame)(int);
-    void (__cdecl* OnSystemSleep)(void);
-    void (__cdecl* OnSystemWake)(void);
-    void (__cdecl* OnPowerSavingActivated)(void);
-    void (__cdecl* OnPowerSavingDeactivated)(void);
+    //--==----==----==----==----==----==----==----==----==----==----==----==----==
+    // General interface functions
+    PVR_ERROR(__cdecl* GetCapabilities)(PVR_ADDON_CAPABILITIES*);
+    const char*(__cdecl* GetBackendName)(void);
+    const char*(__cdecl* GetBackendVersion)(void);
+    const char*(__cdecl* GetBackendHostname)(void);
+    const char*(__cdecl* GetConnectionString)(void);
+    PVR_ERROR(__cdecl* GetDriveSpace)(long long*, long long*);
+    PVR_ERROR(__cdecl* MenuHook)(const PVR_MENUHOOK&, const PVR_MENUHOOK_DATA&);
+
+    //--==----==----==----==----==----==----==----==----==----==----==----==----==
+    // Channel interface functions
+
+    int(__cdecl* GetChannelsAmount)(void);
+    PVR_ERROR(__cdecl* GetChannels)(ADDON_HANDLE, bool);
+    PVR_ERROR(__cdecl* GetChannelStreamProperties)(const PVR_CHANNEL*,
+                                                   PVR_NAMED_VALUE*,
+                                                   unsigned int*);
+    PVR_ERROR(__cdecl* GetSignalStatus)(int, PVR_SIGNAL_STATUS*);
+    PVR_ERROR(__cdecl* GetDescrambleInfo)(int, PVR_DESCRAMBLE_INFO*);
+
+    //--==----==----==----==----==----==----==----==----==----==----==----==----==
+    // Channel group interface functions
+    int(__cdecl* GetChannelGroupsAmount)(void);
+    PVR_ERROR(__cdecl* GetChannelGroups)(ADDON_HANDLE, bool);
+    PVR_ERROR(__cdecl* GetChannelGroupMembers)(ADDON_HANDLE, const PVR_CHANNEL_GROUP&);
+
+    //--==----==----==----==----==----==----==----==----==----==----==----==----==
+    // Channel edit interface functions
+    PVR_ERROR(__cdecl* DeleteChannel)(const PVR_CHANNEL&);
+    PVR_ERROR(__cdecl* RenameChannel)(const PVR_CHANNEL&);
+    PVR_ERROR(__cdecl* OpenDialogChannelSettings)(const PVR_CHANNEL&);
+    PVR_ERROR(__cdecl* OpenDialogChannelAdd)(const PVR_CHANNEL&);
+    PVR_ERROR(__cdecl* OpenDialogChannelScan)(void);
+
+    //--==----==----==----==----==----==----==----==----==----==----==----==----==
+    // EPG interface functions
+    PVR_ERROR(__cdecl* GetEPGForChannel)(ADDON_HANDLE, int, time_t, time_t);
+    PVR_ERROR(__cdecl* IsEPGTagRecordable)(const EPG_TAG*, bool*);
+    PVR_ERROR(__cdecl* IsEPGTagPlayable)(const EPG_TAG*, bool*);
+    PVR_ERROR(__cdecl* GetEPGTagEdl)(const EPG_TAG*, PVR_EDL_ENTRY[], int*);
+    PVR_ERROR(__cdecl* GetEPGTagStreamProperties)(const EPG_TAG*, PVR_NAMED_VALUE*, unsigned int*);
+    PVR_ERROR(__cdecl* SetEPGTimeFrame)(int);
+
+    //--==----==----==----==----==----==----==----==----==----==----==----==----==
+    // Recording interface functions
+    int(__cdecl* GetRecordingsAmount)(bool);
+    PVR_ERROR(__cdecl* GetRecordings)(ADDON_HANDLE, bool);
+    PVR_ERROR(__cdecl* DeleteRecording)(const PVR_RECORDING&);
+    PVR_ERROR(__cdecl* UndeleteRecording)(const PVR_RECORDING&);
+    PVR_ERROR(__cdecl* DeleteAllRecordingsFromTrash)(void);
+    PVR_ERROR(__cdecl* RenameRecording)(const PVR_RECORDING&);
+    PVR_ERROR(__cdecl* SetRecordingLifetime)(const PVR_RECORDING*);
+    PVR_ERROR(__cdecl* SetRecordingPlayCount)(const PVR_RECORDING&, int);
+    PVR_ERROR(__cdecl* SetRecordingLastPlayedPosition)(const PVR_RECORDING&, int);
+    int(__cdecl* GetRecordingLastPlayedPosition)(const PVR_RECORDING&);
+    PVR_ERROR(__cdecl* GetRecordingEdl)(const PVR_RECORDING&, PVR_EDL_ENTRY[], int*);
+    PVR_ERROR(__cdecl* GetRecordingSize)(const PVR_RECORDING*, int64_t*);
+    PVR_ERROR(__cdecl* GetRecordingStreamProperties)
+    (const PVR_RECORDING*, PVR_NAMED_VALUE*, unsigned int*);
+
+    //--==----==----==----==----==----==----==----==----==----==----==----==----==
+    // Timer interface functions
+    PVR_ERROR(__cdecl* GetTimerTypes)(PVR_TIMER_TYPE[], int*);
+    int(__cdecl* GetTimersAmount)(void);
+    PVR_ERROR(__cdecl* GetTimers)(ADDON_HANDLE);
+    PVR_ERROR(__cdecl* AddTimer)(const PVR_TIMER&);
+    PVR_ERROR(__cdecl* DeleteTimer)(const PVR_TIMER&, bool);
+    PVR_ERROR(__cdecl* UpdateTimer)(const PVR_TIMER&);
+
+    //--==----==----==----==----==----==----==----==----==----==----==----==----==
+    // Powersaving interface functions
+    void(__cdecl* OnSystemSleep)(void);
+    void(__cdecl* OnSystemWake)(void);
+    void(__cdecl* OnPowerSavingActivated)(void);
+    void(__cdecl* OnPowerSavingDeactivated)(void);
+
+    //--==----==----==----==----==----==----==----==----==----==----==----==----==
+    // Live stream read interface functions
+    bool(__cdecl* OpenLiveStream)(const PVR_CHANNEL&);
+    void(__cdecl* CloseLiveStream)(void);
+    int(__cdecl* ReadLiveStream)(unsigned char*, unsigned int);
+    long long(__cdecl* SeekLiveStream)(long long, int);
+    long long(__cdecl* LengthLiveStream)(void);
+
+    //--==----==----==----==----==----==----==----==----==----==----==----==----==
+    // Recording stream read interface functions
+    bool(__cdecl* OpenRecordedStream)(const PVR_RECORDING&);
+    void(__cdecl* CloseRecordedStream)(void);
+    int(__cdecl* ReadRecordedStream)(unsigned char*, unsigned int);
+    long long(__cdecl* SeekRecordedStream)(long long, int);
+    long long(__cdecl* LengthRecordedStream)(void);
+
+    //--==----==----==----==----==----==----==----==----==----==----==----==----==
+    // Stream demux interface functions
+    PVR_ERROR(__cdecl* GetStreamProperties)(PVR_STREAM_PROPERTIES*);
+    DemuxPacket*(__cdecl* DemuxRead)(void);
+    void(__cdecl* DemuxReset)(void);
+    void(__cdecl* DemuxAbort)(void);
+    void(__cdecl* DemuxFlush)(void);
+    void(__cdecl* SetSpeed)(int);
+    void(__cdecl* FillBuffer)(bool);
+    bool(__cdecl* SeekTime)(double, bool, double*);
+
+    //--==----==----==----==----==----==----==----==----==----==----==----==----==
+    // General stream interface functions
+    bool(__cdecl* CanPauseStream)(void);
+    void(__cdecl* PauseStream)(bool);
+    bool(__cdecl* CanSeekStream)(void);
+    bool(__cdecl* IsRealTimeStream)(void);
+    PVR_ERROR(__cdecl* GetStreamTimes)(PVR_STREAM_TIMES*);
+    PVR_ERROR(__cdecl* GetStreamReadChunkSize)(int*);
+
+    //--==----==----==----==----==----==----==----==----==----==----==----==----==
+    // New functions becomes added below and can be on another API change (where
+    // breaks min API version) moved up.
   } KodiToAddonFuncTable_PVR;
 
   typedef struct AddonInstance_PVR
   {
-    PVR_PROPERTIES props;
-    AddonToKodiFuncTable_PVR toKodi;
-    KodiToAddonFuncTable_PVR toAddon;
+    struct AddonProperties_PVR* props;
+    struct AddonToKodiFuncTable_PVR* toKodi;
+    struct KodiToAddonFuncTable_PVR* toAddon;
   } AddonInstance_PVR;
 
 #ifdef __cplusplus
 }
 #endif
-

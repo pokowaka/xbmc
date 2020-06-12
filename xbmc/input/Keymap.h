@@ -1,22 +1,11 @@
 /*
- *      Copyright (C) 2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
 #include "IKeymap.h"
@@ -28,15 +17,15 @@ class IKeymapEnvironment;
 class CKeymap : public IKeymap
 {
 public:
-  CKeymap(std::shared_ptr<const IWindowKeymap> keymap, const IKeymapEnvironment *environment);
+  CKeymap(std::shared_ptr<const IWindowKeymap> keymap, const IKeymapEnvironment* environment);
 
   // implementation of IKeymap
-  virtual std::string ControllerID() const override ;
-  virtual const IKeymapEnvironment *Environment() const override { return m_environment; }
-  const KODI::JOYSTICK::KeymapActions &GetActions(const std::string& keyName) const override;
+  std::string ControllerID() const override;
+  const IKeymapEnvironment* Environment() const override { return m_environment; }
+  const KODI::JOYSTICK::KeymapActionGroup& GetActions(const std::string& keyName) const override;
 
 private:
   // Construction parameters
   const std::shared_ptr<const IWindowKeymap> m_keymap;
-  const IKeymapEnvironment *const m_environment;
+  const IKeymapEnvironment* const m_environment;
 };

@@ -19,8 +19,9 @@
  */
 
 #include "GifHelper.h"
+
 #include <algorithm>
-#include <stdlib.h>
+#include <cstdlib>
 #include <cstring>
 
 #define UNSIGNED_LITTLE_ENDIAN(lo, hi)	((lo) | ((hi) << 8))
@@ -29,11 +30,11 @@
 class Gifreader
 {
 public:
-  unsigned char* buffer;
-  unsigned int buffSize;
-  unsigned int readPosition;
+  unsigned char* buffer = nullptr;
+  unsigned int buffSize = 0;
+  unsigned int readPosition = 0;
 
-  Gifreader() : buffer(nullptr), buffSize(0), readPosition(0) {}
+  Gifreader() = default;
 };
 
 int ReadFromVfs(GifFileType* gif, GifByteType* gifbyte, int len)
@@ -42,14 +43,7 @@ int ReadFromVfs(GifFileType* gif, GifByteType* gifbyte, int len)
   return gifFile->Read(gifbyte, len);
 }
 
-GifHelper::GifHelper() :
-  m_imageSize(0),
-  m_pitch(0),
-  m_loops(0),
-  m_numFrames(0),
-  m_filename(""),
-  m_gif(nullptr),
-  m_pTemplate(nullptr)
+GifHelper::GifHelper()
 {
   m_gifFile = new CFile();
 }
@@ -221,7 +215,7 @@ bool GifHelper::LoadGif(const char* file)
     {
       fprintf(stderr, "Gif::LoadGif(): Could not extract any frame. File %s\n", m_filename.c_str());
       return false;
-    } 
+    }
     else if (extractedFrames < (int)m_numFrames)
     {
       fprintf(stderr, "Gif::LoadGif(): Could only extract %d/%d frames. File %s\n", extractedFrames, m_numFrames, m_filename.c_str());
@@ -420,7 +414,7 @@ bool GifHelper::PrepareTemplate(GifFrame &frame)
   case DISPOSE_PREVIOUS:
   {
 
-    /* 
+    /*
     * This disposal method makes no sense for the first frame
     * Since browsers etc. handle that too, we'll fall back to DISPOSE_DO_NOT
     */
@@ -471,27 +465,14 @@ void GifHelper::ClearFrameAreaToTransparency(unsigned char* dest, const GifFrame
   }
 }
 
-GifFrame::GifFrame() :
-  m_pImage(nullptr),
-  m_delay(0),
-  m_top(0),
-  m_left(0),
-  m_disposal(0),
-  m_height(0),
-  m_width(0),
-  m_imageSize(0)
-{}
-
-
-GifFrame::GifFrame(const GifFrame& src) :
-  m_pImage(nullptr),
-  m_delay(src.m_delay),
-  m_top(src.m_top),
-  m_left(src.m_left),
-  m_disposal(src.m_disposal),
-  m_height(src.m_height),
-  m_width(src.m_width),
-  m_imageSize(src.m_imageSize)
+GifFrame::GifFrame(const GifFrame& src)
+  : m_delay(src.m_delay),
+    m_top(src.m_top),
+    m_left(src.m_left),
+    m_disposal(src.m_disposal),
+    m_height(src.m_height),
+    m_width(src.m_width),
+    m_imageSize(src.m_imageSize)
 {
   if (src.m_pImage)
   {

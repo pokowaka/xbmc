@@ -1,40 +1,32 @@
+/*
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
 #pragma once
 
-/*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
- *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- */
+#include "addons/Addon.h"
+#include "guilib/GUIIncludes.h" // needed for the GUIInclude member
+#include "windowing/GraphicContext.h" // needed for the RESOLUTION members
 
 #include <map>
 #include <set>
-#include <vector>
 #include <utility>
-
-#include "addons/Addon.h"
-#include "guilib/GraphicContext.h" // needed for the RESOLUTION members
-#include "guilib/GUIIncludes.h"    // needed for the GUIInclude member
+#include <vector>
 
 #define CREDIT_LINE_LENGTH 50
 
 class CSetting;
+struct IntegerSettingOption;
+struct StringSettingOption;
 
 namespace ADDON
 {
+
+class CSkinSettingUpdateHandler;
 
 class CSkinSetting
 {
@@ -75,16 +67,13 @@ typedef std::shared_ptr<CSkinSettingString> CSkinSettingStringPtr;
 class CSkinSettingBool : public CSkinSetting
 {
 public:
-  CSkinSettingBool()
-    : value(false)
-  { }
   ~CSkinSettingBool() override = default;
 
   std::string GetType() const override { return "bool"; }
 
   bool Deserialize(const TiXmlElement* element) override;
 
-  bool value;
+  bool value = false;
 
 protected:
   bool SerializeSetting(TiXmlElement* element) const override;
@@ -106,21 +95,20 @@ public:
     std::string m_name;
   };
 
-  static std::unique_ptr<CSkinInfo> FromExtension(CAddonInfo addonInfo, const cp_extension_t* ext);
-
+  explicit CSkinInfo(const AddonInfoPtr& addonInfo);
   //FIXME: CAddonCallbacksGUI/WindowXML hack
-  explicit CSkinInfo(CAddonInfo addonInfo, const RESOLUTION_INFO& resolution = RESOLUTION_INFO())
-      : CAddon(std::move(addonInfo)),
-        m_defaultRes(resolution),
-        m_effectsSlowDown(1.f),
-        m_debugging(false) {}
+  explicit CSkinInfo(
+      const AddonInfoPtr& addonInfo,
+      const RESOLUTION_INFO& resolution);
 
   CSkinInfo(
-      CAddonInfo addonInfo,
+      const AddonInfoPtr& addonInfo,
       const RESOLUTION_INFO& resolution,
       const std::vector<RESOLUTION_INFO>& resolutions,
       float effectsSlowDown,
       bool debugging);
+
+  ~CSkinInfo() override;
 
   /*! \brief Load resolution information from directories in Path().
    */
@@ -181,10 +169,10 @@ public:
   void ToggleDebug();
   const INFO::CSkinVariableString* CreateSkinVariable(const std::string& name, int context);
 
-  static void SettingOptionsSkinColorsFiller(std::shared_ptr<const CSetting> setting, std::vector< std::pair<std::string, std::string> > &list, std::string &current, void *data);
-  static void SettingOptionsSkinFontsFiller(std::shared_ptr<const CSetting> setting, std::vector< std::pair<std::string, std::string> > &list, std::string &current, void *data);
-  static void SettingOptionsSkinThemesFiller(std::shared_ptr<const CSetting> setting, std::vector< std::pair<std::string, std::string> > &list, std::string &current, void *data);
-  static void SettingOptionsStartupWindowsFiller(std::shared_ptr<const CSetting> setting, std::vector< std::pair<std::string, int> > &list, int &current, void *data);
+  static void SettingOptionsSkinColorsFiller(std::shared_ptr<const CSetting> setting, std::vector<StringSettingOption> &list, std::string &current, void *data);
+  static void SettingOptionsSkinFontsFiller(std::shared_ptr<const CSetting> setting, std::vector<StringSettingOption> &list, std::string &current, void *data);
+  static void SettingOptionsSkinThemesFiller(std::shared_ptr<const CSetting> setting, std::vector<StringSettingOption> &list, std::string &current, void *data);
+  static void SettingOptionsStartupWindowsFiller(std::shared_ptr<const CSetting> setting, std::vector<IntegerSettingOption> &list, int &current, void *data);
 
   /*! \brief Don't handle skin settings like normal addon settings
    */
@@ -207,21 +195,7 @@ public:
   void OnPreInstall() override;
   void OnPostInstall(bool update, bool modal) override;
 protected:
-  /*! \brief Given a resolution, retrieve the corresponding directory name
-   \param res RESOLUTION to translate
-   \return directory name for res
-   */
-  std::string GetDirFromRes(RESOLUTION res) const;
-
-  /*! \brief grab a resolution tag from a skin's configuration data
-   \param ext passed addoninfo structure to check for resolution
-   \param tag name of the tag to look for
-   \param res resolution to return
-   \return true if we find a valid resolution, false otherwise
-   */
-  void GetDefaultResolution(const cp_extension_t *ext, const char *tag, RESOLUTION &res, const RESOLUTION &def) const;
-
-  bool LoadStartupWindows(const cp_extension_t *ext);
+  bool LoadStartupWindows(const AddonInfoPtr& addonInfo);
 
   static CSkinSettingPtr ParseSetting(const TiXmlElement* element);
 
@@ -243,6 +217,7 @@ protected:
 private:
   std::map<int, CSkinSettingStringPtr> m_strings;
   std::map<int, CSkinSettingBoolPtr> m_bools;
+  std::unique_ptr<CSkinSettingUpdateHandler> m_settingsUpdateHandler;
 };
 
 } /*namespace ADDON*/

@@ -1,47 +1,21 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#ifndef WINDOW_SYSTEM_BASE_H
-#define WINDOW_SYSTEM_BASE_H
+#pragma once
 
 #include "OSScreenSaver.h"
+#include "Resolution.h"
 #include "VideoSync.h"
 #include "WinEvents.h"
-#include "guilib/Resolution.h"
+#include "guilib/DispResource.h"
+
 #include <memory>
 #include <vector>
-
-enum WindowSystemType
-{
-  WINDOW_SYSTEM_WIN32,
-  WINDOW_SYSTEM_OSX,
-  WINDOW_SYSTEM_IOS,
-  WINDOW_SYSTEM_X11,
-  WINDOW_SYSTEM_MIR,
-  WINDOW_SYSTEM_GBM,
-  WINDOW_SYSTEM_SDL,
-  WINDOW_SYSTEM_EGL,
-  WINDOW_SYSTEM_RPI,
-  WINDOW_SYSTEM_AML,
-  WINDOW_SYSTEM_ANDROID
-};
 
 struct RESOLUTION_WHR
 {
@@ -57,12 +31,23 @@ struct REFRESHRATE
   int   ResInfo_Index;
 };
 
+class CDPMSSupport;
+class CGraphicContext;
+class CRenderSystemBase;
+class IRenderLoop;
+
+struct VideoPicture;
+
 class CWinSystemBase
 {
 public:
   CWinSystemBase();
   virtual ~CWinSystemBase();
-  WindowSystemType GetWinSystem() { return m_eWindowSystem; }
+
+  static std::unique_ptr<CWinSystemBase> CreateWinSystem();
+
+  // Access render system interface
+  virtual CRenderSystemBase *GetRenderSystem() { return nullptr; }
 
   // windowing interfaces
   virtual bool InitWindowSystem();
@@ -72,6 +57,8 @@ public:
   virtual bool ResizeWindow(int newWidth, int newHeight, int newLeft, int newTop) = 0;
   virtual bool SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool blankOtherDisplays) = 0;
   virtual bool MoveWindow(int topLeft, int topRight){return false;}
+  virtual void FinishModeChange(RESOLUTION res){}
+  virtual void FinishWindowResize(int newWidth, int newHeight) {ResizeWindow(newWidth, newHeight, -1, -1);}
   virtual bool CenterWindow(){return false;}
   virtual bool IsCreated(){ return m_bWindowCreated; }
   virtual void NotifyAppFocusChange(bool bGaining) {}
@@ -84,6 +71,25 @@ public:
   virtual bool UseLimitedColor();
   //the number of presentation buffers
   virtual int NoOfBuffers();
+  /**
+   * Get average display latency
+   *
+   * The latency should be measured as the time between finishing the rendering
+   * of a frame, i.e. calling PresentRender, and the rendered content becoming
+   * visible on the screen.
+   *
+   * \return average display latency in seconds, or negative value if unknown
+   */
+  virtual float GetDisplayLatency() { return -1.0f; }
+  /**
+   * Get time that should be subtracted from the display latency for this frame
+   * in milliseconds
+   *
+   * Contrary to \ref GetDisplayLatency, this value is calculated ad-hoc
+   * for the frame currently being rendered and not a value that is calculated/
+   * averaged from past frames and their presentation times
+   */
+  virtual float GetFrameLatencyAdjustment() { return 0.0; }
 
   virtual bool Minimize() { return false; }
   virtual bool Restore() { return false; }
@@ -99,7 +105,7 @@ public:
   // OS System screensaver
   /**
    * Get OS screen saver inhibit implementation if available
-   * 
+   *
    * \return OS screen saver implementation that can be used with this windowing system
    *         or nullptr if unsupported.
    *         Lifetime of the returned object will usually end with \ref DestroyWindowSystem, so
@@ -110,40 +116,67 @@ public:
   // resolution interfaces
   unsigned int GetWidth() { return m_nWidth; }
   unsigned int GetHeight() { return m_nHeight; }
-  virtual int GetNumScreens() { return 0; }
-  virtual int GetCurrentScreen() { return 0; }
   virtual bool CanDoWindowed() { return true; }
   bool IsFullScreen() { return m_bFullScreen; }
   virtual void UpdateResolutions();
   void SetWindowResolution(int width, int height);
-  int DesktopResolution(int screen);
-  std::vector<RESOLUTION_WHR> ScreenResolutions(int screen, float refreshrate);
-  std::vector<REFRESHRATE> RefreshRates(int screen, int width, int height, uint32_t dwFlags);
-  REFRESHRATE DefaultRefreshRate(int screen, std::vector<REFRESHRATE> rates);
+  std::vector<RESOLUTION_WHR> ScreenResolutions(float refreshrate);
+  std::vector<REFRESHRATE> RefreshRates(int width, int height, uint32_t dwFlags);
+  REFRESHRATE DefaultRefreshRate(std::vector<REFRESHRATE> rates);
   virtual bool HasCalibration(const RESOLUTION_INFO &resInfo) { return true; };
 
   // text input interface
-  virtual void EnableTextInput(bool bEnable) {}
-  virtual bool IsTextInputEnabled() { return false; }
+  virtual std::string GetClipboardText(void);
 
-  std::string GetClipboardText(void);
+  // Display event callback
+  virtual void Register(IDispResource *resource) = 0;
+  virtual void Unregister(IDispResource *resource) = 0;
+
+  // render loop
+  void RegisterRenderLoop(IRenderLoop *client);
+  void UnregisterRenderLoop(IRenderLoop *client);
+  void DriveRenderLoop();
+
+  // winsystem events
+  virtual bool MessagePump() { return false; }
+
+  // Access render system interface
+  CGraphicContext& GetGfxContext();
+
+  /**
+   * Get OS specific hardware context
+   *
+   * \return OS specific context or nullptr if OS not have
+   *
+   * \note This function is currently only related to Windows with DirectX,
+   * all other OS where use GL returns nullptr.
+   * Returned Windows class pointer is ID3D11DeviceContext1.
+   */
+  virtual void* GetHWContext() { return nullptr; }
+
+  std::shared_ptr<CDPMSSupport> GetDPMSManager();
+  virtual bool SetHDR(const VideoPicture* videoPicture) { return false; };
+  virtual bool IsHDRDisplay() { return false; };
+
+  static const char* SETTING_WINSYSTEM_IS_HDR_DISPLAY;
 
 protected:
-  void UpdateDesktopResolution(RESOLUTION_INFO& newRes, int screen, int width, int height, float refreshRate, uint32_t dwFlags = 0);
+  void UpdateDesktopResolution(RESOLUTION_INFO& newRes, const std::string &output, int width, int height, float refreshRate, uint32_t dwFlags);
   virtual std::unique_ptr<KODI::WINDOWING::IOSScreenSaver> GetOSScreenSaverImpl() { return nullptr; }
 
-  WindowSystemType  m_eWindowSystem;
-  int               m_nWidth;
-  int               m_nHeight;
-  int               m_nTop;
-  int               m_nLeft;
-  bool              m_bWindowCreated;
-  bool              m_bFullScreen;
-  int               m_nScreen;
-  bool              m_bBlankOtherDisplay;
-  float             m_fRefreshRate;
+  int m_nWidth = 0;
+  int m_nHeight = 0;
+  int m_nTop = 0;
+  int m_nLeft = 0;
+  bool m_bWindowCreated = false;
+  bool m_bFullScreen = false;
+  bool m_bBlankOtherDisplay = false;
+  float m_fRefreshRate = 0.0f;
   std::unique_ptr<KODI::WINDOWING::COSScreenSaverManager> m_screenSaverManager;
+  CCriticalSection m_renderLoopSection;
+  std::vector<IRenderLoop*> m_renderLoopClients;
+
+  std::unique_ptr<IWinEvents> m_winEvents;
+  std::unique_ptr<CGraphicContext> m_gfxContext;
+  std::shared_ptr<CDPMSSupport> m_dpms;
 };
-
-
-#endif // WINDOW_SYSTEM_H

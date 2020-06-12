@@ -1,27 +1,16 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
+#pragma once
+
 #include "InfoLoader.h"
-#include "settings/lib/ISubSettings.h"
+#include "settings/ISubSettings.h"
+
 #include <string>
 
 #define KB  (1024)          // 1 KiloByte (1KB)   1024 Byte (2^10 Byte)
@@ -67,9 +56,7 @@ public:
   static CSysData::INTERNET_STATE GetInternetState();
 private:
   static bool SystemUpTime(int iInputMinutes, int &iMinutes, int &iHours, int &iDays);
-  static double GetCPUFrequency();
   static std::string GetSystemUpTime(bool bTotalUptime);
-  static std::string GetCPUFreqInfo();
   static std::string GetMACAddress();
   static std::string GetVideoEncoder();
   static std::string GetBatteryLevel();
@@ -86,9 +73,19 @@ public:
     WindowsVersionWin7,         // Windows 7, Windows Server 2008 R2
     WindowsVersionWin8,         // Windows 8, Windows Server 2012
     WindowsVersionWin8_1,       // Windows 8.1
-    WindowsVersionWin10,        // windows 10
+    WindowsVersionWin10,        // Windows 10
+    WindowsVersionWin10_FCU,    // Windows 10 Fall Creators Update
     /* Insert new Windows versions here, when they'll be known */
     WindowsVersionFuture = 100  // Future Windows version, not known to code
+  };
+  enum WindowsDeviceFamily
+  {
+    Mobile = 1,
+    Desktop = 2,
+    IoT = 3,
+    Xbox = 4,
+    Surface = 5,
+    Other = 100
   };
 
   CSysInfo(void);
@@ -111,23 +108,18 @@ public:
   static std::string GetDeviceName();
   static std::string GetVersion();
   static std::string GetVersionShort();
+  static std::string GetVersionCode();
+  static std::string GetVersionGit();
   static std::string GetBuildDate();
 
   bool HasInternet();
-  bool HasVideoToolBoxDecoder();
   bool IsAeroDisabled();
-  bool HasHW3DInterlaced();
   static bool IsWindowsVersion(WindowsVersion ver);
   static bool IsWindowsVersionAtLeast(WindowsVersion ver);
   static WindowsVersion GetWindowsVersion();
   static int GetKernelBitness(void);
   static int GetXbmcBitness(void);
   static const std::string& GetKernelCpuFamily(void);
-  std::string GetCPUModel();
-  std::string GetCPUBogoMips();
-  std::string GetCPUHardware();
-  std::string GetCPURevision();
-  std::string GetCPUSerial();
   static std::string GetManufacturerName(void);
   static std::string GetModelName(void);
   bool GetDiskSpace(std::string drive,int& iTotal, int& iTotalFree, int& iTotalUsed, int& iPercentFree, int& iPercentUsed);
@@ -144,6 +136,8 @@ public:
 
   static std::string GetUsedCompilerNameAndVer(void);
   std::string GetPrivacyPolicy();
+
+  static WindowsDeviceFamily GetWindowsDeviceFamily();
 
 protected:
   CJob *GetJob() const override;

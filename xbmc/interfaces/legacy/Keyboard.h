@@ -1,28 +1,16 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
 
 #include "AddonClass.h"
-#include "Exception.h"
 #include "AddonString.h"
+#include "Exception.h"
 
 class CGUIDialogKeyboardGeneric;
 
@@ -71,7 +59,7 @@ namespace XBMCAddon
       String strHeading;
       bool bHidden;
       String strText;
-      bool bConfirmed;
+      bool bConfirmed = false;
 #endif
 
       Keyboard(const String& line = emptyString, const String& heading = emptyString, bool hidden = false);
@@ -81,7 +69,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_keyboard
       /// @brief \python_func{ doModal([autoclose]) }
-      ///-----------------------------------------------------------------------
       /// Show keyboard and wait for user action.
       ///
       /// @param autoclose      [opt] integer - milliseconds to autoclose
@@ -107,7 +94,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_keyboard
       /// @brief \python_func{ setDefault(line) }
-      ///-----------------------------------------------------------------------
       /// Set the default text entry.
       ///
       /// @param line        string - default text entry.
@@ -131,7 +117,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_keyboard
       /// @brief \python_func{ setHiddenInput(hidden) }
-      ///-----------------------------------------------------------------------
       /// Allows hidden text entry.
       ///
       /// @param hidden        boolean - True for hidden text entry.
@@ -156,7 +141,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_keyboard
       /// @brief \python_func{ setHeading(heading) }
-      ///-----------------------------------------------------------------------
       /// Set the keyboard heading.
       ///
       /// @param heading        string - keyboard heading.
@@ -181,7 +165,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_keyboard
       /// @brief \python_func{ getText() }
-      ///-----------------------------------------------------------------------
       /// Returns the user input as a string.
       ///
       /// @note This will always return the text entry even if you cancel the keyboard.
@@ -209,7 +192,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_keyboard
       /// @brief \python_func{ isConfirmed() }
-      ///-----------------------------------------------------------------------
       /// Returns False if the user cancelled the input.
       ///
       /// @return     true if confirmed, if cancelled false

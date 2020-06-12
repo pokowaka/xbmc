@@ -1,30 +1,18 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "ServiceBroker.h"
 #include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
 #include "utils/CharsetConverter.h"
 #include "utils/Utf8Utils.h"
-#include "system.h"
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 #if 0
 static const uint16_t refutf16LE1[] = { 0xff54, 0xff45, 0xff53, 0xff54,
@@ -96,28 +84,27 @@ protected:
      */
     /*
     //! @todo implement
-    CSettingsCategory *loc = CServiceBroker::GetSettings().AddCategory(7, "locale", 14090);
-    CServiceBroker::GetSettings().AddString(loc, CSettings::SETTING_LOCALE_LANGUAGE,248,"english",
+    CSettingsCategory *loc = CServiceBroker::GetSettingsComponent()->GetSettings()->AddCategory(7, "locale", 14090);
+    CServiceBroker::GetSettingsComponent()->GetSettings()->AddString(loc, CSettings::SETTING_LOCALE_LANGUAGE,248,"english",
                             SPIN_CONTROL_TEXT);
-    CServiceBroker::GetSettings().AddString(loc, CSettings::SETTING_LOCALE_COUNTRY, 20026, "USA",
+    CServiceBroker::GetSettingsComponent()->GetSettings()->AddString(loc, CSettings::SETTING_LOCALE_COUNTRY, 20026, "USA",
                             SPIN_CONTROL_TEXT);
-    CServiceBroker::GetSettings().AddString(loc, CSettings::SETTING_LOCALE_CHARSET, 14091, "DEFAULT",
+    CServiceBroker::GetSettingsComponent()->GetSettings()->AddString(loc, CSettings::SETTING_LOCALE_CHARSET, 14091, "DEFAULT",
                             SPIN_CONTROL_TEXT); // charset is set by the
                                                 // language file
 
     // Add default settings for subtitles
-    CSettingsCategory *sub = CServiceBroker::GetSettings().AddCategory(5, "subtitles", 287);
-    CServiceBroker::GetSettings().AddString(sub, CSettings::SETTING_SUBTITLES_CHARSET, 735, "DEFAULT",
+    CSettingsCategory *sub = CServiceBroker::GetSettingsComponent()->GetSettings()->AddCategory(5, "subtitles", 287);
+    CServiceBroker::GetSettingsComponent()->GetSettings()->AddString(sub, CSettings::SETTING_SUBTITLES_CHARSET, 735, "DEFAULT",
                             SPIN_CONTROL_TEXT);
     */
-    CServiceBroker::GetSettings().Initialize();
     g_charsetConverter.reset();
     g_charsetConverter.clear();
   }
 
   ~TestCharsetConverter() override
   {
-    CServiceBroker::GetSettings().Unload();
+    CServiceBroker::GetSettingsComponent()->GetSettings()->Unload();
   }
 
   std::string refstra1, refstra2, varstra1;
@@ -315,38 +302,38 @@ TEST_F(TestCharsetConverter, utf8logicalToVisualBiDi)
 TEST_F(TestCharsetConverter, getCharsetLabels)
 {
   std::vector<std::string> reflabels;
-  reflabels.push_back("Western Europe (ISO)");
-  reflabels.push_back("Central Europe (ISO)");
-  reflabels.push_back("South Europe (ISO)");
-  reflabels.push_back("Baltic (ISO)");
-  reflabels.push_back("Cyrillic (ISO)");
-  reflabels.push_back("Arabic (ISO)");
-  reflabels.push_back("Greek (ISO)");
-  reflabels.push_back("Hebrew (ISO)");
-  reflabels.push_back("Turkish (ISO)");
-  reflabels.push_back("Central Europe (Windows)");
-  reflabels.push_back("Cyrillic (Windows)");
-  reflabels.push_back("Western Europe (Windows)");
-  reflabels.push_back("Greek (Windows)");
-  reflabels.push_back("Turkish (Windows)");
-  reflabels.push_back("Hebrew (Windows)");
-  reflabels.push_back("Arabic (Windows)");
-  reflabels.push_back("Baltic (Windows)");
-  reflabels.push_back("Vietnamese (Windows)");
-  reflabels.push_back("Thai (Windows)");
-  reflabels.push_back("Chinese Traditional (Big5)");
-  reflabels.push_back("Chinese Simplified (GBK)");
-  reflabels.push_back("Japanese (Shift-JIS)");
-  reflabels.push_back("Korean");
-  reflabels.push_back("Hong Kong (Big5-HKSCS)");
+  reflabels.emplace_back("Western Europe (ISO)");
+  reflabels.emplace_back("Central Europe (ISO)");
+  reflabels.emplace_back("South Europe (ISO)");
+  reflabels.emplace_back("Baltic (ISO)");
+  reflabels.emplace_back("Cyrillic (ISO)");
+  reflabels.emplace_back("Arabic (ISO)");
+  reflabels.emplace_back("Greek (ISO)");
+  reflabels.emplace_back("Hebrew (ISO)");
+  reflabels.emplace_back("Turkish (ISO)");
+  reflabels.emplace_back("Central Europe (Windows)");
+  reflabels.emplace_back("Cyrillic (Windows)");
+  reflabels.emplace_back("Western Europe (Windows)");
+  reflabels.emplace_back("Greek (Windows)");
+  reflabels.emplace_back("Turkish (Windows)");
+  reflabels.emplace_back("Hebrew (Windows)");
+  reflabels.emplace_back("Arabic (Windows)");
+  reflabels.emplace_back("Baltic (Windows)");
+  reflabels.emplace_back("Vietnamese (Windows)");
+  reflabels.emplace_back("Thai (Windows)");
+  reflabels.emplace_back("Chinese Traditional (Big5)");
+  reflabels.emplace_back("Chinese Simplified (GBK)");
+  reflabels.emplace_back("Japanese (Shift-JIS)");
+  reflabels.emplace_back("Korean");
+  reflabels.emplace_back("Hong Kong (Big5-HKSCS)");
 
   std::vector<std::string> varlabels = g_charsetConverter.getCharsetLabels();
   ASSERT_EQ(reflabels.size(), varlabels.size());
 
-  std::vector<std::string>::iterator it;
-  for (it = varlabels.begin(); it < varlabels.end(); ++it)
+  size_t pos = 0;
+  for (const auto& it : varlabels)
   {
-    EXPECT_STREQ((reflabels.at(it - varlabels.begin())).c_str(), (*it).c_str());
+    EXPECT_STREQ((reflabels.at(pos++)).c_str(), it.c_str());
   }
 }
 

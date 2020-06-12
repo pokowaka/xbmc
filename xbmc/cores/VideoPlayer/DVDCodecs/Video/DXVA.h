@@ -1,153 +1,188 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
-#include <list>
-#include <vector>
-#include "DVDResource.h"
-#include "guilib/D3DResource.h"
-#include "libavcodec/avcodec.h"
-#include "libavcodec/d3d11va.h"
-#include "threads/Event.h"
+#include "cores/VideoPlayer/Buffers/VideoBuffer.h"
 #include "cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.h"
-#include "cores/VideoPlayer/Process/VideoBuffer.h"
+#include "guilib/D3DResource.h"
+#include "threads/Event.h"
 
-class CProcessInfo;
+#include <vector>
 
-namespace DXVA {
+#include <wrl/client.h>
+extern "C"
+{
+#include <libavcodec/avcodec.h>
+#include <libavcodec/d3d11va.h>
+}
 
-#define CHECK(a) \
-do { \
-  HRESULT res = a; \
-  if(FAILED(res)) \
-  { \
-    CLog::Log(LOGERROR, "DXVA - failed executing "#a" at line %d with error %x", __LINE__, res); \
-    return false; \
-  } \
-} while(0);
+namespace DXVA
+{
+class CDecoder;
 
-class CSurfaceContext : public IDVDResourceCounted<CSurfaceContext>
+class CVideoBuffer : public ::CVideoBuffer
+{
+  template<typename TBuffer>
+  friend class CVideoBufferPoolTyped;
+
+public:
+  virtual ~CVideoBuffer();
+
+  void SetRef(AVFrame* frame);
+  void Unref();
+
+  virtual void Initialize(CDecoder* decoder);
+  virtual HRESULT GetResource(ID3D11Resource** ppResource);
+  virtual unsigned GetIdx();
+
+  ID3D11View* view = nullptr;
+  DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
+  unsigned width = 0;
+  unsigned height = 0;
+
+protected:
+  explicit CVideoBuffer(int id);
+
+private:
+  AVFrame* m_pFrame{nullptr};
+};
+
+class CVideoBufferShared : public CVideoBuffer
+{
+  template<typename TBuffer>
+  friend class CVideoBufferPoolTyped;
+
+public:
+  HRESULT GetResource(ID3D11Resource** ppResource) override;
+  void Initialize(CDecoder* decoder) override;
+
+protected:
+  explicit CVideoBufferShared(int id)
+      : CVideoBuffer(id) {}
+
+  HANDLE handle = INVALID_HANDLE_VALUE;
+  Microsoft::WRL::ComPtr<ID3D11Resource> m_sharedRes;
+};
+class CVideoBufferCopy : public CVideoBufferShared
+{
+  template<typename TBuffer>
+  friend class CVideoBufferPoolTyped;
+
+public:
+  void Initialize(CDecoder* decoder) override;
+  unsigned GetIdx() override { return 0; }
+
+protected:
+  explicit CVideoBufferCopy(int id)
+      : CVideoBufferShared(id) {}
+
+  Microsoft::WRL::ComPtr<ID3D11Resource> m_copyRes;
+};
+
+class CContext
 {
 public:
-  CSurfaceContext();
-  virtual ~CSurfaceContext();
+  typedef std::shared_ptr<CContext> shared_ptr;
+  typedef std::weak_ptr<CContext> weak_ptr;
 
-  void AddSurface(ID3D11View* view);
-  void ClearReference(ID3D11View* view);
-  bool MarkRender(ID3D11View* view);
-  void ClearRender(ID3D11View* view);
+  ~CContext();
+
+  static shared_ptr EnsureContext(CDecoder* decoder);
+  bool GetFormatAndConfig(AVCodecContext* avctx, D3D11_VIDEO_DECODER_DESC& format, D3D11_VIDEO_DECODER_CONFIG& config) const;
+  bool CreateSurfaces(const D3D11_VIDEO_DECODER_DESC& format, uint32_t count, uint32_t alignment,
+                      ID3D11VideoDecoderOutputView** surfaces, HANDLE* pHandle) const;
+  bool CreateDecoder(const D3D11_VIDEO_DECODER_DESC& format, const D3D11_VIDEO_DECODER_CONFIG& config,
+                     ID3D11VideoDecoder** decoder, ID3D11VideoContext** context);
+  void Release(CDecoder* decoder);
+
+  bool Check() const;
+  bool Reset();
+  bool IsContextShared() const
+  {
+    return m_sharingAllowed;
+  }
+  bool HasAMDWorkaround() const
+  {
+    return m_atiWorkaround;
+  }
+
+private:
+  explicit CContext() = default;
+
+  void Close();
+  bool CreateContext();
+  void DestroyContext();
+  void QueryCaps();
+  bool IsValidDecoder(CDecoder* decoder);
+  bool GetConfig(const D3D11_VIDEO_DECODER_DESC& format, D3D11_VIDEO_DECODER_CONFIG& config) const;
+
+  static weak_ptr m_context;
+  static CCriticalSection m_section;
+
+  UINT m_input_count = 0;
+  GUID* m_input_list = nullptr;
+  bool m_atiWorkaround = false;
+  bool m_sharingAllowed = false;
+  Microsoft::WRL::ComPtr<ID3D11VideoContext> m_pD3D11Context;
+  Microsoft::WRL::ComPtr<ID3D11VideoDevice> m_pD3D11Device;
+  std::vector<CDecoder*> m_decoders;
+};
+
+class CVideoBufferPool : public IVideoBufferPool
+{
+public:
+  typedef std::shared_ptr<CVideoBufferPool> shared_ptr;
+
+  CVideoBufferPool();
+  virtual ~CVideoBufferPool();
+
+  // IVideoBufferPool overrides
+  ::CVideoBuffer* Get() override;
+  void Return(int id) override;
+
+  // views pool
+  void AddView(ID3D11View* view);
+  bool ReturnView(ID3D11View* view);
+  ID3D11View* GetView();
   bool IsValid(ID3D11View* view);
-  ID3D11View* GetFree(ID3D11View* view);
-  ID3D11View* GetAtIndex(unsigned int idx);
-  int Size();
+  size_t Size();
   bool HasFree();
   bool HasRefs();
 
 protected:
   void Reset();
-  std::map<ID3D11View*, int> m_state;
-  std::list<ID3D11View*> m_freeViews;
+  virtual CVideoBuffer* CreateBuffer(int idx) = 0;
+
   CCriticalSection m_section;
+
+  std::vector<ID3D11View*> m_views;
+  std::deque<size_t> m_freeViews;
+  std::vector<CVideoBuffer*> m_out;
+  std::deque<size_t> m_freeOut;
 };
 
-class CRenderPicture
-  : public IDVDResourceCounted<CRenderPicture>
+template<typename TBuffer>
+class CVideoBufferPoolTyped : public CVideoBufferPool
 {
-public:
-  CRenderPicture(CSurfaceContext *context);
-  ~CRenderPicture();
-  ID3D11View* view;
-  DXGI_FORMAT format;
-
 protected:
-  CSurfaceContext *surface_context;
-};
-
-class CDXVAVideoBuffer : public CVideoBuffer
-{
-public:
-  CDXVAVideoBuffer(int id) : CVideoBuffer(id), picture(nullptr)
+  CVideoBuffer* CreateBuffer(int idx) override
   {
-    m_pixFormat = AV_PIX_FMT_D3D11VA_VLD;
+    return new TBuffer(idx);
   }
-  CRenderPicture* picture;
 };
 
-class CDXVABufferPool : public IVideoBufferPool
+class CDecoder : public IHardwareDecoder, public ID3DResource
 {
 public:
-  CDXVABufferPool();
-  virtual ~CDXVABufferPool();
+  ~CDecoder() override;
 
-  CVideoBuffer* Get() override;
-  void Return(int id) override;
-  CDXVAVideoBuffer* GetDX() { return reinterpret_cast<CDXVAVideoBuffer*>(Get()); }
-
-private:
-  CCriticalSection m_critSection;
-  std::vector<CDXVAVideoBuffer*> m_all;
-  std::deque<int> m_used;
-  std::deque<int> m_free;
-};
-
-class CDecoder;
-class CDXVAContext
-{
-public:
-  static bool EnsureContext(CDXVAContext **ctx, CDecoder *decoder);
-  bool GetInputAndTarget(int codec, bool bHighBitdepth, GUID &inGuid, DXGI_FORMAT &outFormat);
-  bool GetConfig(const D3D11_VIDEO_DECODER_DESC *format, D3D11_VIDEO_DECODER_CONFIG &config);
-  bool CreateSurfaces(D3D11_VIDEO_DECODER_DESC format, unsigned int count, unsigned int alignment, ID3D11VideoDecoderOutputView **surfaces);
-  bool CreateDecoder(D3D11_VIDEO_DECODER_DESC *format, const D3D11_VIDEO_DECODER_CONFIG *config, ID3D11VideoDecoder **decoder, ID3D11VideoContext **context);
-  void Release(CDecoder *decoder);
-  ID3D11VideoContext* GetVideoContext() const { return m_vcontext; }
-
-private:
-  CDXVAContext();
-  void Close();
-  bool CreateContext();
-  void DestroyContext();
-  void QueryCaps();
-  bool IsValidDecoder(CDecoder *decoder);
-
-  static CDXVAContext *m_context;
-  static CCriticalSection m_section;
-
-  ID3D11VideoContext* m_vcontext;
-  ID3D11VideoDevice* m_service;
-  int m_refCount;
-  UINT m_input_count;
-  GUID *m_input_list;
-  std::vector<CDecoder*> m_decoders;
-  bool m_atiWorkaround;
-};
-
-class CDecoder
-  : public IHardwareDecoder
-  , public ID3DResource
-{
-public:
-  CDecoder(CProcessInfo& processInfo);
- ~CDecoder();
-
-  static IHardwareDecoder* Create(CDVDStreamInfo &hint, CProcessInfo &processInfo, AVPixelFormat fmt);
+  static IHardwareDecoder* Create(CDVDStreamInfo& hint, CProcessInfo& processInfo, AVPixelFormat fmt);
   static bool Register();
 
   // IHardwareDecoder overrides
@@ -163,45 +198,60 @@ public:
   long Release() override;
 
   bool OpenDecoder();
-  int GetBuffer(AVCodecContext *avctx, AVFrame *pic);
-  void ReleaseBuffer(uint8_t *data);
+  int GetBuffer(AVCodecContext* avctx, AVFrame* pic);
+  void ReleaseBuffer(uint8_t* data);
   void Close();
   void CloseDXVADecoder();
 
   //static members
   static bool Supports(enum AVPixelFormat fmt);
-  static int FFGetBuffer(AVCodecContext *avctx, AVFrame *pic, int flags);
-  static void FFReleaseBuffer(void *opaque, uint8_t *data);
+  static int FFGetBuffer(AVCodecContext* avctx, AVFrame* pic, int flags);
+  static void FFReleaseBuffer(void* opaque, uint8_t* data);
 
 protected:
+  friend CVideoBuffer;
+  friend CVideoBufferShared;
+  friend CVideoBufferCopy;
+
+  explicit CDecoder(CProcessInfo& processInfo);
+
   enum EDeviceState
-  { DXVA_OPEN
-  , DXVA_RESET
-  , DXVA_LOST
-  } m_state;
+  {
+    DXVA_OPEN,
+    DXVA_RESET,
+    DXVA_LOST
+  } m_state = DXVA_OPEN;
+
 
   // ID3DResource overrides
-  void OnCreateDevice() override  {}
-  void OnDestroyDevice(bool fatal) override { CSingleLock lock(m_section); m_state = DXVA_LOST;  m_event.Reset(); }
-  void OnLostDevice() override    { CSingleLock lock(m_section); m_state = DXVA_LOST;  m_event.Reset(); }
-  void OnResetDevice() override   { CSingleLock lock(m_section); m_state = DXVA_RESET; m_event.Set();   }
+  void OnCreateDevice() override
+  {
+    CSingleLock lock(m_section);
+    m_state = DXVA_RESET;
+    m_event.Set();
+  }
+  void OnDestroyDevice(bool fatal) override
+  {
+    CSingleLock lock(m_section);
+    m_state = DXVA_LOST;
+    m_event.Reset();
+  }
 
-  int m_refs;
-  HANDLE m_device;
-  ID3D11VideoDecoder *m_decoder;
-  ID3D11VideoContext *m_vcontext;
-  D3D11_VIDEO_DECODER_DESC m_format;
-  CDXVAVideoBuffer *m_presentPicture;
-  struct AVD3D11VAContext *m_context;
-  CSurfaceContext *m_surface_context;
-  CDXVAContext *m_dxva_context;
-  AVCodecContext *m_avctx;
-  unsigned int m_shared;
-  unsigned int m_surface_alignment;
-  CCriticalSection m_section;
   CEvent m_event;
+  CCriticalSection m_section;
   CProcessInfo& m_processInfo;
-  std::shared_ptr<CDXVABufferPool> m_bufferPool;
+  Microsoft::WRL::ComPtr<ID3D11VideoDecoder> m_pD3D11Decoder;
+  Microsoft::WRL::ComPtr<ID3D11VideoContext> m_pD3D11Context;
+  CVideoBufferPool::shared_ptr m_bufferPool;
+  CContext::shared_ptr m_dxvaContext;
+  CVideoBuffer* m_videoBuffer = nullptr;
+  struct AVD3D11VAContext* m_avD3D11Context = nullptr;
+  struct AVCodecContext* m_avCtx = nullptr;
+  int m_refs = 0;
+  unsigned int m_shared = 0;
+  unsigned int m_surface_alignment = 0;
+  HANDLE m_sharedHandle = INVALID_HANDLE_VALUE;
+  D3D11_VIDEO_DECODER_DESC m_format = {};
 };
 
-};
+} // namespace DXVA

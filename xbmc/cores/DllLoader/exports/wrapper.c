@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 //
@@ -32,11 +20,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdarg.h>
-#ifdef TARGET_WINDOWS
-#include "win32-dirent.h"
-#else
 #include <dirent.h>
-#endif
 #include <dlfcn.h>
 
 #if defined(TARGET_DARWIN) || defined(TARGET_FREEBSD) || defined(TARGET_ANDROID)
@@ -45,9 +29,6 @@ typedef int64_t   off64_t;
 typedef off64_t   __off64_t;
 typedef fpos_t    fpos64_t;
 #define stat64    stat
-#if defined(TARGET_DARWIN) || defined(TARGET_ANDROID)
-#define _G_va_list va_list
-#endif
 #endif
 
 #ifdef TARGET_POSIX
@@ -394,7 +375,7 @@ int __wrap_ioctl(int d, unsigned long int request, ...)
     res = dll_ioctl(d, request, va);
     va_end(va);
     return res;
-} 
+}
 
 int __wrap__stat(const char *path, struct _stat *buffer)
 {
@@ -404,6 +385,11 @@ int __wrap__stat(const char *path, struct _stat *buffer)
 int __wrap_stat(const char *path, struct _stat *buffer)
 {
   return dll_stat(path, buffer);
+}
+
+int __wrap___xstat(int __ver, const char *__filename, struct stat *__stat_buf)
+{
+  return dll_stat(__filename, __stat_buf);
 }
 
 int __wrap___xstat64(int __ver, const char *__filename, struct stat64 *__stat_buf)
@@ -436,6 +422,11 @@ int __wrap___fxstat64(int ver, int fd, struct stat64 *buf)
   return dll_fstat64(fd, buf);
 }
 
+int __wrap___fxstat(int ver, int fd, struct stat *buf)
+{
+  return dll_fstat(fd, buf);
+}
+
 int __wrap_fstat(int fd, struct _stat *buf)
 {
   return dll_fstat(fd, buf);
@@ -454,10 +445,10 @@ struct mntent *__wrap_getmntent(FILE *fp)
   return NULL;
 }
 
-// GCC 4.3 in Ubuntu 8.10 defines _FORTIFY_SOURCE=2 which means, that fread, read etc 
+// GCC 4.3 in Ubuntu 8.10 defines _FORTIFY_SOURCE=2 which means, that fread, read etc
 // are actually #defines which are inlined when compiled with -O. Those defines
 // actually call __*chk (for example, __fread_chk). We need to bypass this whole
-// thing to actually call our wrapped functions. 
+// thing to actually call our wrapped functions.
 #if _FORTIFY_SOURCE > 1
 
 size_t __wrap___fread_chk(void * ptr, size_t ptrlen, size_t size, size_t n, FILE * stream)
@@ -475,7 +466,7 @@ int __wrap___printf_chk(int flag, const char *format, ...)
   return res;
 }
 
-int __wrap___vfprintf_chk(FILE* stream, int flag, const char *format, _G_va_list ap)
+int __wrap___vfprintf_chk(FILE* stream, int flag, const char *format, va_list ap)
 {
   return dll_vfprintf(stream, format, ap);
 }

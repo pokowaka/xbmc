@@ -1,23 +1,12 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "addons/IAddon.h"
 #include "utils/XBMCTinyXML.h"
@@ -26,9 +15,6 @@ class TiXmlElement;
 class CAddonCallbacksAddon;
 class CVariant;
 
-typedef struct cp_plugin_info_t cp_plugin_info_t;
-typedef struct cp_extension_t cp_extension_t;
-
 namespace ADDON
 {
   typedef std::vector<AddonPtr> VECADDONS;
@@ -36,51 +22,94 @@ namespace ADDON
 
   const char* const ORIGIN_SYSTEM = "b6a50484-93a0-4afb-a01c-8d17e059feda";
 
-void OnEnabled(const AddonPtr& addon);
-void OnDisabled(const AddonPtr& addon);
-void OnPreInstall(const AddonPtr& addon);
-void OnPostInstall(const AddonPtr& addon, bool update, bool modal);
-void OnPreUnInstall(const AddonPtr& addon);
-void OnPostUnInstall(const AddonPtr& addon);
+  void OnPreInstall(const AddonPtr& addon);
+  void OnPostInstall(const AddonPtr& addon, bool update, bool modal);
+  void OnPreUnInstall(const AddonPtr& addon);
+  void OnPostUnInstall(const AddonPtr& addon);
 
 class CAddon : public IAddon
 {
 public:
-  explicit CAddon(CAddonInfo addonInfo);
+  explicit CAddon(const AddonInfoPtr& addonInfo, TYPE addonType);
   ~CAddon() override = default;
 
-  TYPE Type() const override { return m_addonInfo.MainType(); }
-  TYPE FullType() const override { return Type(); }
-  bool IsType(TYPE type) const override { return type == m_addonInfo.MainType(); }
-  std::string ID() const override{ return m_addonInfo.ID(); }
-  std::string Name() const override { return m_addonInfo.Name(); }
+  /**
+   * @brief To get the main type of this addon
+   *
+   * This is the first type defined in **addon.xml** and can be different to the
+   * on @ref Type() defined type.
+   *
+   * @return The used main type of addon
+   */
+  TYPE MainType() const override { return m_addonInfo->MainType(); }
+
+  /**
+   * @brief To get the on this CAddon class processed addon type
+   *
+   * @return For this class used addon type
+   */
+  TYPE Type() const override { return m_type; }
+
+  /**
+   * @brief To check complete addon (not only this) contains a type
+   *
+   * @note This can be overridden by a child e.g. plugin to check for subtype
+   * e.g. video or music.
+   *
+   * @param[in] type The to checked type identifier
+   * @return true in case the wanted type is supported, false if not
+   */
+  bool HasType(TYPE type) const override { return m_addonInfo->HasType(type); }
+
+  /**
+   * @brief The get for given addon type information and extension data
+   *
+   * @param[in] type The wanted type data
+   * @return addon type class with @ref CAddonExtensions as information
+   *
+   * @note This function return never a "nullptr", in case the wanted type is
+   * not supported, becomes a dummy of @ref CAddonType given.
+   *
+   * ------------------------------------------------------------------------
+   *
+   * **Example:**
+   * ~~~~~~~~~~~~~{.cpp}
+   * // To get e.g. <extension ... name="blablabla" /> from addon.xml
+   * std::string name = Type(ADDON_...)->GetValue("@name").asString();
+   * ~~~~~~~~~~~~~
+   *
+   */
+  const CAddonType* Type(TYPE type) const { return m_addonInfo->Type(type); }
+
+  std::string ID() const override{ return m_addonInfo->ID(); }
+  std::string Name() const override { return m_addonInfo->Name(); }
   bool IsInUse() const override{ return false; };
-  AddonVersion Version() const override { return m_addonInfo.Version(); }
-  AddonVersion MinVersion() const override { return m_addonInfo.MinVersion(); }
-  std::string Summary() const override { return m_addonInfo.Summary(); }
-  std::string Description() const override { return m_addonInfo.Description(); }
-  std::string Path() const override { return m_addonInfo.Path(); }
+  AddonVersion Version() const override { return m_addonInfo->Version(); }
+  AddonVersion MinVersion() const override { return m_addonInfo->MinVersion(); }
+  std::string Summary() const override { return m_addonInfo->Summary(); }
+  std::string Description() const override { return m_addonInfo->Description(); }
+  std::string Path() const override { return m_addonInfo->Path(); }
   std::string Profile() const override { return m_profilePath; }
   std::string LibPath() const override;
-  std::string Author() const override { return m_addonInfo.Author(); }
-  std::string ChangeLog() const override { return m_addonInfo.ChangeLog(); }
-  std::string Icon() const override { return m_addonInfo.Icon(); };
-  ArtMap Art() const override { return m_addonInfo.Art(); }
-  std::vector<std::string> Screenshots() const override { return m_addonInfo.Screenshots(); };
-  std::string Disclaimer() const override { return m_addonInfo.Disclaimer(); }
-  std::string Broken() const override { return m_addonInfo.Broken(); }
-  CDateTime InstallDate() const override { return m_addonInfo.InstallDate(); }
-  CDateTime LastUpdated() const override { return m_addonInfo.LastUpdated(); }
-  CDateTime LastUsed() const override { return m_addonInfo.LastUsed(); }
-  std::string Origin() const override { return m_addonInfo.Origin(); }
-  uint64_t PackageSize() const override { return m_addonInfo.PackageSize(); }
-  const InfoMap& ExtraInfo() const override { return m_addonInfo.ExtraInfo(); }
-  const ADDONDEPS& GetDeps() const override { return m_addonInfo.GetDeps(); }
+  std::string Author() const override { return m_addonInfo->Author(); }
+  std::string ChangeLog() const override { return m_addonInfo->ChangeLog(); }
+  std::string Icon() const override { return m_addonInfo->Icon(); };
+  ArtMap Art() const override { return m_addonInfo->Art(); }
+  std::vector<std::string> Screenshots() const override { return m_addonInfo->Screenshots(); };
+  std::string Disclaimer() const override { return m_addonInfo->Disclaimer(); }
+  std::string Broken() const override { return m_addonInfo->Broken(); }
+  CDateTime InstallDate() const override { return m_addonInfo->InstallDate(); }
+  CDateTime LastUpdated() const override { return m_addonInfo->LastUpdated(); }
+  CDateTime LastUsed() const override { return m_addonInfo->LastUsed(); }
+  std::string Origin() const override { return m_addonInfo->Origin(); }
+  uint64_t PackageSize() const override { return m_addonInfo->PackageSize(); }
+  const InfoMap& ExtraInfo() const override { return m_addonInfo->ExtraInfo(); }
+  const std::vector<DependencyInfo>& GetDependencies() const override { return m_addonInfo->GetDependencies(); }
 
   std::string FanArt() const override
   {
-    auto it = m_addonInfo.Art().find("fanart");
-    return it != m_addonInfo.Art().end() ? it->second : "";
+    auto it = m_addonInfo->Art().find("fanart");
+    return it != m_addonInfo->Art().end() ? it->second : "";
   }
 
   /*! \brief Check whether the this addon can be configured or not
@@ -191,18 +220,11 @@ public:
    \param version the version to meet.
    \return true if  min_version <= version <= current_version, false otherwise.
    */
-  bool MeetsVersion(const AddonVersion &version) const override { return m_addonInfo.MeetsVersion(version); }
+  bool MeetsVersion(const AddonVersion& versionMin, const AddonVersion& version) const override
+  {
+    return m_addonInfo->MeetsVersion(versionMin, version);
+  }
   bool ReloadSettings() override;
-
-  /*! \brief callback for when this add-on is disabled.
-   Use to perform any needed actions (e.g. stop a service)
-   */
-  void OnDisabled() override {};
-
-  /*! \brief callback for when this add-on is enabled.
-   Use to perform any needed actions (e.g. start a service)
-   */
-  void OnEnabled() override {};
 
   /*! \brief retrieve the running instance of an add-on if it persists while running.
    */
@@ -254,7 +276,7 @@ protected:
    */
   virtual bool SettingsToXML(CXBMCTinyXML &doc) const;
 
-  const CAddonInfo m_addonInfo;
+  const AddonInfoPtr m_addonInfo;
   std::string m_userSettingsPath;
 
 private:
@@ -263,6 +285,7 @@ private:
 
   std::string m_profilePath;
   mutable std::shared_ptr<CAddonSettings> m_settings;
+  const TYPE m_type;
 };
 
 }; /* namespace ADDON */

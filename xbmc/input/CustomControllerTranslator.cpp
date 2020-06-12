@@ -1,40 +1,29 @@
 /*
- *      Copyright (C) 2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "CustomControllerTranslator.h"
-#include "ActionIDs.h"
-#include "ActionTranslator.h"
-#include "WindowTranslator.h" //! @todo
-#include "utils/log.h"
-#include "utils/XBMCTinyXML.h"
 
-void CCustomControllerTranslator::MapActions(int windowID, const TiXmlNode *pCustomController)
+#include "WindowTranslator.h" //! @todo
+#include "input/actions/ActionIDs.h"
+#include "input/actions/ActionTranslator.h"
+#include "utils/XBMCTinyXML.h"
+#include "utils/log.h"
+
+void CCustomControllerTranslator::MapActions(int windowID, const TiXmlNode* pCustomController)
 {
   CustomControllerButtonMap buttonMap;
   std::string controllerName;
 
-  const TiXmlElement *pController = pCustomController->ToElement();
+  const TiXmlElement* pController = pCustomController->ToElement();
   if (pController != nullptr)
   {
     // Transform loose name to new family, including altnames
-    const char *name = pController->Attribute("name");
+    const char* name = pController->Attribute("name");
     if (name != nullptr)
       controllerName = name;
   }
@@ -46,7 +35,7 @@ void CCustomControllerTranslator::MapActions(int windowID, const TiXmlNode *pCus
   }
 
   // Parse map
-  const TiXmlElement *pButton = pCustomController->FirstChildElement();
+  const TiXmlElement* pButton = pCustomController->FirstChildElement();
   int id = 0;
   while (pButton != nullptr)
   {
@@ -74,44 +63,48 @@ void CCustomControllerTranslator::Clear()
   m_customControllersMap.clear();
 }
 
-bool CCustomControllerTranslator::TranslateCustomControllerString(int windowId, const std::string& controllerName, int buttonId, int& action, std::string& strAction)
+bool CCustomControllerTranslator::TranslateCustomControllerString(int windowId,
+                                                                  const std::string& controllerName,
+                                                                  int buttonId,
+                                                                  int& action,
+                                                                  std::string& strAction)
 {
   unsigned int actionId = ACTION_NONE;
+
+  // handle virtual windows
+  windowId = CWindowTranslator::GetVirtualWindow(windowId);
 
   // Try to get the action from the current window
   if (!TranslateString(windowId, controllerName, buttonId, actionId, strAction))
   {
-    // If it's invalid, try to get it from a fallback window or the global map
-    int fallbackWindow = CWindowTranslator::GetFallbackWindow(windowId);
-    if (fallbackWindow > -1)
-      TranslateString(fallbackWindow, controllerName, buttonId, actionId, strAction);
-
-    // Still no valid action? Use global map
-    if (action == ACTION_NONE)
-      TranslateString(-1, controllerName, buttonId, actionId, strAction);
+    // if it's invalid, try to get it from fallback windows or the global map (windowId == -1)
+    while (actionId == ACTION_NONE && windowId > -1)
+    {
+      windowId = CWindowTranslator::GetFallbackWindow(windowId);
+      TranslateString(windowId, controllerName, buttonId, actionId, strAction);
+    }
   }
 
-  if (actionId != ACTION_NONE)
-  {
-    action = actionId;
-    return true;
-  }
-
-  return false;
+  action = actionId;
+  return actionId != ACTION_NONE;
 }
 
-bool CCustomControllerTranslator::TranslateString(int windowId, const std::string& controllerName, int buttonId, unsigned int& actionId, std::string& strAction)
+bool CCustomControllerTranslator::TranslateString(int windowId,
+                                                  const std::string& controllerName,
+                                                  int buttonId,
+                                                  unsigned int& actionId,
+                                                  std::string& strAction)
 {
   // Resolve the correct custom controller
   auto it = m_customControllersMap.find(controllerName);
   if (it == m_customControllersMap.end())
     return false;
 
-  const CustomControllerWindowMap &windowMap = it->second;
+  const CustomControllerWindowMap& windowMap = it->second;
   auto it2 = windowMap.find(windowId);
   if (it2 != windowMap.end())
   {
-    const CustomControllerButtonMap &buttonMap = it2->second;
+    const CustomControllerButtonMap& buttonMap = it2->second;
     auto it3 = buttonMap.find(buttonId);
     if (it3 != buttonMap.end())
     {

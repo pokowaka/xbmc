@@ -1,30 +1,18 @@
+/*
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
+ *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
+ */
+
 #pragma once
 
-/*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
- *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
- */
+#include "guilib/GUIDialog.h"
 
 #include <string>
 #include <utility>
 #include <vector>
-
-#include "guilib/GUIDialog.h"
 
 
 class CMediaSource;
@@ -33,11 +21,12 @@ enum CONTEXT_BUTTON { CONTEXT_BUTTON_CANCELLED = 0,
                       CONTEXT_BUTTON_RENAME,
                       CONTEXT_BUTTON_DELETE,
                       CONTEXT_BUTTON_MOVE,
-                      CONTEXT_BUTTON_ADD_FAVOURITE,
                       CONTEXT_BUTTON_SETTINGS,
                       CONTEXT_BUTTON_RIP_CD,
                       CONTEXT_BUTTON_CANCEL_RIP_CD,
                       CONTEXT_BUTTON_RIP_TRACK,
+                      CONTEXT_BUTTON_EJECT_DISC,
+                      CONTEXT_BUTTON_EJECT_DRIVE,
                       CONTEXT_BUTTON_EDIT_SOURCE,
                       CONTEXT_BUTTON_REMOVE_SOURCE,
                       CONTEXT_BUTTON_SET_DEFAULT,
@@ -89,9 +78,6 @@ enum CONTEXT_BUTTON { CONTEXT_BUTTON_CANCELLED = 0,
                       CONTEXT_BUTTON_GROUP_MANAGER,
                       CONTEXT_BUTTON_CHANNEL_MANAGER,
                       CONTEXT_BUTTON_SET_MOVIESET_ART,
-                      CONTEXT_BUTTON_BEGIN,
-                      CONTEXT_BUTTON_END,
-                      CONTEXT_BUTTON_NOW,
                       CONTEXT_BUTTON_PLAY_AND_QUEUE,
                       CONTEXT_BUTTON_PLAY_ONLY_THIS,
                       CONTEXT_BUTTON_UPDATE_EPG,
@@ -103,10 +89,11 @@ enum CONTEXT_BUTTON { CONTEXT_BUTTON_CANCELLED = 0,
                       CONTEXT_BUTTON_EDIT_SORTTITLE,
                       CONTEXT_BUTTON_DELETE_ALL,
                       CONTEXT_BUTTON_HELP,
-                      CONTEXT_BUTTON_ACTIVE_ADSP_SETTINGS,
+                      CONTEXT_BUTTON_PLAY_NEXT,
+                      CONTEXT_BUTTON_NAVIGATE,
                     };
 
-class CContextButtons : public std::vector< std::pair<unsigned int, std::string> >
+class CContextButtons : public std::vector< std::pair<size_t, std::string> >
 {
 public:
   void Add(unsigned int, const std::string &label);
@@ -132,7 +119,7 @@ public:
   /*! Show the context menu with the given choices and return the index of the selected item,
     or -1 if cancelled.
    */
-  static int Show(const CContextButtons& choices);
+  static int Show(const CContextButtons& choices, int focusedButton = 0);
 
   /*! Legacy method that returns the context menu id, or -1 on cancel */
   static int ShowAndGetChoice(const CContextButtons &choices);
@@ -159,6 +146,7 @@ private:
   float m_coordX, m_coordY;
   /// \brief Stored size of background image (height or width depending on grouplist orientation)
   float m_backgroundImageSize;
+  int m_initiallyFocusedButtonIdx = 0;
   int m_clickedButton;
   CContextButtons m_buttons;
   const CGUIControl *m_backgroundImage = nullptr;

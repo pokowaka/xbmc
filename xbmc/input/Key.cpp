@@ -1,24 +1,11 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
 #include "input/Key.h"
 
 CKey::CKey(void)
@@ -28,7 +15,14 @@ CKey::CKey(void)
 
 CKey::~CKey(void) = default;
 
-CKey::CKey(uint32_t buttonCode, uint8_t leftTrigger, uint8_t rightTrigger, float leftThumbX, float leftThumbY, float rightThumbX, float rightThumbY, float repeat)
+CKey::CKey(uint32_t buttonCode,
+           uint8_t leftTrigger,
+           uint8_t rightTrigger,
+           float leftThumbX,
+           float leftThumbY,
+           float rightThumbX,
+           float rightThumbY,
+           float repeat)
 {
   Reset();
   m_buttonCode = buttonCode;
@@ -48,7 +42,13 @@ CKey::CKey(uint32_t buttonCode, unsigned int held)
   m_held = held;
 }
 
-CKey::CKey(uint8_t vkey, wchar_t unicode, char ascii, uint32_t modifiers, unsigned int held)
+CKey::CKey(uint32_t keycode,
+           uint8_t vkey,
+           wchar_t unicode,
+           char ascii,
+           uint32_t modifiers,
+           uint32_t lockingModifiers,
+           unsigned int held)
 {
   Reset();
   if (vkey) // FIXME: This needs cleaning up - should we always use the unicode key where available?
@@ -56,10 +56,12 @@ CKey::CKey(uint8_t vkey, wchar_t unicode, char ascii, uint32_t modifiers, unsign
   else
     m_buttonCode = KEY_UNICODE;
   m_buttonCode |= modifiers;
+  m_keycode = keycode;
   m_vkey = vkey;
   m_unicode = unicode;
   m_ascii = ascii;
   m_modifiers = modifiers;
+  m_lockingModifiers = lockingModifiers;
   m_held = held;
 }
 
@@ -79,39 +81,44 @@ void CKey::Reset()
   m_repeat = 0.0f;
   m_fromService = false;
   m_buttonCode = KEY_INVALID;
+  m_keycode = 0;
   m_vkey = 0;
   m_unicode = 0;
   m_ascii = 0;
   m_modifiers = 0;
+  m_lockingModifiers = 0;
   m_held = 0;
 }
 
 CKey& CKey::operator=(const CKey& key)
 {
-  if (&key == this) return * this;
-  m_leftTrigger  = key.m_leftTrigger;
+  if (&key == this)
+    return *this;
+  m_leftTrigger = key.m_leftTrigger;
   m_rightTrigger = key.m_rightTrigger;
-  m_leftThumbX   = key.m_leftThumbX;
-  m_leftThumbY   = key.m_leftThumbY;
-  m_rightThumbX  = key.m_rightThumbX;
-  m_rightThumbY  = key.m_rightThumbY;
-  m_repeat       = key.m_repeat;
-  m_fromService  = key.m_fromService;
-  m_buttonCode   = key.m_buttonCode;
-  m_vkey         = key.m_vkey;
-  m_unicode     = key.m_unicode;
-  m_ascii       = key.m_ascii;
-  m_modifiers    = key.m_modifiers;
-  m_held         = key.m_held;
+  m_leftThumbX = key.m_leftThumbX;
+  m_leftThumbY = key.m_leftThumbY;
+  m_rightThumbX = key.m_rightThumbX;
+  m_rightThumbY = key.m_rightThumbY;
+  m_repeat = key.m_repeat;
+  m_fromService = key.m_fromService;
+  m_buttonCode = key.m_buttonCode;
+  m_keycode = key.m_keycode;
+  m_vkey = key.m_vkey;
+  m_unicode = key.m_unicode;
+  m_ascii = key.m_ascii;
+  m_modifiers = key.m_modifiers;
+  m_lockingModifiers = key.m_lockingModifiers;
+  m_held = key.m_held;
   return *this;
 }
 
-BYTE CKey::GetLeftTrigger() const
+uint8_t CKey::GetLeftTrigger() const
 {
   return m_leftTrigger;
 }
 
-BYTE CKey::GetRightTrigger() const
+uint8_t CKey::GetRightTrigger() const
 {
   return m_rightTrigger;
 }
@@ -144,7 +151,8 @@ bool CKey::FromKeyboard() const
 
 bool CKey::IsAnalogButton() const
 {
-  if ((GetButtonCode() > 261 && GetButtonCode() < 270) || (GetButtonCode() > 279 && GetButtonCode() < 284))
+  if ((GetButtonCode() > 261 && GetButtonCode() < 270) ||
+      (GetButtonCode() > 279 && GetButtonCode() < 284))
     return true;
 
   return false;
@@ -164,8 +172,8 @@ float CKey::GetRepeat() const
 
 void CKey::SetFromService(bool fromService)
 {
-  if (fromService && (m_buttonCode & KEY_ASCII))
-    m_unicode = m_buttonCode - KEY_ASCII;
-    
+  if (fromService && (m_buttonCode & KEY_VKEY))
+    m_unicode = m_buttonCode - KEY_VKEY;
+
   m_fromService = fromService;
 }

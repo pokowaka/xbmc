@@ -1,22 +1,12 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 /**
  * design goals:
@@ -36,28 +26,28 @@
  *   of locks needed.
  */
 
-#pragma once
-
+#include "cores/VideoPlayer/Buffers/VideoBuffer.h"
 #include "cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.h"
-#include "cores/VideoPlayer/Process/VideoBuffer.h"
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include "threads/CriticalSection.h"
-#include "threads/SharedSection.h"
-#include "settings/VideoSettings.h"
+#include "cores/VideoSettings.h"
 #include "guilib/DispResource.h"
+#include "threads/CriticalSection.h"
 #include "threads/Event.h"
+#include "threads/SharedSection.h"
 #include "threads/Thread.h"
 #include "utils/ActorProtocol.h"
-#include "guilib/Geometry.h"
+#include "utils/Geometry.h"
+
 #include <deque>
 #include <list>
 #include <map>
 #include <vector>
 
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+
 extern "C" {
-#include "libavutil/avutil.h"
-#include "libavcodec/vdpau.h"
+#include <libavutil/avutil.h>
+#include <libavcodec/vdpau.h>
 }
 
 class CProcessInfo;
@@ -174,6 +164,8 @@ struct CVdpauConfig
   bool useInteropYuv;
   CVDPAUContext *context;
   CProcessInfo *processInfo;
+  int resetCounter;
+  uint64_t timeOpened;
 };
 
 /**
@@ -231,7 +223,7 @@ struct CVdpauProcessedPicture
 class CVdpauRenderPicture : public CVideoBuffer
 {
 public:
-  CVdpauRenderPicture(int id) : CVideoBuffer(id) { }
+  explicit CVdpauRenderPicture(int id) : CVideoBuffer(id) { }
   VideoPicture DVDPic;
   CVdpauProcessedPicture procPic;
   int width;
@@ -239,6 +231,7 @@ public:
   CRect crop;
   void *device;
   void *procFunc;
+  int64_t ident;
 };
 
 //-----------------------------------------------------------------------------
@@ -285,7 +278,7 @@ public:
 class CMixer : private CThread
 {
 public:
-  CMixer(CEvent *inMsgEvent);
+  explicit CMixer(CEvent *inMsgEvent);
   ~CMixer() override;
   void Start();
   void Dispose();
@@ -451,6 +444,7 @@ public:
   VdpVideoSurface RemoveNext(bool skiprender = false);
   void Reset();
   int Size();
+  bool HasRefs();
 protected:
   std::map<VdpVideoSurface, int> m_state;
   std::list<VdpVideoSurface> m_freeSurfaces;
@@ -509,7 +503,7 @@ public:
     uint32_t aux; /* optional extra parameter... */
   };
 
-  CDecoder(CProcessInfo& processInfo);
+  explicit CDecoder(CProcessInfo& processInfo);
   ~CDecoder() override;
 
   bool Open (AVCodecContext* avctx, AVCodecContext* mainctx, const enum AVPixelFormat) override;
@@ -565,11 +559,11 @@ protected:
   CEvent m_DisplayEvent;
   int m_ErrorCount;
 
-  ThreadIdentifier m_decoderThread;
   bool m_vdpauConfigured;
   CVdpauConfig m_vdpauConfig;
   CVideoSurfaces m_videoSurfaces;
   AVVDPAUContext m_hwContext;
+  AVCodecContext* m_avctx = nullptr;
 
   COutput m_vdpauOutput;
   CVdpauBufferStats m_bufferStats;

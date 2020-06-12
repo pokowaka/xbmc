@@ -1,24 +1,13 @@
 /*
- *      Copyright (C) 2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2013-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "SettingConditions.h"
+
 #include "SettingDefinitions.h"
 #include "SettingsManager.h"
 #include "utils/StringUtils.h"
@@ -65,7 +54,7 @@ bool CSettingConditionCombination::Check() const
     const auto combination = std::static_pointer_cast<const CSettingConditionCombination>(operation);
     if (combination == nullptr)
       continue;
-    
+
     if (combination->Check())
       ok = true;
     else if (m_operation == BooleanLogicOperationAnd)
@@ -115,7 +104,7 @@ void CSettingConditionsManager::AddCondition(std::string condition)
   m_defines.insert(condition);
 }
 
-void CSettingConditionsManager::AddCondition(std::string identifier, SettingConditionCheck condition, void *data /*= nullptr*/)
+void CSettingConditionsManager::AddDynamicCondition(std::string identifier, SettingConditionCheck condition, void *data /*= nullptr*/)
 {
   if (identifier.empty() || condition == nullptr)
     return;
@@ -123,6 +112,18 @@ void CSettingConditionsManager::AddCondition(std::string identifier, SettingCond
   StringUtils::ToLower(identifier);
 
   m_conditions.emplace(identifier, std::make_pair(condition, data));
+}
+
+void CSettingConditionsManager::RemoveDynamicCondition(std::string identifier)
+{
+  if (identifier.empty())
+    return;
+
+  StringUtils::ToLower(identifier);
+
+  auto it = m_conditions.find(identifier);
+  if (it != m_conditions.end())
+    m_conditions.erase(it);
 }
 
 bool CSettingConditionsManager::Check(std::string condition, const std::string &value /* = "" */, std::shared_ptr<const CSetting> setting /* = nullptr */) const

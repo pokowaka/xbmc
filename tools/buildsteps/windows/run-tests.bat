@@ -5,7 +5,7 @@ REM setup all paths
 PUSHD %~dp0\..\..\..
 SET WORKSPACE=%CD%
 POPD
-cd %WORKSPACE%\kodi-build
+cd %WORKSPACE%\kodi-build.%TARGET_PLATFORM%
 SET builddeps_dir=%WORKSPACE%\project\BuildDependencies
 SET msys_dir=%builddeps_dir%\msys64
 IF NOT EXIST %msys_dir% (SET msys_dir=%builddeps_dir%\msys32)
@@ -23,13 +23,9 @@ rem -------------------------------------------------------------
 rem  CONFIG START
 SET exitcode=0
 SET useshell=sh
-SET BRANCH=na
 SET buildconfig=Release
 SET PreferredToolArchitecture=x64
 
-
-  :: sets the BRANCH env var
-  call getbranch.bat
 
   rem  CONFIG END
   rem -------------------------------------------------------------

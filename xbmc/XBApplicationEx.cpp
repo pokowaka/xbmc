@@ -1,45 +1,21 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
-#include "FileItem.h"
-#include "messaging/ApplicationMessenger.h"
-#include "PlayListPlayer.h"
 #include "XBApplicationEx.h"
-#include "utils/log.h"
-#include "threads/SystemClock.h"
-#ifdef HAS_PERFORMANCE_SAMPLE
-#include "utils/PerformanceSample.h"
-#else
-#define MEASURE_FUNCTION
-#endif
-#include "commons/Exception.h"
-#ifdef TARGET_POSIX
-#include "linux/XTimeUtils.h"
-#endif
-#include "AppParamParser.h"
 
-// Put this here for easy enable and disable
-#ifndef _DEBUG
-#define XBMC_TRACK_EXCEPTIONS
-#endif
+#include "AppParamParser.h"
+#include "FileItem.h"
+#include "PlayListPlayer.h"
+#include "commons/Exception.h"
+#include "messaging/ApplicationMessenger.h"
+#include "threads/SystemClock.h"
+#include "utils/XTimeUtils.h"
+#include "utils/log.h"
 
 CXBApplicationEx::CXBApplicationEx()
 {
@@ -53,25 +29,25 @@ CXBApplicationEx::CXBApplicationEx()
 CXBApplicationEx::~CXBApplicationEx() = default;
 
 /* Destroy the app */
-VOID CXBApplicationEx::Destroy()
+void CXBApplicationEx::Destroy()
 {
-  CLog::Log(LOGNOTICE, "destroy");
+  CLog::Log(LOGINFO, "XBApplicationEx: destroying...");
   // Perform app-specific cleanup
   Cleanup();
 }
 
 /* Function that runs the application */
-INT CXBApplicationEx::Run(const CAppParamParser &params)
+int CXBApplicationEx::Run(const CAppParamParser &params)
 {
-  CLog::Log(LOGNOTICE, "Running the application..." );
+  CLog::Log(LOGINFO, "Running the application...");
 
   unsigned int lastFrameTime = 0;
   unsigned int frameTime = 0;
   const unsigned int noRenderFrameTime = 15;  // Simulates ~66fps
 
-  if (params.Playlist().Size() > 0)
+  if (params.GetPlaylist().Size() > 0)
   {
-    CServiceBroker::GetPlaylistPlayer().Add(0, params.Playlist());
+    CServiceBroker::GetPlaylistPlayer().Add(0, params.GetPlaylist());
     CServiceBroker::GetPlaylistPlayer().SetCurrentPlaylist(0);
     KODI::MESSAGING::CApplicationMessenger::GetInstance().PostMsg(TMSG_PLAYLISTPLAYER_PLAY, -1);
   }
@@ -79,89 +55,32 @@ INT CXBApplicationEx::Run(const CAppParamParser &params)
   // Run xbmc
   while (!m_bStop)
   {
-#ifdef HAS_PERFORMANCE_SAMPLE
-    CPerformanceSample sampleLoop("XBApplicationEx-loop");
-#endif
     //-----------------------------------------
     // Animate and render a frame
     //-----------------------------------------
-#ifdef XBMC_TRACK_EXCEPTIONS
-    try
-    {
-#endif
-      lastFrameTime = XbmcThreads::SystemClockMillis();
-      Process();
-      //reset exception count
-#ifdef XBMC_TRACK_EXCEPTIONS
 
-    }
-    catch (const XbmcCommons::UncheckedException &e)
-    {
-      e.LogThrowMessage("CApplication::Process()");
-      throw;
-    }
-    catch (...)
-    {
-      CLog::Log(LOGERROR, "exception in CApplication::Process()");
-      throw;
-    }
-#endif
-    // Frame move the scene
-#ifdef XBMC_TRACK_EXCEPTIONS
-    try
-    {
-#endif
-      if (!m_bStop)
-      {
-        FrameMove(true, m_renderGUI);
-      }
+    lastFrameTime = XbmcThreads::SystemClockMillis();
+    Process();
 
-      //reset exception count
-#ifdef XBMC_TRACK_EXCEPTIONS
-    }
-    catch (const XbmcCommons::UncheckedException &e)
+    if (!m_bStop)
     {
-      e.LogThrowMessage("CApplication::FrameMove()");
-      throw;
+      FrameMove(true, m_renderGUI);
     }
-    catch (...)
-    {
-      CLog::Log(LOGERROR, "exception in CApplication::FrameMove()");
-      throw;
-    }
-#endif
 
-    // Render the scene
-#ifdef XBMC_TRACK_EXCEPTIONS
-    try
+    if (m_renderGUI && !m_bStop)
     {
-#endif
-      if (m_renderGUI && !m_bStop)
-      {
-        Render();
-      }
-      else if (!m_renderGUI)
-      {
-        frameTime = XbmcThreads::SystemClockMillis() - lastFrameTime;
-        if(frameTime < noRenderFrameTime)
-          Sleep(noRenderFrameTime - frameTime);
-      }
-#ifdef XBMC_TRACK_EXCEPTIONS
+      Render();
     }
-    catch (const XbmcCommons::UncheckedException &e)
+    else if (!m_renderGUI)
     {
-      e.LogThrowMessage("CApplication::Render()");
-      throw;
+      frameTime = XbmcThreads::SystemClockMillis() - lastFrameTime;
+      if(frameTime < noRenderFrameTime)
+        KODI::TIME::Sleep(noRenderFrameTime - frameTime);
     }
-    catch (...)
-    {
-      CLog::Log(LOGERROR, "exception in CApplication::Render()");
-      throw;
-    }
-#endif
-  } // while (!m_bStop)
+
+  }
   Destroy();
 
-  CLog::Log(LOGNOTICE, "application stopped..." );
+  CLog::Log(LOGINFO, "XBApplicationEx: application stopped!");
   return m_ExitCode;
 }

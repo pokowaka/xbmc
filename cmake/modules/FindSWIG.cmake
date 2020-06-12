@@ -3,12 +3,12 @@
 # --------
 # Finds the SWIG executable
 #
-# This will will define the following variables::
+# This will define the following variables::
 #
 # SWIG_FOUND - system has SWIG
 # SWIG_EXECUTABLE - the SWIG executable
 
-find_program(SWIG_EXECUTABLE NAMES swig3.0 swig2.0 swig
+find_program(SWIG_EXECUTABLE NAMES swig4.0 swig3.0 swig2.0 swig
                              PATH_SUFFIXES swig)
 if(SWIG_EXECUTABLE)
   execute_process(COMMAND ${SWIG_EXECUTABLE} -swiglib

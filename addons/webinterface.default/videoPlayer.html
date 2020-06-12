@@ -7,7 +7,7 @@
     <link href="lib/video-js/video-js.min.css" rel="stylesheet">
     <link href="lib/video-js/plugins/videojs-chromecast/videojs-chromecast.css?01217" rel="stylesheet">
 
-    <script src="lib/jquery/jquery-1.11.0.min.js"></script>
+    <script src="lib/jquery/jquery-3.5.1.min.js"></script>
     <script type="text/javascript" src="lib/video-js/plugins/videojs-chromecast/cast_sender.js"></script>
 
     <script>
@@ -120,9 +120,10 @@
             $player = $('<iframe>', {
                 width: width,
                 height: height,
-                src: 'https://www.youtube.com/embed/' + yt  + '?rel=0&amp;showinfo=0&amp;autoplay=1&iv_load_policy=3',
+                src: 'https://www.youtube.com/embed/' + yt  + '?rel=0&amp;showinfo=0&amp;autoplay=1&amp;iv_load_policy=3',
                 frameborder: 0,
-                allowfullscreen: 'allowfullscreen'
+                allowfullscreen: 'allowfullscreen',
+                allow: 'autoplay; encrypted-media'
             });
             $(document).ready(function(){
                $('#switch-player').empty();

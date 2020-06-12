@@ -1,29 +1,17 @@
-#pragma once
 /*
- *      Copyright (C) 2010-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2010-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include <list>
 #include <string>
 #include <vector>
 
-#include "system.h"
 #include "threads/Thread.h"
 
 #include "ActiveAESink.h"
@@ -36,20 +24,20 @@
 
 // ffmpeg
 extern "C" {
-#include "libavformat/avformat.h"
-#include "libavcodec/avcodec.h"
-#include "libavutil/avutil.h"
+#include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
+#include <libavutil/avutil.h>
 }
 
 class IAESink;
 class IAEEncoder;
-class CServiceManager;
 
 namespace ActiveAE
 {
 
 class CActiveAESound;
 class CActiveAEStream;
+class CActiveAESettings;
 
 struct AudioSettings
 {
@@ -66,7 +54,6 @@ struct AudioSettings
   bool stereoupmix;
   bool normalizelevels;
   bool passthrough;
-  bool dspaddonsenabled;
   int config;
   int guisoundmode;
   unsigned int samplerate;
@@ -86,6 +73,7 @@ public:
     RECONFIGURE,
     SUSPEND,
     DEVICECHANGE,
+    DEVICECOUNTCHANGE,
     MUTE,
     VOLUME,
     PAUSESTREAM,
@@ -144,6 +132,12 @@ struct MsgStreamNew
   IAEClockCallback *clock;
 };
 
+struct MsgStreamFree
+{
+  CActiveAEStream *stream;
+  bool finish; // if true switch back to gui sound mode
+};
+
 struct MsgStreamSample
 {
   CSampleBuffer *buffer;
@@ -197,15 +191,14 @@ public:
   void GetDelay(AEDelayStatus& status, CActiveAEStream *stream);
   void GetSyncInfo(CAESyncInfo& info, CActiveAEStream *stream);
   float GetCacheTime(CActiveAEStream *stream);
-  float GetCacheTotal(CActiveAEStream *stream);
+  float GetCacheTotal();
+  float GetMaxDelay() const;
   float GetWaterLevel();
   void SetSuspended(bool state);
-  void SetDSP(bool state);
   void SetCurrentSinkFormat(const AEAudioFormat& SinkFormat);
   void SetSinkCacheTotal(float time) { m_sinkCacheTotal = time; }
   void SetSinkLatency(float time) { m_sinkLatency = time; }
   bool IsSuspended();
-  bool HasDSP();
   AEAudioFormat GetCurrentSinkFormat();
 protected:
   float m_sinkCacheTotal;
@@ -214,7 +207,6 @@ protected:
   unsigned int m_sinkSampleRate;
   AEDelayStatus m_sinkDelay;
   bool m_suspended;
-  bool m_hasDSP;
   AEAudioFormat m_sinkFormat;
   bool m_pcmOutput;
   CCriticalSection m_lock;
@@ -233,40 +225,35 @@ protected:
 class CActiveAE : public IAE, public IDispResource, private CThread
 {
 protected:
-  friend class ::CServiceManager;
   friend class CActiveAESound;
   friend class CActiveAEStream;
   friend class CSoundPacket;
   friend class CActiveAEBufferPoolResample;
-  CActiveAE();
-  ~CActiveAE() override;
-  bool  Initialize() override;
 
 public:
+  CActiveAE();
+  ~CActiveAE() override;
+  void Start() override;
   void Shutdown() override;
   bool Suspend() override;
   bool Resume() override;
   bool IsSuspended() override;
-  void OnSettingsChange(const std::string& setting) override;
+  void OnSettingsChange();
 
   float GetVolume() override;
   void SetVolume(const float volume) override;
   void SetMute(const bool enabled) override;
   bool IsMuted() override;
-  void SetSoundMode(const int mode) override;
 
   /* returns a new stream for data in the specified format */
   IAEStream *MakeStream(AEAudioFormat &audioFormat, unsigned int options = 0, IAEClockCallback *clock = NULL) override;
-  bool FreeStream(IAEStream *stream) override;
+  bool FreeStream(IAEStream *stream, bool finish) override;
 
   /* returns a new sound object */
   IAESound *MakeSound(const std::string& file) override;
   void FreeSound(IAESound *sound) override;
 
-  void GarbageCollect() override {};
-
   void EnumerateOutputDevices(AEDeviceList &devices, bool passthrough) override;
-  std::string GetDefaultDevice(bool passthrough) override;
   bool SupportsRaw(AEAudioFormat &format) override;
   bool SupportsSilenceTimeout() override;
   bool HasStereoAudioChannelCount() override;
@@ -275,7 +262,7 @@ public:
   bool IsSettingVisible(const std::string &settingId) override;
   void KeepConfiguration(unsigned int millis) override;
   void DeviceChange() override;
-  bool HasDSP() override;
+  void DeviceCountChange(std::string driver) override;
   bool GetCurrentSinkFormat(AEAudioFormat &SinkFormat) override;
 
   void RegisterAudioCallback(IAudioCallback* pCallback) override;
@@ -292,7 +279,8 @@ protected:
   void GetDelay(AEDelayStatus& status, CActiveAEStream *stream) { m_stats.GetDelay(status, stream); }
   void GetSyncInfo(CAESyncInfo& info, CActiveAEStream *stream) { m_stats.GetSyncInfo(info, stream); }
   float GetCacheTime(CActiveAEStream *stream) { return m_stats.GetCacheTime(stream); }
-  float GetCacheTotal(CActiveAEStream *stream) { return m_stats.GetCacheTotal(stream); }
+  float GetCacheTotal() { return m_stats.GetCacheTotal(); }
+  float GetMaxDelay() { return m_stats.GetMaxDelay(); }
   void FlushStream(CActiveAEStream *stream);
   void PauseStream(CActiveAEStream *stream, bool pause);
   void StopSound(CActiveAESound *sound);
@@ -310,7 +298,6 @@ protected:
   bool InitSink();
   void DrainSink();
   void UnconfigureSink();
-  void Start();
   void Dispose();
   void LoadSettings();
   bool NeedReconfigureBuffers();
@@ -351,6 +338,8 @@ protected:
   unsigned int m_extKeepConfig;
   bool m_extDeferData;
   std::queue<time_t> m_extLastDeviceChange;
+  bool m_extSuspended = false;
+  bool m_isWinSysReg = false;
 
   enum
   {
@@ -369,6 +358,7 @@ protected:
   CEngineStats m_stats;
   IAEEncoder *m_encoder;
   std::string m_currDevice;
+  std::unique_ptr<CActiveAESettings> m_settingsHandler;
 
   // buffers
   CActiveAEBufferPoolResample *m_sinkBuffers;

@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2005-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "TextureManager.h"
@@ -25,8 +13,7 @@
 #include "addons/Skin.h"
 #include "filesystem/Directory.h"
 #include "filesystem/File.h"
-#include "GraphicContext.h"
-#include "system.h"
+#include "windowing/GraphicContext.h"
 #include "Texture.h"
 #include "threads/SingleLock.h"
 #include "threads/SystemClock.h"
@@ -39,9 +26,17 @@
 #include "utils/TimeUtils.h"
 #endif
 #if defined(TARGET_DARWIN_IOS)
-#include "windowing/WindowingFactory.h" // for g_Windowing in CGUITextureManager::FreeUnusedTextures
+#define WIN_SYSTEM_CLASS CWinSystemIOS
+#include "ServiceBroker.h"
+#include "windowing/ios/WinSystemIOS.h" // for g_Windowing in CGUITextureManager::FreeUnusedTextures
+#elif defined(TARGET_DARWIN_TVOS)
+#define WIN_SYSTEM_CLASS CWinSystemTVOS
+#include "ServiceBroker.h"
+#include "windowing/tvos/WinSystemTVOS.h" // for g_Windowing in CGUITextureManager::FreeUnusedTextures
 #endif
 #include "FFmpegImage.h"
+
+#include <inttypes.h>
 
 /************************************************************************/
 /*                                                                      */
@@ -107,7 +102,7 @@ void CTextureArray::Set(CBaseTexture *texture, int width, int height)
 
 void CTextureArray::Free()
 {
-  CSingleLock lock(g_graphicsContext);
+  CSingleLock lock(CServiceBroker::GetWinSystem()->GetGfxContext());
   for (unsigned int i = 0; i < m_textures.size(); i++)
   {
     delete m_textures[i];
@@ -197,7 +192,7 @@ void CTextureMap::FreeTexture()
 
 void CTextureMap::SetHeight(int height)
 {
-  m_texture.m_height = (int) height;
+  m_texture.m_height = height;
 }
 
 void CTextureMap::SetWidth(int height)
@@ -333,7 +328,7 @@ const CTextureArray& CGUITextureManager::Load(const std::string& strTextureName,
     return emptyTexture;
 
   //Lock here, we will do stuff that could break rendering
-  CSingleLock lock(g_graphicsContext);
+  CSingleLock lock(CServiceBroker::GetWinSystem()->GetGfxContext());
 
 #ifdef _DEBUG_TEXTURES
   int64_t start;
@@ -415,7 +410,7 @@ const CTextureArray& CGUITextureManager::Load(const std::string& strTextureName,
       if (pMap->GetMemoryUsage() <= maxMemoryUsage)
       {
         frame = anim.ReadFrame();
-      } 
+      }
       else
       {
         CLog::Log(LOGDEBUG, "Memory limit (%" PRIu64 " bytes) exceeded, %i frames extracted from file : %s", (maxMemoryUsage/11)*12,pMap->GetTexture().size(), CURL::GetRedacted(strPath).c_str());
@@ -472,7 +467,7 @@ const CTextureArray& CGUITextureManager::Load(const std::string& strTextureName,
 
 void CGUITextureManager::ReleaseTexture(const std::string& strTextureName, bool immediately /*= false */)
 {
-  CSingleLock lock(g_graphicsContext);
+  CSingleLock lock(CServiceBroker::GetWinSystem()->GetGfxContext());
 
   ivecTextures i;
   i = m_vecTextures.begin();
@@ -485,7 +480,7 @@ void CGUITextureManager::ReleaseTexture(const std::string& strTextureName, bool 
       {
         //CLog::Log(LOGINFO, "  cleanup:%s", strTextureName.c_str());
         // add to our textures to free
-        m_unusedTextures.push_back(std::make_pair(pMap, immediately ? 0 : XbmcThreads::SystemClockMillis()));
+        m_unusedTextures.emplace_back(pMap, immediately ? 0 : XbmcThreads::SystemClockMillis());
         i = m_vecTextures.erase(i);
       }
       return;
@@ -498,7 +493,7 @@ void CGUITextureManager::ReleaseTexture(const std::string& strTextureName, bool 
 void CGUITextureManager::FreeUnusedTextures(unsigned int timeDelay)
 {
   unsigned int currFrameTime = XbmcThreads::SystemClockMillis();
-  CSingleLock lock(g_graphicsContext);
+  CSingleLock lock(CServiceBroker::GetWinSystem()->GetGfxContext());
   for (ilistUnused i = m_unusedTextures.begin(); i != m_unusedTextures.end();)
   {
     if (currFrameTime - i->second >= timeDelay)
@@ -513,11 +508,12 @@ void CGUITextureManager::FreeUnusedTextures(unsigned int timeDelay)
 #if defined(HAS_GL) || defined(HAS_GLES)
   for (unsigned int i = 0; i < m_unusedHwTextures.size(); ++i)
   {
-  // on ios the hw textures might be deleted from the os
-  // when XBMC is backgrounded (e.x. for backgrounded music playback)
-  // sanity check before delete in that case.
-#if defined(TARGET_DARWIN_IOS)
-    if (!g_Windowing.IsBackgrounded() || glIsTexture(m_unusedHwTextures[i]))
+    // on ios/tvos the hw textures might be deleted from the os
+    // when XBMC is backgrounded (e.x. for backgrounded music playback)
+    // sanity check before delete in that case.
+#if defined(TARGET_DARWIN_EMBEDDED)
+    auto winSystem = dynamic_cast<WIN_SYSTEM_CLASS*>(CServiceBroker::GetWinSystem());
+    if (!winSystem->IsBackgrounded() || glIsTexture(m_unusedHwTextures[i]))
 #endif
       glDeleteTextures(1, (GLuint*) &m_unusedHwTextures[i]);
   }
@@ -527,13 +523,13 @@ void CGUITextureManager::FreeUnusedTextures(unsigned int timeDelay)
 
 void CGUITextureManager::ReleaseHwTexture(unsigned int texture)
 {
-  CSingleLock lock(g_graphicsContext);
+  CSingleLock lock(CServiceBroker::GetWinSystem()->GetGfxContext());
   m_unusedHwTextures.push_back(texture);
 }
 
 void CGUITextureManager::Cleanup()
 {
-  CSingleLock lock(g_graphicsContext);
+  CSingleLock lock(CServiceBroker::GetWinSystem()->GetGfxContext());
 
   ivecTextures i;
   i = m_vecTextures.begin();
@@ -544,7 +540,8 @@ void CGUITextureManager::Cleanup()
     delete pMap;
     i = m_vecTextures.erase(i);
   }
-
+  m_TexBundle[0].Close();
+  m_TexBundle[1].Close();
   m_TexBundle[0] = CTextureBundle(true);
   m_TexBundle[1] = CTextureBundle();
   FreeUnusedTextures();
@@ -564,7 +561,7 @@ void CGUITextureManager::Dump() const
 
 void CGUITextureManager::Flush()
 {
-  CSingleLock lock(g_graphicsContext);
+  CSingleLock lock(CServiceBroker::GetWinSystem()->GetGfxContext());
 
   ivecTextures i;
   i = m_vecTextures.begin();
@@ -628,9 +625,9 @@ std::string CGUITextureManager::GetTexturePath(const std::string &textureName, b
   else
   { // texture doesn't include the full path, so check all fallbacks
     CSingleLock lock(m_section);
-    for (std::vector<std::string>::iterator it = m_texturePaths.begin(); it != m_texturePaths.end(); ++it)
+    for (const std::string& it : m_texturePaths)
     {
-      std::string path = URIUtils::AddFileToFolder(it->c_str(), "media", textureName);
+      std::string path = URIUtils::AddFileToFolder(it.c_str(), "media", textureName);
       if (directory)
       {
         if (XFILE::CDirectory::Exists(path))

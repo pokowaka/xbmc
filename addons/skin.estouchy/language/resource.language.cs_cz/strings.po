@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: KODI Main\n"
-"Report-Msgid-Bugs-To: http://trac.kodi.tv/\n"
+"Report-Msgid-Bugs-To: https://github.com/xbmc/xbmc/issues/\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Kodi Translation Team\n"
@@ -42,7 +42,7 @@ msgstr "Místní nabídka"
 
 msgctxt "#31009"
 msgid "Working..."
-msgstr "Zpracovávání..."
+msgstr "Zpracovávání…"
 
 msgctxt "#31011"
 msgid "Recent"
@@ -56,13 +56,17 @@ msgctxt "#31014"
 msgid "Episodes"
 msgstr "Epizody"
 
+msgctxt "#31015"
+msgid "Player info"
+msgstr "Informace o hráči"
+
 msgctxt "#31016"
 msgid "Albums"
 msgstr "Alba"
 
 msgctxt "#31017"
 msgid "PVR info"
-msgstr "Informace o PVR"
+msgstr "Informace o nahrávače videa"
 
 msgctxt "#31018"
 msgid "Player process info"
@@ -96,6 +100,10 @@ msgctxt "#31039"
 msgid "Updated:"
 msgstr "Aktualizované:"
 
+msgctxt "#31043"
+msgid "PAUSED"
+msgstr "POZASTAVENO"
+
 msgctxt "#31044"
 msgid "FAST FORWARD"
 msgstr "PŘETÁČÍ SE VPŘED"
@@ -114,11 +122,11 @@ msgstr "Čas ukončení"
 
 msgctxt "#31050"
 msgid "Sort: Ascending"
-msgstr "Řazení: Vzestupně"
+msgstr "Řazení: vzestupně"
 
 msgctxt "#31051"
 msgid "Sort: Descending"
-msgstr "Řazení: Sestupně"
+msgstr "Řazení: sestupně"
 
 msgctxt "#31055"
 msgid "Open playlist"
@@ -206,7 +214,7 @@ msgstr "Konfigurujte a spravujte služby sdílení médií · Konfigurujte a spr
 
 msgctxt "#31406"
 msgid "Configure display · Configure audio · Configure internet access · Configure power saving· Configure logging"
-msgstr "Konfigurujte obrazovku · Konfigurujte zvuk · Konfigurujte přístup k internetu · Konfigurujte úsporu energie · Konfigurujte protokolování"
+msgstr "Nastavit obrazovku · Nastavit zvuk · Nastavit přístup k Internetu · Nastavit úsporu energie · Nastavit protokolování"
 
 msgctxt "#31407"
 msgid "Manage your installed add-ons · Browse for and install add-ons from kodi.tv · Modify add-on settings"
@@ -214,23 +222,23 @@ msgstr "Spravujte nainstalované doplňky · Procházejte a instalujte doplňky 
 
 msgctxt "#31408"
 msgid "Configure actions that can be used during playback · Configure how media content is played"
-msgstr "Konfigurujte akce, které mohou být použity během přehrávání · Konfigurujte způsob přehrávání médií"
+msgstr "Nastavit akce, které mohou být použity během přehrávání · Nastavit způsob přehrávání médií"
 
 msgctxt "#31409"
 msgid "Configure library sources · Show the media lists display content · Configure how library lists are navigated"
-msgstr "Konfigurujte zdroje knihovny · Upravte obsah zobrazení seznamu médií · Konfigurujte způsob navigace v seznamech knihovny"
+msgstr "Nastavit zdroje knihovny · Upravte obsah zobrazení seznamu médií · Nastavit způsob navigace v seznamech knihovny"
 
 msgctxt "#31410"
 msgid "Configure skin · Configure region · Configure control · Configure screensaver · Configure master lock"
-msgstr "Konfigurujte vzhled · Konfigurujte region · Konfigurujte ovládání · Konfigurujte spořič obrazovky · Konfigurujte hlavní zámek"
+msgstr "Nastavit vzhled · Nastavit region · Nastavit ovládání · Nastavit spořič obrazovky · Nastavit hlavní zámek"
 
 msgctxt "#31411"
 msgid "Configure your profiles · Set locking options · Enable login screen"
-msgstr "Konfigurujte své profily · Nastavte možnosti uzamknutí · Povolte přihlašovací obrazovku"
+msgstr "Nastavte si své profily · Nastavte možnosti uzamknutí · Povolte přihlašovací obrazovku"
 
 msgctxt "#31412"
 msgid "Display system information · Hardware statistics · Check storage availability · View network configuration"
-msgstr "Zobrazte informace o systému · Hardwarové statistiky · Zkontrolujte dostupnost úložiště · Zobrazte konfiguraci sítě"
+msgstr "Zobrazit informace o systému · Hardwarové statistiky · Zkontrolovat dostupnost úložiště · Zobrazit nastavení sítě"
 
 msgctxt "#31421"
 msgid "Select your Kodi user Profile[CR]to login and continue"
@@ -266,7 +274,7 @@ msgstr "Pozadí:"
 
 msgctxt "#31555"
 msgid "Configure TV settings · Change full screen info · Manage EPG data settings"
-msgstr "Konfigurujte nastavení TV · Změňte informace na celé obrazovce · Spravujte data televizního programu"
+msgstr "Nastavit televizi · Změnit informace na celé obrazovce · Správa nastavení data televizního programu"
 
 msgctxt "#31556"
 msgid "Live TV"
@@ -318,7 +326,7 @@ msgstr "O navigování v Estouchy byste měli vědět dvě věci "
 
 msgctxt "#31902"
 msgid "The Kodi logo functions as a 'HOME' button. Whenever you touch it, you will be taken back to the home screen."
-msgstr "Logo Kodi slouží jako tlačítko 'DOMŮ'. Kdykoliv se ho dotknete, přepnete se zpět na domovskou obrazovku."
+msgstr "Logo Kodi slouží jako tlačítko „DOMŮ“. Kdykoliv se ho dotknete, přepnete se zpět na domovskou obrazovku."
 
 msgctxt "#31903"
 msgid "When you are playing audio or video, the item title will appear at the top of the screen. Touching it will take you to the fullscreen visualization or video window."
@@ -326,4 +334,4 @@ msgstr "Když přehráváte hudbu nebo video, objeví se na horním okraji obraz
 
 msgctxt "#31904"
 msgid "Now Playing Title..."
-msgstr "Nyní se přehrává..."
+msgstr "Nyní je přehráváno…"

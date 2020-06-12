@@ -1,29 +1,34 @@
 /*
- *      Copyright (C) 2007-2015 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2007-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
 
-#include "system.h"
-
-#include "cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h"
 #include "VaapiEGL.h"
+#include "cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h"
+
+#include <array>
+#include <memory>
+
+namespace KODI
+{
+namespace UTILS
+{
+namespace EGL
+{
+class CEGLFence;
+}
+}
+}
+
+namespace VAAPI
+{
+class IVaapiWinSystem;
+}
 
 class CRendererVAAPI : public CLinuxRendererGLES
 {
@@ -32,18 +37,14 @@ public:
   ~CRendererVAAPI() override;
 
   static CBaseRenderer* Create(CVideoBuffer *buffer);
-  static void Register(VADisplay vaDpy, EGLDisplay eglDisplay, bool &general, bool &hevc);
+  static void Register(VAAPI::IVaapiWinSystem *winSystem, VADisplay vaDpy, EGLDisplay eglDisplay, bool &general, bool &deepColor);
 
-  bool Configure(const VideoPicture &picture, float fps, unsigned flags, unsigned int orientation) override;
+  bool Configure(const VideoPicture &picture, float fps, unsigned int orientation) override;
 
   // Player functions
   bool ConfigChanged(const VideoPicture &picture) override;
   void ReleaseBuffer(int idx) override;
   bool NeedBuffer(int idx) override;
-
-  // Feature support
-  bool Supports(ERENDERFEATURE feature) override;
-  bool Supports(ESCALINGMETHOD method) override;
 
 protected:
   bool LoadShadersHook() override;
@@ -58,6 +59,7 @@ protected:
   EShaderFormat GetShaderFormat() override;
 
   bool m_isVAAPIBuffer = true;
-  VAAPI::CVaapiTexture m_vaapiTextures[NUM_BUFFERS];
-  GLsync m_fences[NUM_BUFFERS];
+  std::unique_ptr<VAAPI::CVaapiTexture> m_vaapiTextures[NUM_BUFFERS];
+  std::array<std::unique_ptr<KODI::UTILS::EGL::CEGLFence>, NUM_BUFFERS> m_fences;
+  static VAAPI::IVaapiWinSystem *m_pWinSystem;
 };

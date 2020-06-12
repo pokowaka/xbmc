@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2017 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
@@ -25,9 +13,9 @@
 #include "../StreamCodec.h"
 
 #ifdef BUILD_KODI_ADDON
-#include "../DVDDemuxPacket.h"
+#include "../DemuxPacket.h"
 #else
-#include "cores/VideoPlayer/DVDDemuxers/DVDDemuxPacket.h"
+#include "cores/VideoPlayer/Interface/Addon/DemuxPacket.h"
 #endif
 
 namespace kodi { namespace addon { class CInstanceVideoCodec; } }
@@ -53,12 +41,12 @@ extern "C"
     } codec;
 
     STREAMCODEC_PROFILE codecProfile;
-    
+
     //UnknownVideoFormat is terminator
     VIDEOCODEC_FORMAT *videoFormats;
 
     uint32_t width, height;
-    
+
     const uint8_t *extraData;
     unsigned int extraDataSize;
 
@@ -92,7 +80,7 @@ extern "C"
 
     int64_t pts;
 
-    void *buffer; //< will be passed in release_frame_buffer
+    KODI_HANDLE buffer; //< will be passed in release_frame_buffer
   };
 
   enum VIDEOCODEC_RETVAL
@@ -158,8 +146,10 @@ namespace kodi
     class CInstanceVideoCodec : public IAddonInstance
     {
     public:
-      CInstanceVideoCodec(KODI_HANDLE instance)
-        : IAddonInstance(ADDON_INSTANCE_VIDEOCODEC)
+      explicit CInstanceVideoCodec(KODI_HANDLE instance, const std::string& kodiVersion = "")
+        : IAddonInstance(ADDON_INSTANCE_VIDEOCODEC,
+                         !kodiVersion.empty() ? kodiVersion
+                                              : GetKodiTypeVersion(ADDON_INSTANCE_VIDEOCODEC))
       {
         if (CAddonBase::m_interface->globalSingleInstance != nullptr)
           throw std::logic_error("kodi::addon::CInstanceVideoCodec: Creation of multiple together with single instance way is not allowed!");

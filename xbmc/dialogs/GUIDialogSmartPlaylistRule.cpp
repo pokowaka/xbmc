@@ -1,40 +1,31 @@
 /*
- *      Copyright (C) 2005-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIDialogSmartPlaylistRule.h"
-#include "ServiceBroker.h"
-#include "GUIDialogFileBrowser.h"
-#include "music/MusicDatabase.h"
-#include "video/VideoDatabase.h"
-#include "guilib/GUIWindowManager.h"
-#include "GUIDialogSelect.h"
-#include "filesystem/Directory.h"
+
 #include "FileItem.h"
+#include "GUIDialogFileBrowser.h"
+#include "GUIDialogSelect.h"
+#include "ServiceBroker.h"
+#include "filesystem/Directory.h"
+#include "guilib/GUIComponent.h"
 #include "guilib/GUIEditControl.h"
+#include "guilib/GUIWindowManager.h"
 #include "guilib/LocalizeStrings.h"
+#include "music/MusicDatabase.h"
 #include "settings/MediaSourceSettings.h"
+#include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
 #include "storage/MediaManager.h"
 #include "utils/LabelFormatter.h"
 #include "utils/StringUtils.h"
-#include "settings/Settings.h"
 #include "utils/Variant.h"
+#include "video/VideoDatabase.h"
 
 #include <utility>
 
@@ -158,6 +149,17 @@ void CGUIDialogSmartPlaylistRule::OnBrowse()
     }
     iLabel = 515;
   }
+  else if (m_rule.m_field == FieldSource)
+  {
+    if (m_type == "songs" ||
+      m_type == "albums" ||
+      m_type == "artists" ||
+      m_type == "mixed")
+    {
+      database.GetSourcesNav("musicdb://sources/", items);
+      iLabel = 39030;
+    }
+  }
   else if (m_rule.m_field == FieldRole)
   {
     if (m_type == "artists" || m_type == "mixed")
@@ -213,6 +215,11 @@ void CGUIDialogSmartPlaylistRule::OnBrowse()
       items.Append(items2);
     }
     iLabel = 562;
+  }
+  else if (m_rule.m_field == FieldOrigYear)
+  {
+    database.GetYearsNav("musicdb://originalyears/", items);
+    iLabel = 38078;
   }
   else if (m_rule.m_field == FieldDirector)
   {
@@ -309,8 +316,8 @@ void CGUIDialogSmartPlaylistRule::OnBrowse()
       VECSOURCES sources2 = *CMediaSourceSettings::GetInstance().GetSources("video");
       sources.insert(sources.end(),sources2.begin(),sources2.end());
     }
-    g_mediaManager.GetLocalDrives(sources);
-    
+    CServiceBroker::GetMediaManager().GetLocalDrives(sources);
+
     std::string path = m_rule.GetParameter();
     CGUIDialogFileBrowser::ShowAndGetDirectory(sources, g_localizeStrings.Get(657), path, false);
     if (!m_rule.m_parameter.empty())
@@ -346,9 +353,9 @@ void CGUIDialogSmartPlaylistRule::OnBrowse()
   }
 
   // sort the items
-  items.Sort(SortByLabel, SortOrderAscending, CServiceBroker::GetSettings().GetBool(CSettings::SETTING_FILELISTS_IGNORETHEWHENSORTING) ? SortAttributeIgnoreArticle : SortAttributeNone);
+  items.Sort(SortByLabel, SortOrderAscending, CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_FILELISTS_IGNORETHEWHENSORTING) ? SortAttributeIgnoreArticle : SortAttributeNone);
 
-  CGUIDialogSelect* pDialog = g_windowManager.GetWindow<CGUIDialogSelect>(WINDOW_DIALOG_SELECT);
+  CGUIDialogSelect* pDialog = CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogSelect>(WINDOW_DIALOG_SELECT);
   pDialog->Reset();
   pDialog->SetItems(items);
   std::string strHeading = StringUtils::Format(g_localizeStrings.Get(13401).c_str(), g_localizeStrings.Get(iLabel).c_str());
@@ -437,7 +444,7 @@ void CGUIDialogSmartPlaylistRule::OnCancel()
 void CGUIDialogSmartPlaylistRule::OnField()
 {
   const auto fields = CSmartPlaylistRule::GetFields(m_type);
-  CGUIDialogSelect* dialog = g_windowManager.GetWindow<CGUIDialogSelect>(WINDOW_DIALOG_SELECT);
+  CGUIDialogSelect* dialog = CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogSelect>(WINDOW_DIALOG_SELECT);
   dialog->Reset();
   dialog->SetHeading(CVariant{20427});
   int selected = -1;
@@ -472,7 +479,7 @@ void CGUIDialogSmartPlaylistRule::OnField()
 void CGUIDialogSmartPlaylistRule::OnOperator()
 {
   const auto labels = GetValidOperators(m_rule);
-  CGUIDialogSelect* dialog = g_windowManager.GetWindow<CGUIDialogSelect>(WINDOW_DIALOG_SELECT);
+  CGUIDialogSelect* dialog = CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogSelect>(WINDOW_DIALOG_SELECT);
   dialog->Reset();
   dialog->SetHeading(CVariant{ 16023 });
   for (auto label : labels)
@@ -483,7 +490,7 @@ void CGUIDialogSmartPlaylistRule::OnOperator()
   // check if selection has changed
   if (!dialog->IsConfirmed() || newSelected < 0)
     return;
- 
+
   m_rule.m_operator = (CDatabaseQueryRule::SEARCH_OPERATOR)std::get<1>(labels[newSelected]);
   UpdateButtons();
 }
@@ -554,7 +561,7 @@ void CGUIDialogSmartPlaylistRule::OnDeinitWindow(int nextWindowID)
 
 bool CGUIDialogSmartPlaylistRule::EditRule(CSmartPlaylistRule &rule, const std::string& type)
 {
-  CGUIDialogSmartPlaylistRule *editor = g_windowManager.GetWindow<CGUIDialogSmartPlaylistRule>(WINDOW_DIALOG_SMART_PLAYLIST_RULE);
+  CGUIDialogSmartPlaylistRule *editor = CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogSmartPlaylistRule>(WINDOW_DIALOG_SMART_PLAYLIST_RULE);
   if (!editor) return false;
 
   editor->m_rule = rule;

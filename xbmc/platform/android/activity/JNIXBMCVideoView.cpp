@@ -1,36 +1,23 @@
 /*
- *      Copyright (C) 2016 Christian Browet
- *      http://xbmc.org
+ *  Copyright (C) 2016 Christian Browet
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "JNIXBMCVideoView.h"
 
-#include <androidjni/jutils-details.hpp>
-#include <androidjni/Context.h>
-
+#include "CompileInfo.h"
 #include "utils/StringUtils.h"
 #include "utils/log.h"
 
-#include <list>
 #include <algorithm>
 #include <cassert>
+#include <list>
 
-#include "CompileInfo.h"
+#include <androidjni/Context.h>
+#include <androidjni/jutils-details.hpp>
 
 using namespace jni;
 
@@ -41,7 +28,7 @@ void CJNIXBMCVideoView::RegisterNatives(JNIEnv* env)
   jclass cClass = env->FindClass(s_className.c_str());
   if(cClass)
   {
-    JNINativeMethod methods[] = 
+    JNINativeMethod methods[] =
     {
       {"_surfaceChanged", "(Landroid/view/SurfaceHolder;III)V", (void*)&CJNIXBMCVideoView::_surfaceChanged},
       {"_surfaceCreated", "(Landroid/view/SurfaceHolder;)V", (void*)&CJNIXBMCVideoView::_surfaceCreated},
@@ -52,22 +39,9 @@ void CJNIXBMCVideoView::RegisterNatives(JNIEnv* env)
   }
 }
 
-CJNIXBMCVideoView::CJNIXBMCVideoView()
-  : m_callback(nullptr)
-  , m_surfaceCreated(nullptr)
-{
-}
-
 CJNIXBMCVideoView::CJNIXBMCVideoView(const jni::jhobject &object)
   : CJNIBase(object)
-  , m_callback(nullptr)
-  , m_surfaceCreated(nullptr)
 {
-}
-
-CJNIXBMCVideoView::~CJNIXBMCVideoView()
-{
-  delete m_surfaceCreated;
 }
 
 CJNIXBMCVideoView* CJNIXBMCVideoView::createVideoView(CJNISurfaceHolderCallback* callback)
@@ -85,9 +59,8 @@ CJNIXBMCVideoView* CJNIXBMCVideoView::createVideoView(CJNISurfaceHolderCallback*
 
   add_instance(pvw->get_raw(), pvw);
   pvw->m_callback = callback;
-  pvw->m_surfaceCreated = new CEvent;
   if (pvw->isCreated())
-    pvw->m_surfaceCreated->Set();
+    pvw->m_surfaceCreated.Set();
   pvw->add();
 
   return pvw;
@@ -97,27 +70,27 @@ void CJNIXBMCVideoView::_surfaceChanged(JNIEnv *env, jobject thiz, jobject holde
 {
   (void)env;
 
-  CJNIXBMCVideoView *inst = find_instance(jhobject(thiz));
+  CJNIXBMCVideoView *inst = find_instance(thiz);
   if (inst)
-    inst->surfaceChanged(CJNISurfaceHolder(jhobject(holder)), format, width, height);
+    inst->surfaceChanged(CJNISurfaceHolder(jhobject::fromJNI(holder)), format, width, height);
 }
 
 void CJNIXBMCVideoView::_surfaceCreated(JNIEnv* env, jobject thiz, jobject holder)
 {
   (void)env;
 
-  CJNIXBMCVideoView *inst = find_instance(jhobject(thiz));
+  CJNIXBMCVideoView *inst = find_instance(thiz);
   if (inst)
-    inst->surfaceCreated(CJNISurfaceHolder(jhobject(holder)));
+    inst->surfaceCreated(CJNISurfaceHolder(jhobject::fromJNI(holder)));
 }
 
 void CJNIXBMCVideoView::_surfaceDestroyed(JNIEnv* env, jobject thiz, jobject holder)
 {
   (void)env;
 
-  CJNIXBMCVideoView *inst = find_instance(jhobject(thiz));
+  CJNIXBMCVideoView *inst = find_instance(thiz);
   if (inst)
-    inst->surfaceDestroyed(CJNISurfaceHolder(jhobject(holder)));
+    inst->surfaceDestroyed(CJNISurfaceHolder(jhobject::fromJNI(holder)));
 }
 
 void CJNIXBMCVideoView::surfaceChanged(CJNISurfaceHolder holder, int format, int width, int height)
@@ -128,23 +101,21 @@ void CJNIXBMCVideoView::surfaceChanged(CJNISurfaceHolder holder, int format, int
 
 void CJNIXBMCVideoView::surfaceCreated(CJNISurfaceHolder holder)
 {
-  if (m_surfaceCreated)
-    m_surfaceCreated->Set();
   if (m_callback)
     m_callback->surfaceCreated(holder);
+  m_surfaceCreated.Set();
 }
 
 void CJNIXBMCVideoView::surfaceDestroyed(CJNISurfaceHolder holder)
 {
-  if (m_surfaceCreated)
-    m_surfaceCreated->Reset();
+  m_surfaceCreated.Reset();
   if (m_callback)
     m_callback->surfaceDestroyed(holder);
 }
 
 bool CJNIXBMCVideoView::waitForSurface(unsigned int millis)
 {
-  return m_surfaceCreated->WaitMSec(millis);
+  return m_surfaceCreated.WaitMSec(millis);
 }
 
 void CJNIXBMCVideoView::add()

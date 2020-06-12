@@ -1,30 +1,15 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 %module(directors="1") xbmcgui
 
 %{
-#if defined(TARGET_WINDOWS) || defined(TARGET_WIN10)
-#  if !defined(WIN32_LEAN_AND_MEAN)
-#    define WIN32_LEAN_AND_MEAN
-#  endif
+#if defined(TARGET_WINDOWS)
 #  include <windows.h>
 #endif
 
@@ -35,19 +20,19 @@
 #include "interfaces/legacy/WindowDialog.h"
 #include "interfaces/legacy/Dialog.h"
 #include "interfaces/legacy/WindowXML.h"
-#include "input/ActionIDs.h"
+#include "input/actions/ActionIDs.h"
 #include "input/Key.h"
 
 using namespace XBMCAddon;
 using namespace xbmcgui;
 
-#if defined(__GNUG__) && (__GNUC__>4) || (__GNUC__==4 && __GNUC_MINOR__>=2)
+#if defined(__GNUG__)
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif
 
 %}
 
-// This is all about warning suppression. It's OK that these base classes are 
+// This is all about warning suppression. It's OK that these base classes are
 // not part of what swig parses.
 %feature("knownbasetypes") XBMCAddon::xbmcgui "AddonClass,AddonCallback"
 
@@ -64,8 +49,6 @@ using namespace xbmcgui;
 
 %include "interfaces/legacy/ListItem.h"
 
-%feature("python:coerceToUnicode") XBMCAddon::xbmcgui::ControlButton::getLabel "true"
-%feature("python:coerceToUnicode") XBMCAddon::xbmcgui::ControlButton::getLabel2 "true"
 %include "interfaces/legacy/Control.h"
 
 %include "interfaces/legacy/Dialog.h"
@@ -124,5 +107,5 @@ using namespace xbmcgui;
 
 %include "interfaces/legacy/WindowXML.h"
 
-%include "input/ActionIDs.h"
+%include "input/actions/ActionIDs.h"
 %include "input/Key.h"

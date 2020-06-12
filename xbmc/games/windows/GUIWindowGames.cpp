@@ -1,42 +1,32 @@
 /*
- *      Copyright (C) 2012-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2012-2020 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIWindowGames.h"
-#include "addons/GUIDialogAddonInfo.h"
+
 #include "Application.h"
+#include "FileItem.h"
+#include "GUIPassword.h"
+#include "PlayListPlayer.h"
+#include "ServiceBroker.h"
+#include "URL.h"
+#include "Util.h"
+#include "addons/GUIDialogAddonInfo.h"
 #include "dialogs/GUIDialogContextMenu.h"
 #include "dialogs/GUIDialogMediaSource.h"
 #include "dialogs/GUIDialogProgress.h"
-#include "FileItem.h"
-#include "games/tags/GameInfoTag.h"
 #include "games/addons/GameClient.h"
-#include "games/addons/savestates/SavestateDatabase.h"
+#include "guilib/GUIComponent.h"
 #include "guilib/GUIWindowManager.h"
 #include "guilib/WindowIDs.h"
-#include "GUIPassword.h"
-#include "input/Key.h"
-#include "ServiceBroker.h"
+#include "media/MediaLockState.h"
 #include "settings/MediaSourceSettings.h"
 #include "settings/Settings.h"
-#include "URL.h"
-#include "Util.h"
+#include "settings/SettingsComponent.h"
 #include "utils/StringUtils.h"
 #include "utils/URIUtils.h"
 
@@ -45,13 +35,11 @@
 using namespace KODI;
 using namespace GAME;
 
-#define CONTROL_BTNVIEWASICONS      2
-#define CONTROL_BTNSORTBY           3
-#define CONTROL_BTNSORTASC          4
+#define CONTROL_BTNVIEWASICONS 2
+#define CONTROL_BTNSORTBY 3
+#define CONTROL_BTNSORTASC 4
 
-CGUIWindowGames::CGUIWindowGames() :
-  CGUIMediaWindow(WINDOW_GAMES, "MyGames.xml"),
-  m_dlgProgress(nullptr)
+CGUIWindowGames::CGUIWindowGames() : CGUIMediaWindow(WINDOW_GAMES, "MyGames.xml")
 {
 }
 
@@ -68,7 +56,8 @@ bool CGUIWindowGames::OnMessage(CGUIMessage& message)
         message.SetStringParam(CMediaSourceSettings::GetInstance().GetDefaultSource("games"));
 
       //! @todo
-      m_dlgProgress = g_windowManager.GetWindow<CGUIDialogProgress>(WINDOW_DIALOG_PROGRESS);
+      m_dlgProgress = CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogProgress>(
+          WINDOW_DIALOG_PROGRESS);
 
       break;
     }
@@ -86,7 +75,7 @@ bool CGUIWindowGames::OnMessage(CGUIMessage& message)
 
 bool CGUIWindowGames::OnClickMsg(int controlId, int actionId)
 {
-  if (!m_viewControl.HasControl(controlId))  // list/thumb control
+  if (!m_viewControl.HasControl(controlId)) // list/thumb control
     return false;
 
   const int iItem = m_viewControl.GetSelectedItem();
@@ -97,36 +86,37 @@ bool CGUIWindowGames::OnClickMsg(int controlId, int actionId)
 
   switch (actionId)
   {
-  case ACTION_DELETE_ITEM:
-  {
-    // Is delete allowed?
-    if (CServiceBroker::GetSettings().GetBool(CSettings::SETTING_FILELISTS_ALLOWFILEDELETION))
+    case ACTION_DELETE_ITEM:
     {
-      OnDeleteItem(iItem);
-      return true;
-    }
-    break;
-  }
-  case ACTION_PLAYER_PLAY:
-  {
-    if (OnClick(iItem))
-      return true;
-    break;
-  }
-  case ACTION_SHOW_INFO:
-  {
-    if (!m_vecItems->IsPlugin())
-    {
-      if (pItem->HasAddonInfo())
+      // Is delete allowed?
+      if (CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(
+              CSettings::SETTING_FILELISTS_ALLOWFILEDELETION))
       {
-        CGUIDialogAddonInfo::ShowForItem(pItem);
+        OnDeleteItem(iItem);
         return true;
       }
+      break;
     }
-    break;
-  }
-  default:
-    break;
+    case ACTION_PLAYER_PLAY:
+    {
+      if (OnClick(iItem))
+        return true;
+      break;
+    }
+    case ACTION_SHOW_INFO:
+    {
+      if (!m_vecItems->IsPlugin())
+      {
+        if (pItem->HasAddonInfo())
+        {
+          CGUIDialogAddonInfo::ShowForItem(pItem);
+          return true;
+        }
+      }
+      break;
+    }
+    default:
+      break;
   }
 
   return false;
@@ -146,7 +136,7 @@ void CGUIWindowGames::SetupShares()
   m_rootDir.SetFlags(XFILE::DIR_FLAG_NO_FILE_DIRS);
 }
 
-bool CGUIWindowGames::OnClick(int iItem, const std::string &player /* = "" */)
+bool CGUIWindowGames::OnClick(int iItem, const std::string& player /* = "" */)
 {
   CFileItemPtr item = m_vecItems->Get(iItem);
   if (item)
@@ -178,7 +168,7 @@ bool CGUIWindowGames::OnClick(int iItem, const std::string &player /* = "" */)
   return CGUIMediaWindow::OnClick(iItem, player);
 }
 
-void CGUIWindowGames::GetContextButtons(int itemNumber, CContextButtons &buttons)
+void CGUIWindowGames::GetContextButtons(int itemNumber, CContextButtons& buttons)
 {
   CFileItemPtr item = m_vecItems->Get(itemNumber);
 
@@ -186,7 +176,7 @@ void CGUIWindowGames::GetContextButtons(int itemNumber, CContextButtons &buttons
   {
     if (m_vecItems->IsVirtualDirectoryRoot() || m_vecItems->IsSourcesPath())
     {
-      // Context buttons for a sources path, like "Add source", "Remove Source", etc.
+      // Context buttons for a sources path, like "Add Source", "Remove Source", etc.
       CGUIDialogContextMenu::GetContextButtons("games", item, buttons);
     }
     else
@@ -196,7 +186,9 @@ void CGUIWindowGames::GetContextButtons(int itemNumber, CContextButtons &buttons
         buttons.Add(CONTEXT_BUTTON_PLAY_ITEM, 208); // Play
       }
 
-      if (CServiceBroker::GetSettings().GetBool(CSettings::SETTING_FILELISTS_ALLOWFILEDELETION) && !item->IsReadOnly())
+      if (CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(
+              CSettings::SETTING_FILELISTS_ALLOWFILEDELETION) &&
+          !item->IsReadOnly())
       {
         buttons.Add(CONTEXT_BUTTON_DELETE, 117);
         buttons.Add(CONTEXT_BUTTON_RENAME, 118);
@@ -222,20 +214,20 @@ bool CGUIWindowGames::OnContextButton(int itemNumber, CONTEXT_BUTTON button)
     }
     switch (button)
     {
-    case CONTEXT_BUTTON_PLAY_ITEM:
-      PlayGame(*item);
-      return true;
-    case CONTEXT_BUTTON_INFO:
-      CGUIDialogAddonInfo::ShowForItem(item);
-      return true;
-    case CONTEXT_BUTTON_DELETE:
-      OnDeleteItem(itemNumber);
-      return true;
-    case CONTEXT_BUTTON_RENAME:
-      OnRenameItem(itemNumber);
-      return true;
-    default:
-      break;
+      case CONTEXT_BUTTON_PLAY_ITEM:
+        PlayGame(*item);
+        return true;
+      case CONTEXT_BUTTON_INFO:
+        CGUIDialogAddonInfo::ShowForItem(item);
+        return true;
+      case CONTEXT_BUTTON_DELETE:
+        OnDeleteItem(itemNumber);
+        return true;
+      case CONTEXT_BUTTON_RENAME:
+        OnRenameItem(itemNumber);
+        return true;
+      default:
+        break;
     }
   }
   return CGUIMediaWindow::OnContextButton(itemNumber, button);
@@ -246,7 +238,7 @@ bool CGUIWindowGames::OnAddMediaSource()
   return CGUIDialogMediaSource::ShowAndAddMediaSource("games");
 }
 
-bool CGUIWindowGames::GetDirectory(const std::string &strDirectory, CFileItemList& items)
+bool CGUIWindowGames::GetDirectory(const std::string& strDirectory, CFileItemList& items)
 {
   if (!CGUIMediaWindow::GetDirectory(strDirectory, items))
     return false;
@@ -256,7 +248,8 @@ bool CGUIWindowGames::GetDirectory(const std::string &strDirectory, CFileItemLis
   if (items.GetLabel().empty())
   {
     std::string source;
-    if (m_rootDir.IsSource(items.GetPath(), CMediaSourceSettings::GetInstance().GetSources("games"), &source))
+    if (m_rootDir.IsSource(items.GetPath(), CMediaSourceSettings::GetInstance().GetSources("games"),
+                           &source))
       label = std::move(source);
   }
 
@@ -268,7 +261,7 @@ bool CGUIWindowGames::GetDirectory(const std::string &strDirectory, CFileItemLis
   if (items.GetContent().empty())
   {
     if (!items.IsVirtualDirectoryRoot() && // Don't set content for root directory
-        !items.IsPlugin())                 // Don't set content for plugins
+        !items.IsPlugin()) // Don't set content for plugins
     {
       content = "games";
     }
@@ -277,15 +270,21 @@ bool CGUIWindowGames::GetDirectory(const std::string &strDirectory, CFileItemLis
   if (!content.empty())
     items.SetContent(content);
 
+  // Ensure a game info tag is created so that files are recognized as games
+  for (const CFileItemPtr& item : items)
+  {
+    if (!item->m_bIsFolder)
+      item->GetGameInfoTag();
+  }
+
   return true;
 }
 
-std::string CGUIWindowGames::GetStartFolder(const std::string &dir)
+std::string CGUIWindowGames::GetStartFolder(const std::string& dir)
 {
   // From CGUIWindowPictures::GetStartFolder()
 
-  if (StringUtils::EqualsNoCase(dir, "plugins") ||
-      StringUtils::EqualsNoCase(dir, "addons"))
+  if (StringUtils::EqualsNoCase(dir, "plugins") || StringUtils::EqualsNoCase(dir, "addons"))
   {
     return "addons://sources/game/";
   }
@@ -297,7 +296,7 @@ std::string CGUIWindowGames::GetStartFolder(const std::string &dir)
   int iIndex = CUtil::GetMatchingSource(dir, shares, bIsSourceName);
   if (iIndex >= 0)
   {
-    if (iIndex < (int)shares.size() && shares[iIndex].m_iHasLock == 2)
+    if (iIndex < static_cast<int>(shares.size()) && shares[iIndex].m_iHasLock == LOCK_STATE_LOCKED)
     {
       CFileItem item(shares[iIndex]);
       if (!g_passwordManager.IsItemUnlocked(&item, "games"))
@@ -324,7 +323,8 @@ void CGUIWindowGames::OnItemInfo(int itemNumber)
 
   //! @todo
   /*
-  CGUIDialogGameInfo* gameInfo = g_windowManager.GetWindow<CGUIDialogGameInfo>(WINDOW_DIALOG_PICTURE_INFO);
+  CGUIDialogGameInfo* gameInfo =
+  CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogGameInfo>(WINDOW_DIALOG_PICTURE_INFO);
   if (gameInfo)
   {
     gameInfo->SetGame(item);
@@ -333,7 +333,8 @@ void CGUIWindowGames::OnItemInfo(int itemNumber)
   */
 }
 
-bool CGUIWindowGames::PlayGame(const CFileItem &item)
+bool CGUIWindowGames::PlayGame(const CFileItem& item)
 {
-  return g_application.PlayFile(item, "") == PLAYBACK_OK;
+  CFileItem itemCopy(item);
+  return g_application.PlayMedia(itemCopy, "", PLAYLIST_NONE);
 }

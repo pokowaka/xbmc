@@ -15,11 +15,11 @@ else()
 endif()
 
 # CMake config
+set(APP_BINARY ${APP_NAME_LC}${APP_BINARY_SUFFIX})
 set(APP_PREFIX ${prefix})
 set(APP_LIB_DIR ${libdir}/${APP_NAME_LC})
 set(APP_DATA_DIR ${datarootdir}/${APP_NAME_LC})
 set(APP_INCLUDE_DIR ${includedir}/${APP_NAME_LC})
-set(CXX11_SWITCH "-std=c++11")
 
 # Set XBMC_STANDALONE_SH_PULSE so we can insert PulseAudio block into kodi-standalone
 if(EXISTS ${CMAKE_SOURCE_DIR}/tools/Linux/kodi-standalone.sh.pulse)
@@ -126,11 +126,17 @@ install(FILES ${CMAKE_SOURCE_DIR}/tools/Linux/packaging/media/icon256x256.png
         DESTINATION ${datarootdir}/icons/hicolor/256x256/apps
         COMPONENT kodi)
 
+# Install firewalld service definitions
+install(FILES ${CMAKE_SOURCE_DIR}/tools/Linux/firewalld-services/kodi-eventserver.xml
+              ${CMAKE_SOURCE_DIR}/tools/Linux/firewalld-services/kodi-http.xml
+              ${CMAKE_SOURCE_DIR}/tools/Linux/firewalld-services/kodi-jsonrpc.xml
+        DESTINATION ${prefix}/lib/firewalld/services
+        COMPONENT kodi)
+
 # Install docs
-install(FILES ${CMAKE_SOURCE_DIR}/copying.txt
-              ${CMAKE_SOURCE_DIR}/LICENSE.GPL
+install(FILES ${CMAKE_SOURCE_DIR}/LICENSE.md
               ${CMAKE_SOURCE_DIR}/version.txt
-              ${CMAKE_SOURCE_DIR}/docs/README.linux
+              ${CMAKE_SOURCE_DIR}/docs/README.Linux.md
         DESTINATION ${docdir}
         COMPONENT kodi)
 
@@ -146,17 +152,13 @@ if(NOT WITH_TEXTUREPACKER)
 endif()
 
 # Install kodi-addon-dev headers
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/xbmc/addons/kodi-addon-dev-kit/include/kodi/
+include(${CMAKE_SOURCE_DIR}/xbmc/addons/AddonBindings.cmake)
+install(DIRECTORY ${CORE_ADDON_BINDINGS_DIRS}/
         DESTINATION ${includedir}/${APP_NAME_LC}
         COMPONENT kodi-addon-dev
         REGEX ".txt" EXCLUDE)
 
-install(FILES ${CMAKE_SOURCE_DIR}/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxPacket.h
-              ${CMAKE_SOURCE_DIR}/xbmc/cores/VideoPlayer/DVDDemuxers/DemuxCrypto.h
-              ${CMAKE_SOURCE_DIR}/xbmc/cores/AudioEngine/Utils/AEChannelData.h
-              ${CMAKE_SOURCE_DIR}/xbmc/filesystem/IFileTypes.h
-              ${CMAKE_SOURCE_DIR}/xbmc/input/ActionIDs.h
-              ${CMAKE_SOURCE_DIR}/xbmc/input/XBMC_vkeys.h
+install(FILES ${CORE_ADDON_BINDINGS_FILES}
         DESTINATION ${includedir}/${APP_NAME_LC}
         COMPONENT kodi-addon-dev)
 
@@ -178,7 +180,7 @@ install(FILES ${CMAKE_BINARY_DIR}/${CORE_BUILD_DIR}/scripts/${APP_NAME}Config.cm
         COMPONENT kodi-addon-dev)
 
 if(ENABLE_EVENTCLIENTS)
-  execute_process(COMMAND ${PYTHON_EXECUTABLE} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(prefix='')"
+  execute_process(COMMAND ${PYTHON_EXECUTABLE} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib(prefix=''))"
                   OUTPUT_VARIABLE PYTHON_LIB_PATH OUTPUT_STRIP_TRAILING_WHITESPACE)
   # Install kodi-eventclients-common BT python files
   install(PROGRAMS ${CMAKE_SOURCE_DIR}/tools/EventClients/lib/python/bt/__init__.py
@@ -200,7 +202,7 @@ if(ENABLE_EVENTCLIENTS)
   file(WRITE ${CMAKE_BINARY_DIR}/packages/deb/defs.py ICON_PATH="usr/share/pixmaps/${APP_NAME_LC}/")
   install(PROGRAMS ${CMAKE_BINARY_DIR}/packages/deb/defs.py
                    ${CMAKE_SOURCE_DIR}/tools/EventClients/lib/python/__init__.py
-                   "${CMAKE_SOURCE_DIR}/tools/EventClients/Clients/PS3 BD Remote/ps3_remote.py"
+                   ${CMAKE_SOURCE_DIR}/tools/EventClients/Clients/PS3BDRemote/ps3_remote.py
                    ${CMAKE_SOURCE_DIR}/tools/EventClients/lib/python/xbmcclient.py
                    ${CMAKE_SOURCE_DIR}/tools/EventClients/lib/python/zeroconf.py
           DESTINATION ${PYTHON_LIB_PATH}/${APP_NAME_LC}
@@ -249,7 +251,7 @@ if(ENABLE_EVENTCLIENTS)
           COMPONENT kodi-eventclients-dev)
 
   # Install kodi-eventclients-ps3
-  install(PROGRAMS "${CMAKE_SOURCE_DIR}/tools/EventClients/Clients/PS3 BD Remote/ps3_remote.py"
+  install(PROGRAMS ${CMAKE_SOURCE_DIR}/tools/EventClients/Clients/PS3BDRemote/ps3_remote.py
           RENAME ${APP_NAME_LC}-ps3remote
           DESTINATION ${bindir}
           COMPONENT kodi-eventclients-ps3)
@@ -261,11 +263,11 @@ if(ENABLE_EVENTCLIENTS)
             COMPONENT kodi-eventclients-wiiremote)
   endif()
 
-  # Install kodi-eventclients-xbmc-send
-  install(PROGRAMS "${CMAKE_SOURCE_DIR}/tools/EventClients/Clients/Kodi Send/kodi-send.py"
+  # Install kodi-eventclients-kodi-send
+  install(PROGRAMS ${CMAKE_SOURCE_DIR}/tools/EventClients/Clients/KodiSend/kodi-send.py
           RENAME ${APP_NAME_LC}-send
           DESTINATION ${bindir}
-          COMPONENT kodi-eventclients-xbmc-send)
+          COMPONENT kodi-eventclients-kodi-send)
 endif()
 
 # Install XBT skin files
@@ -302,7 +304,7 @@ endforeach()
 
 # generate packages? yes please, if everything checks out
 if(CPACK_GENERATOR)
-  if(CPACK_GENERATOR STREQUAL DEB AND ( CORE_SYSTEM_NAME STREQUAL linux OR CORE_SYSTEM_NAME STREQUAL rbpi ) )
+  if(CPACK_GENERATOR STREQUAL DEB AND CORE_SYSTEM_NAME STREQUAL linux)
     if(CMAKE_BUILD_TYPE STREQUAL Debug)
       message(STATUS "DEB Generator: Build type is set to 'Debug'. Packaged binaries will be unstripped.")
     endif()

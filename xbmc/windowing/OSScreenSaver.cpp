@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2017 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "OSScreenSaver.h"
@@ -24,14 +12,14 @@
 
 using namespace KODI::WINDOWING;
 
-COSScreenSaverManager::COSScreenSaverManager(std::unique_ptr<IOSScreenSaver>&& impl)
-: m_impl(std::move(impl))
+COSScreenSaverManager::COSScreenSaverManager(std::unique_ptr<IOSScreenSaver> impl)
+: m_impl{std::move(impl)}
 {
 }
 
 COSScreenSaverInhibitor COSScreenSaverManager::CreateInhibitor()
 {
-  COSScreenSaverInhibitor inhibitor(this);
+  COSScreenSaverInhibitor inhibitor{this};
   if (m_inhibitionCount++ == 0)
   {
     // Inhibit if this was first inhibitor
@@ -56,23 +44,23 @@ void COSScreenSaverManager::RemoveInhibitor()
   }
 }
 
-COSScreenSaverInhibitor::COSScreenSaverInhibitor()
-: m_active(false), m_manager(nullptr)
+COSScreenSaverInhibitor::COSScreenSaverInhibitor() noexcept
+: m_active{false}, m_manager{}
 {
 }
 
 COSScreenSaverInhibitor::COSScreenSaverInhibitor(COSScreenSaverManager* manager)
-: m_active(true), m_manager(manager)
+: m_active{true}, m_manager{manager}
 {
 }
 
-COSScreenSaverInhibitor::COSScreenSaverInhibitor(COSScreenSaverInhibitor&& other)
-: m_active(false), m_manager(nullptr)
+COSScreenSaverInhibitor::COSScreenSaverInhibitor(COSScreenSaverInhibitor&& other) noexcept
+: m_active{false}, m_manager{}
 {
   *this = std::move(other);
 }
 
-COSScreenSaverInhibitor& COSScreenSaverInhibitor::operator=(COSScreenSaverInhibitor&& other)
+COSScreenSaverInhibitor& COSScreenSaverInhibitor::operator=(COSScreenSaverInhibitor&& other) noexcept
 {
   Release();
   m_active = other.m_active;
@@ -101,7 +89,7 @@ void COSScreenSaverInhibitor::Release()
   }
 }
 
-COSScreenSaverInhibitor::~COSScreenSaverInhibitor()
+COSScreenSaverInhibitor::~COSScreenSaverInhibitor() noexcept
 {
   Release();
 }

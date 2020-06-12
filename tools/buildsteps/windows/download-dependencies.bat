@@ -21,15 +21,13 @@ echo Downloading from mirror %KODI_MIRROR%
 
 REM Locate the BuildDependencies directory, based on the path of this script
 SET BUILD_DEPS_PATH=%WORKSPACE%\project\BuildDependencies
-SET APP_PATH=%WORKSPACE%
+SET APP_PATH=%WORKSPACE%\project\BuildDependencies\%TARGETPLATFORM%
 SET TMP_PATH=%BUILD_DEPS_PATH%\scripts\tmp
 
 REM Change to the BuildDependencies directory, if we're not there already
 PUSHD %BUILD_DEPS_PATH%
 
 REM Can't run rmdir and md back to back. access denied error otherwise.
-IF EXIST lib rmdir lib /S /Q
-IF EXIST include rmdir include /S /Q
 IF EXIST %TMP_PATH% rmdir %TMP_PATH% /S /Q
 
 SET DL_PATH="%BUILD_DEPS_PATH%\downloads"
@@ -38,8 +36,6 @@ SET ZIP=%BUILD_DEPS_PATH%\..\Win32BuildSetup\tools\7z\7za
 
 IF NOT EXIST %DL_PATH% md %DL_PATH%
 
-md lib
-md include
 md %TMP_PATH%
 
 cd scripts
@@ -52,11 +48,17 @@ IF NOT EXIST %FORMED_OK_FLAG% (
   ECHO.
   ECHO I tried to get the packages from %KODI_MIRROR%;
   ECHO if this download mirror seems to be having problems, try choosing another from
-  ECHO the list on http://mirrors.kodi.tv/list.html, and setting %%KODI_MIRROR%% to
+  ECHO the list on http://mirrors.kodi.tv/timestamp.txt?mirrorlist, and setting %%KODI_MIRROR%% to
   ECHO point to it, like so:
   ECHO   C:\^> SET KODI_MIRROR=http://example.com/pub/xbmc/
   ECHO.
   ECHO Then, rerun this script.
+  
+  REM Restore the previous current directory
+  POPD
+
+  ENDLOCAL
+  
   EXIT /B 101
 )
 

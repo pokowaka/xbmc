@@ -1,40 +1,29 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
 
 #include "AndroidUtils.h"
-
 #include "rendering/gles/RenderSystemGLES.h"
 #include "threads/CriticalSection.h"
+#include "threads/Timer.h"
 #include "windowing/WinSystem.h"
-#include "threads/SystemClock.h"
-#include "EGL/egl.h"
 
+#include <EGL/egl.h>
+
+class CDecoderFilterManager;
 class IDispResource;
 
-class CWinSystemAndroid : public CWinSystemBase
+class CWinSystemAndroid : public CWinSystemBase, public ITimerCallback
 {
 public:
   CWinSystemAndroid();
-  virtual ~CWinSystemAndroid();
+  ~CWinSystemAndroid() override;
 
   bool InitWindowSystem() override;
   bool DestroyWindowSystem() override;
@@ -46,13 +35,29 @@ public:
   bool DestroyWindow() override;
   void UpdateResolutions() override;
 
+  void InitiateModeChange();
+  bool IsHdmiModeTriggered() const { return m_HdmiModeTriggered; };
+  void SetHdmiState(bool connected);
+
+  void UpdateDisplayModes();
+
   bool HasCursor() override { return false; };
 
   bool Hide() override;
   bool Show(bool raise = true) override;
-  virtual void Register(IDispResource *resource);
-  virtual void Unregister(IDispResource *resource);
+  void Register(IDispResource *resource) override;
+  void Unregister(IDispResource *resource) override;
+
+  void MessagePush(XBMC_Event *newEvent);
+
+  // winevents override
+  bool MessagePump() override;
+  bool IsHDRDisplay() override;
+
 protected:
+  std::unique_ptr<KODI::WINDOWING::IOSScreenSaver> GetOSScreenSaverImpl() override;
+  void OnTimeout() override;
+
   CAndroidUtils *m_android;
 
   EGLDisplay m_nativeDisplay;
@@ -63,9 +68,13 @@ protected:
 
   RENDER_STEREO_MODE m_stereo_mode;
 
-  bool m_delayDispReset;
-  XbmcThreads::EndTime m_dispResetTimer;
+  CTimer *m_dispResetTimer;
 
   CCriticalSection m_resourceSection;
   std::vector<IDispResource*> m_resources;
+  CDecoderFilterManager *m_decoderFilterManager;
+
+private:
+  bool m_HdmiModeTriggered = false;
+  void UpdateResolutions(bool bUpdateDesktopRes);
 };

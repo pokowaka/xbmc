@@ -1,37 +1,29 @@
 /*
- *      Copyright (C) 2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2013-2020 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <cstdlib>
-#include <string>
-
 #include "MediaSourceSettings.h"
+
+#include "ServiceBroker.h"
 #include "URL.h"
 #include "Util.h"
 #include "filesystem/File.h"
-#include "profiles/ProfilesManager.h"
-#include "utils/log.h"
+#include "media/MediaLockState.h"
+#include "network/WakeOnAccess.h"
+#include "profiles/ProfileManager.h"
+#include "settings/SettingsComponent.h"
 #include "utils/StringUtils.h"
 #include "utils/URIUtils.h"
 #include "utils/XBMCTinyXML.h"
 #include "utils/XMLUtils.h"
-#include "network/WakeOnAccess.h"
+#include "utils/log.h"
+
+#include <cstdlib>
+#include <string>
 
 #define SOURCES_FILE  "sources.xml"
 #define XML_SOURCES   "sources"
@@ -54,11 +46,13 @@ CMediaSourceSettings& CMediaSourceSettings::GetInstance()
 
 std::string CMediaSourceSettings::GetSourcesFile()
 {
+  const std::shared_ptr<CProfileManager> profileManager = CServiceBroker::GetSettingsComponent()->GetProfileManager();
+
   std::string file;
-  if (CProfilesManager::GetInstance().GetCurrentProfile().hasSources())
-    file = CProfilesManager::GetInstance().GetProfileUserDataFolder();
+  if (profileManager->GetCurrentProfile().hasSources())
+    file = profileManager->GetProfileUserDataFolder();
   else
-    file = CProfilesManager::GetInstance().GetUserDataFolder();
+    file = profileManager->GetUserDataFolder();
 
   return URIUtils::AddFileToFolder(file, SOURCES_FILE);
 }
@@ -85,7 +79,7 @@ bool CMediaSourceSettings::Load(const std::string &file)
   if (!CFile::Exists(file))
     return false;
 
-  CLog::Log(LOGNOTICE, "CMediaSourceSettings: loading media sources from %s", file.c_str());
+  CLog::Log(LOGINFO, "CMediaSourceSettings: loading media sources from %s", file.c_str());
 
   // load xml file
   CXBMCTinyXML xmlDoc;
@@ -406,7 +400,7 @@ bool CMediaSourceSettings::GetSource(const std::string &category, const TiXmlNod
   if (pLockMode)
   {
     share.m_iLockMode = (LockType)std::strtol(pLockMode->FirstChild()->Value(), NULL, 10);
-    share.m_iHasLock = 2;
+    share.m_iHasLock = LOCK_STATE_LOCKED;
   }
 
   if (pLockCode && pLockCode->FirstChild())

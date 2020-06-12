@@ -1,34 +1,21 @@
 /*
- *      Copyright (C) 2005-2014 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
-
-#include "utils/log.h"
-#include "Utils/TimeUtils.h"
-#include "Utils/MathUtils.h"
-#include "windowing\WindowingFactory.h"
 #include "VideoSyncD3D.h"
-#include "guilib/GraphicContext.h"
-#include "platform/win32/dxerr.h"
+
+#include "Utils/MathUtils.h"
+#include "Utils/TimeUtils.h"
+#include "rendering/dx/DeviceResources.h"
+#include "rendering/dx/RenderContext.h"
 #include "utils/StringUtils.h"
-#include "utils/CharsetConverter.h"
+#include "utils/XTimeUtils.h"
+#include "utils/log.h"
+#include "windowing/GraphicContext.h"
 
 void CVideoSyncD3D::OnLostDisplay()
 {
@@ -52,8 +39,8 @@ void CVideoSyncD3D::RefreshChanged()
 bool CVideoSyncD3D::Setup(PUPDATECLOCK func)
 {
   CLog::Log(LOGDEBUG, "CVideoSyncD3D: Setting up Direct3d");
-  CSingleLock lock(g_graphicsContext);
-  g_Windowing.Register(this);
+  CSingleLock lock(CServiceBroker::GetWinSystem()->GetGfxContext());
+  DX::Windowing()->Register(this);
   m_displayLost = false;
   m_displayReset = false;
   m_lostEvent.Reset();
@@ -81,7 +68,9 @@ void CVideoSyncD3D::Run(CEvent& stopEvent)
   while (!stopEvent.Signaled() && !m_displayLost && !m_displayReset)
   {
     // sleep until vblank
-    HRESULT hr = g_Windowing.GetCurrentOutput()->WaitForVBlank();
+    Microsoft::WRL::ComPtr<IDXGIOutput> pOutput;
+    DX::DeviceResources::Get()->GetOutput(&pOutput);
+    HRESULT hr = pOutput->WaitForVBlank();
 
     // calculate how many vblanks happened
     Now = CurrentHostCounter();
@@ -113,7 +102,7 @@ void CVideoSyncD3D::Run(CEvent& stopEvent)
   m_lostEvent.Set();
   while (!stopEvent.Signaled() && m_displayLost && !m_displayReset)
   {
-    Sleep(10);
+    KODI::TIME::Sleep(10);
   }
 }
 
@@ -122,38 +111,26 @@ void CVideoSyncD3D::Cleanup()
   CLog::Log(LOGDEBUG, "CVideoSyncD3D: Cleaning up Direct3d");
 
   m_lostEvent.Set();
-  g_Windowing.Unregister(this);
+  DX::Windowing()->Unregister(this);
 }
 
 float CVideoSyncD3D::GetFps()
 {
   DXGI_MODE_DESC DisplayMode;
-  g_Windowing.GetDisplayMode(&DisplayMode, true);
+  DX::DeviceResources::Get()->GetDisplayMode(&DisplayMode);
 
   m_fps = (DisplayMode.RefreshRate.Denominator != 0) ? (float)DisplayMode.RefreshRate.Numerator / (float)DisplayMode.RefreshRate.Denominator : 0.0f;
 
   if (m_fps == 0.0)
     m_fps = 60.0f;
-  
+
   if (m_fps == 23 || m_fps == 29 || m_fps == 59)
     m_fps++;
 
-  if (g_Windowing.Interlaced())
+  if (DX::Windowing()->Interlaced())
   {
     m_fps *= 2;
   }
   return m_fps;
-}
-
-std::string CVideoSyncD3D::GetErrorDescription(HRESULT hr)
-{
-  WCHAR buff[1024];
-  DXGetErrorDescription(hr, buff, 1024);
-  std::wstring error(DXGetErrorString(hr));
-  std::wstring descr(buff);
-  std::wstring errMsgW = StringUtils::Format(L"%s: %s", error.c_str(), descr.c_str());
-  std::string errMsg;
-  g_charsetConverter.wToUTF8(errMsgW, errMsg);
-  return errMsg;
 }
 

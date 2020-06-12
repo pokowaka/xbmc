@@ -1,35 +1,24 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIWindowVisualisation.h"
+
 #include "Application.h"
-#include "FileItem.h"
-#include "ServiceBroker.h"
-#include "music/dialogs/GUIDialogMusicOSD.h"
-#include "GUIUserMessages.h"
 #include "GUIInfoManager.h"
+#include "GUIUserMessages.h"
+#include "ServiceBroker.h"
+#include "guilib/GUIComponent.h"
 #include "guilib/GUIWindowManager.h"
-#include "input/InputManager.h"
 #include "input/Key.h"
+#include "music/dialogs/GUIDialogMusicOSD.h"
 #include "settings/AdvancedSettings.h"
 #include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
 
 using namespace MUSIC_INFO;
 
@@ -47,17 +36,6 @@ CGUIWindowVisualisation::CGUIWindowVisualisation(void)
 
 bool CGUIWindowVisualisation::OnAction(const CAction &action)
 {
-  if (CServiceBroker::GetSettings().GetBool(CSettings::SETTING_PVRPLAYBACK_CONFIRMCHANNELSWITCH) &&
-      g_infoManager.IsPlayerChannelPreviewActive() &&
-      (action.GetID() == ACTION_SELECT_ITEM || CServiceBroker::GetInputManager().GetGlobalAction(action.GetButtonCode()).GetID() == ACTION_SELECT_ITEM))
-  {
-    // If confirm channel switch is active, channel preview is currently shown
-    // and the button that caused this action matches (global) action "Select" (OK)
-    // switch to the channel currently displayed within the preview.
-    g_application.m_pPlayer->SwitchChannel(g_application.CurrentFileItem().GetPVRChannelInfoTag());
-    return true;
-  }
-
   bool passToVis = false;
   switch (action.GetID())
   {
@@ -72,19 +50,20 @@ bool CGUIWindowVisualisation::OnAction(const CAction &action)
   case ACTION_SHOW_INFO:
     {
       m_initTimer.Stop();
-      CServiceBroker::GetSettings().SetBool(CSettings::SETTING_MYMUSIC_SONGTHUMBINVIS, g_infoManager.ToggleShowInfo());
+      CServiceBroker::GetSettingsComponent()->GetSettings()->SetBool(CSettings::SETTING_MYMUSIC_SONGTHUMBINVIS,
+                                            CServiceBroker::GetGUI()->GetInfoManager().GetInfoProviders().GetPlayerInfoProvider().ToggleShowInfo());
       return true;
     }
     break;
 
   case ACTION_SHOW_OSD:
-    g_windowManager.ActivateWindow(WINDOW_DIALOG_MUSIC_OSD);
+    CServiceBroker::GetGUI()->GetWindowManager().ActivateWindow(WINDOW_DIALOG_MUSIC_OSD);
     return true;
 
   case ACTION_SHOW_GUI:
     // save the settings
-    CServiceBroker::GetSettings().Save();
-    g_windowManager.PreviousWindow();
+    CServiceBroker::GetSettingsComponent()->GetSettings()->Save();
+    CServiceBroker::GetGUI()->GetWindowManager().PreviousWindow();
     return true;
     break;
 
@@ -110,7 +89,7 @@ bool CGUIWindowVisualisation::OnAction(const CAction &action)
     {
       // actual action is taken care of in CApplication::OnAction()
       m_initTimer.StartZero();
-      g_infoManager.SetShowInfo(true);
+      CServiceBroker::GetGUI()->GetInfoManager().GetInfoProviders().GetPlayerInfoProvider().SetShowInfo(true);
     }
     break;
     //! @todo These should be mapped to its own function - at the moment it's overriding
@@ -162,29 +141,30 @@ bool CGUIWindowVisualisation::OnMessage(CGUIMessage& message)
   case GUI_MSG_WINDOW_DEINIT:
     {
       if (IsActive()) // save any changed settings from the OSD
-        CServiceBroker::GetSettings().Save();
+        CServiceBroker::GetSettingsComponent()->GetSettings()->Save();
 
       // close all active modal dialogs
-      g_windowManager.CloseInternalModalDialogs(true);
+      CServiceBroker::GetGUI()->GetWindowManager().CloseInternalModalDialogs(true);
     }
     break;
   case GUI_MSG_WINDOW_INIT:
     {
       // check whether we've come back here from a window during which time we've actually
       // stopped playing music
-      if (message.GetParam1() == WINDOW_INVALID && !g_application.m_pPlayer->IsPlayingAudio())
+      if (message.GetParam1() == WINDOW_INVALID && !g_application.GetAppPlayer().IsPlayingAudio())
       { // why are we here if nothing is playing???
-        g_windowManager.PreviousWindow();
+        CServiceBroker::GetGUI()->GetWindowManager().PreviousWindow();
         return true;
       }
 
       // hide or show the preset button(s)
-      g_infoManager.SetShowInfo(true);  // always show the info initially.
+      CGUIInfoManager& infoMgr = CServiceBroker::GetGUI()->GetInfoManager();
+      infoMgr.GetInfoProviders().GetPlayerInfoProvider().SetShowInfo(true);  // always show the info initially.
       CGUIWindow::OnMessage(message);
-      if (g_infoManager.GetCurrentSongTag())
-        m_tag = *g_infoManager.GetCurrentSongTag();
+      if (infoMgr.GetCurrentSongTag())
+        m_tag = *infoMgr.GetCurrentSongTag();
 
-      if (CServiceBroker::GetSettings().GetBool(CSettings::SETTING_MYMUSIC_SONGTHUMBINVIS))
+      if (CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_MYMUSIC_SONGTHUMBINVIS))
       { // always on
         m_initTimer.Stop();
       }
@@ -210,7 +190,7 @@ EVENT_RESULT CGUIWindowVisualisation::OnMouseEvent(const CPoint &point, const CM
     return EVENT_RESULT_UNHANDLED;
   if (event.m_id != ACTION_MOUSE_MOVE || event.m_offsetX || event.m_offsetY)
   { // some other mouse action has occurred - bring up the OSD
-    CGUIDialog *pOSD = g_windowManager.GetDialog(WINDOW_DIALOG_MUSIC_OSD);
+    CGUIDialog *pOSD = CServiceBroker::GetGUI()->GetWindowManager().GetDialog(WINDOW_DIALOG_MUSIC_OSD);
     if (pOSD)
     {
       pOSD->SetAutoClose(3000);
@@ -223,21 +203,23 @@ EVENT_RESULT CGUIWindowVisualisation::OnMouseEvent(const CPoint &point, const CM
 
 void CGUIWindowVisualisation::FrameMove()
 {
+  CGUIInfoManager& infoMgr = CServiceBroker::GetGUI()->GetInfoManager();
+
   // check for a tag change
-  const CMusicInfoTag* tag = g_infoManager.GetCurrentSongTag();
+  const CMusicInfoTag* tag = infoMgr.GetCurrentSongTag();
   if (tag && *tag != m_tag)
   { // need to fade in then out again
     m_tag = *tag;
     // fade in
     m_initTimer.StartZero();
-    g_infoManager.SetShowInfo(true);
+    infoMgr.GetInfoProviders().GetPlayerInfoProvider().SetShowInfo(true);
   }
-  if (m_initTimer.IsRunning() && m_initTimer.GetElapsedSeconds() > (float)g_advancedSettings.m_songInfoDuration)
+  if (m_initTimer.IsRunning() && m_initTimer.GetElapsedSeconds() > (float)CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_songInfoDuration)
   {
     m_initTimer.Stop();
-    if (!CServiceBroker::GetSettings().GetBool(CSettings::SETTING_MYMUSIC_SONGTHUMBINVIS))
+    if (!CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_MYMUSIC_SONGTHUMBINVIS))
     { // reached end of fade in, fade out again
-      g_infoManager.SetShowInfo(false);
+      infoMgr.GetInfoProviders().GetPlayerInfoProvider().SetShowInfo(false);
     }
   }
   // show or hide the locked texture

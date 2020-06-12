@@ -1,37 +1,22 @@
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      Copyright (C) 2015-2016 Team KODI
- *      http://kodi.tv
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with KODI; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "AddonInterfaces.h"
 
 #include "addons/Addon.h"
-#include "addons/PVRClient.h"
-#include "games/addons/GameClient.h"
-
 #include "addons/interfaces/Addon/AddonCallbacksAddon.h"
-#include "addons/interfaces/GUI/AddonCallbacksGUI.h"
-#include "addons/interfaces/GUI/Window.h"
-#include "addons/interfaces/GUI/AddonGUIWindow.h"
+#include "addons/interfaces/gui/AddonCallbacksGUI.h"
+#include "addons/interfaces/gui/AddonGUIWindow.h"
+#include "addons/interfaces/gui/Window.h"
 #include "filesystem/SpecialProtocol.h"
 #include "messaging/ApplicationMessenger.h"
-#include "peripherals/addons/PeripheralAddon.h"
+#include "pvr/addons/PVRClient.h"
 #include "utils/log.h"
 
 using namespace KODI;
@@ -55,8 +40,6 @@ CAddonInterfaces::CAddonInterfaces(CAddon* addon)
   m_callbacks->GUILib_UnRegisterMe          = CAddonInterfaces::GUILib_UnRegisterMe;
   m_callbacks->PVRLib_RegisterMe            = CAddonInterfaces::PVRLib_RegisterMe;
   m_callbacks->PVRLib_UnRegisterMe          = CAddonInterfaces::PVRLib_UnRegisterMe;
-  m_callbacks->GameLib_RegisterMe           = CAddonInterfaces::GameLib_RegisterMe;
-  m_callbacks->GameLib_UnRegisterMe         = CAddonInterfaces::GameLib_UnRegisterMe;
 }
 
 CAddonInterfaces::~CAddonInterfaces()
@@ -64,7 +47,7 @@ CAddonInterfaces::~CAddonInterfaces()
   delete static_cast<KodiAPI::AddOn::CAddonCallbacksAddon*>(m_helperAddOn);
   delete static_cast<KodiAPI::GUI::CAddonCallbacksGUI*>(m_helperGUI);
 
-  free((char*)m_callbacks->libBasePath);
+  free(const_cast<char*>(m_callbacks->libBasePath));
   delete m_callbacks;
 }
 
@@ -138,23 +121,6 @@ void* CAddonInterfaces::PVRLib_RegisterMe(void *addonData)
 }
 
 void CAddonInterfaces::PVRLib_UnRegisterMe(void *addonData, void *cbTable)
-{
-}
-/*\_____________________________________________________________________________
-\*/
-void* CAddonInterfaces::GameLib_RegisterMe(void *addonData)
-{
-  CAddonInterfaces* addon = static_cast<CAddonInterfaces*>(addonData);
-  if (addon == nullptr)
-  {
-    CLog::Log(LOGERROR, "CAddonInterfaces - %s - called with a null pointer", __FUNCTION__);
-    return nullptr;
-  }
-
-  return dynamic_cast<GAME::CGameClient*>(addon->m_addon)->GetInstanceInterface();
-}
-
-void CAddonInterfaces::GameLib_UnRegisterMe(void *addonData, void *cbTable)
 {
 }
 /*\_____________________________________________________________________________

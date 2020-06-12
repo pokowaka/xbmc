@@ -2,8 +2,7 @@ set(SOURCES Atomics.cpp
             Event.cpp
             Thread.cpp
             Timer.cpp
-            SystemClock.cpp
-            platform/Implementation.cpp)
+            SystemClock.cpp)
 
 set(HEADERS Atomics.h
             Condition.h
@@ -15,12 +14,7 @@ set(HEADERS Atomics.h
             SingleLock.h
             SystemClock.h
             Thread.h
-            ThreadImpl.h
-            ThreadLocal.h
             Timer.h
-            platform/Condition.h
-            platform/CriticalSection.h
-            platform/ThreadImpl.h
-            platform/ThreadLocal.h)
+            platform/ThreadImpl.h)
 
 core_add_library(threads)

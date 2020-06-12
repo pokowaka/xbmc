@@ -3,7 +3,7 @@
 # -------------
 # Finds the Shairplay library
 #
-# This will will define the following variables::
+# This will define the following variables::
 #
 # SHAIRPLAY_FOUND - system has Shairplay
 # SHAIRPLAY_INCLUDE_DIRS - the Shairplay include directory
@@ -17,36 +17,30 @@
 find_path(SHAIRPLAY_INCLUDE_DIR shairplay/raop.h)
 
 include(FindPackageHandleStandardArgs)
-if(NOT WIN32)
-  find_library(SHAIRPLAY_LIBRARY NAMES shairplay)
+find_library(SHAIRPLAY_LIBRARY NAMES shairplay libshairplay)
 
-  if(SHAIRPLAY_INCLUDE_DIR AND SHAIRPLAY_LIBRARY)
-    include(CheckCSourceCompiles)
-    set(CMAKE_REQUIRED_INCLUDES ${SHAIRPLAY_INCLUDE_DIRS})
-    set(CMAKE_REQUIRED_LIBRARIES ${SHAIRPLAY_LIBRARIES})
-    check_c_source_compiles("#include <shairplay/raop.h>
+if(SHAIRPLAY_INCLUDE_DIR AND SHAIRPLAY_LIBRARY)
+  include(CheckCSourceCompiles)
+  set(CMAKE_REQUIRED_INCLUDES ${SHAIRPLAY_INCLUDE_DIR})
+  set(CMAKE_REQUIRED_LIBRARIES ${SHAIRPLAY_LIBRARIES})
+  check_c_source_compiles("#include <shairplay/raop.h>
 
-                             int main()
-                             {
-                               struct raop_callbacks_s foo;
-                               foo.cls;
-                               return 0;
-                             }
-                            " HAVE_SHAIRPLAY_CALLBACK_CLS)
-  endif()
-
-  find_package_handle_standard_args(Shairplay
-                                    REQUIRED_VARS SHAIRPLAY_LIBRARY SHAIRPLAY_INCLUDE_DIR HAVE_SHAIRPLAY_CALLBACK_CLS)
-else()
-  # Dynamically loaded DLL
-  find_package_handle_standard_args(Shairplay
-                                    REQUIRED_VARS SHAIRPLAY_INCLUDE_DIR)
+                           int main()
+                           {
+                             struct raop_callbacks_s foo;
+                             foo.cls;
+                             return 0;
+                           }
+                          " HAVE_SHAIRPLAY_CALLBACK_CLS)
 endif()
+
+find_package_handle_standard_args(Shairplay
+                                  REQUIRED_VARS SHAIRPLAY_LIBRARY SHAIRPLAY_INCLUDE_DIR HAVE_SHAIRPLAY_CALLBACK_CLS)
 
 if(SHAIRPLAY_FOUND)
   set(SHAIRPLAY_LIBRARIES ${SHAIRPLAY_LIBRARY})
   set(SHAIRPLAY_INCLUDE_DIRS ${SHAIRPLAY_INCLUDE_DIR})
-  set(SHAIRPLAY_DEFINITIONS -DHAVE_LIBSHAIRPLAY=1)
+  set(SHAIRPLAY_DEFINITIONS -DHAS_AIRTUNES=1)
 
   if(NOT TARGET Shairplay::Shairplay)
     add_library(Shairplay::Shairplay UNKNOWN IMPORTED)
@@ -56,7 +50,7 @@ if(SHAIRPLAY_FOUND)
     endif()
     set_target_properties(Shairplay::Shairplay PROPERTIES
                                                INTERFACE_INCLUDE_DIRECTORIES "${SHAIRPLAY_INCLUDE_DIR}"
-                                               INTERFACE_COMPILE_DEFINITIONS HAVE_LIBSHAIRPLAY=1)
+                                               INTERFACE_COMPILE_DEFINITIONS HAS_AIRTUNES=1)
   endif()
 endif()
 

@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: KODI Main\n"
-"Report-Msgid-Bugs-To: http://trac.kodi.tv/\n"
+"Report-Msgid-Bugs-To: https://github.com/xbmc/xbmc/issues/\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Kodi Translation Team\n"
@@ -42,7 +42,7 @@ msgstr "Se i 2D"
 
 msgctxt "#31006"
 msgid "Random movies"
-msgstr "Slumpvis urvalda filmer"
+msgstr "Slumpvis utvalda filmer"
 
 msgctxt "#31007"
 msgid "Unwatched movies"
@@ -66,11 +66,11 @@ msgstr "Mest spelade album"
 
 msgctxt "#31012"
 msgid "Random albums"
-msgstr "Slumpvis urvalda album"
+msgstr "Slumpvis utvalda album"
 
 msgctxt "#31013"
 msgid "Random artists"
-msgstr "Slumpvis urvalda artister"
+msgstr "Slumpvis utvalda artister"
 
 msgctxt "#31014"
 msgid "Unplayed albums"
@@ -148,10 +148,6 @@ msgctxt "#31033"
 msgid "Your rating"
 msgstr "Ditt betyg"
 
-msgctxt "#31034"
-msgid "Extended info"
-msgstr "Utökad info"
-
 msgctxt "#31035"
 msgid "Pages"
 msgstr "Sidor"
@@ -160,13 +156,17 @@ msgctxt "#31036"
 msgid "items"
 msgstr "objekt"
 
+msgctxt "#31037"
+msgid "Selected track"
+msgstr "Valda spår"
+
 msgctxt "#31038"
 msgid "Rewind"
-msgstr "Spola bakåt"
+msgstr "Spolar bakåt"
 
 msgctxt "#31039"
 msgid "Fast forward"
-msgstr "Spola framåt"
+msgstr "Spolar framåt"
 
 msgctxt "#31041"
 msgid "Camera manufacturer"
@@ -199,10 +199,6 @@ msgstr "Tillgänglig"
 msgctxt "#31050"
 msgid "Press [B]OK[/B] to stop"
 msgstr "Tryck på [B]OK[/B] för att stoppa"
-
-msgctxt "#31051"
-msgid "Toggle language"
-msgstr "Växla språk"
 
 msgctxt "#31052"
 msgid "filtered"
@@ -268,6 +264,14 @@ msgctxt "#31072"
 msgid "Power Options"
 msgstr "Energialternativ"
 
+msgctxt "#31073"
+msgid "Total length"
+msgstr "Total längd"
+
+msgctxt "#31074"
+msgid "Total duration"
+msgstr "Total längd"
+
 msgctxt "#31075"
 msgid "Movie sets"
 msgstr "Filmsamlingar"
@@ -295,10 +299,6 @@ msgstr "Visualiseringsinställningar"
 msgctxt "#31089"
 msgid "Available groups"
 msgstr "Tillgängliga grupper"
-
-msgctxt "#31090"
-msgid "Search trailer"
-msgstr "Sök efter trailer"
 
 msgctxt "#31092"
 msgid "Video menu"
@@ -346,7 +346,7 @@ msgstr "Ange text här..."
 
 msgctxt "#31104"
 msgid "Your library is currently empty. In order to populate it with your personal media, enter \"Files\" section, add a media source and configure it. After the source has been added and indexed you will be able to browse your library."
-msgstr "Biblioteket är för närvarande tomt. För att fylla det med din personliga media, gå till \"Fil\"-sektionen, lägg till en mediakälla och konfigurera den. Efter att källan har lagts till och indexerats, kommer du att kunna bläddra i biblioteket."
+msgstr "Biblioteket är för närvarande tomt. För att fylla det med din personliga media, gå till Filsektionen, lägg till en mediakälla och konfigurera den. Efter att källan har lagts till och indexerats, kommer du att kunna bläddra i biblioteket."
 
 msgctxt "#31105"
 msgid "Add video sources and set the appropriate content type in order to populate your video libraries."
@@ -354,7 +354,7 @@ msgstr "Lägg till videokällor och ange lämpligt innehållstyp för att fylla 
 
 msgctxt "#31106"
 msgid "Teletext"
-msgstr "Texttv"
+msgstr "Text-tv"
 
 msgctxt "#31107"
 msgid "WideList"
@@ -379,10 +379,6 @@ msgstr "Sök i det lokala biblioteket"
 msgctxt "#31114"
 msgid "Search YouTube"
 msgstr "Sök på Youtube"
-
-msgctxt "#31115"
-msgid "Search TheMovieDB"
-msgstr "Sök på TheMovieDB"
 
 msgctxt "#31116"
 msgid "Remove this main menu item"
@@ -410,15 +406,11 @@ msgstr "Ställ in väderleverantör"
 
 msgctxt "#31122"
 msgid "Unwatched TV Shows"
-msgstr "Osedda TV-program"
+msgstr "Osedda tv-program"
 
 msgctxt "#31123"
 msgid "Same director"
 msgstr "Samma regissör"
-
-msgctxt "#31124"
-msgid "Show images on map"
-msgstr "Visa bilder på kartan"
 
 msgctxt "#31125"
 msgid "Press up for actor info"
@@ -447,6 +439,14 @@ msgstr "Huvudmeny-relaterade inställningar: Konfigurera startskärmen till ditt
 msgctxt "#31131"
 msgid "Choose skin fanart pack"
 msgstr "Välj skal-fanart paket"
+
+msgctxt "#31132"
+msgid "Select Program"
+msgstr "Välj program"
+
+msgctxt "#31133"
+msgid "Select Resolution"
+msgstr "Välj upplösning"
 
 msgctxt "#31134"
 msgid "Remaining"
@@ -510,7 +510,7 @@ msgstr "Osedda musikvideor"
 
 msgctxt "#31152"
 msgid "Random music videos"
-msgstr "Slumpvis urvalda musikvideor"
+msgstr "Slumpvis utvalda musikvideor"
 
 msgctxt "#31153"
 msgid "You do not have any add-ons of this type installed. Enter the add-on browser to download add-ons created by our community."
@@ -555,3 +555,19 @@ msgstr "Spela dina egna spel eller ladda ned någon av de många speltillägg fr
 msgctxt "#31163"
 msgid "Show Fanart background"
 msgstr "Visa Fanart-bakgrund"
+
+msgctxt "#31164"
+msgid "Choose kind of profile identification"
+msgstr "Välj typ av profilidentifiering"
+
+msgctxt "#31165"
+msgid "Profile name"
+msgstr "Profilnamn"
+
+msgctxt "#31166"
+msgid "Profile avatar"
+msgstr "Profil avatar"
+
+msgctxt "#31167"
+msgid "Animate background"
+msgstr "Animera bakgrund"

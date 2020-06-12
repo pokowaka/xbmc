@@ -1,29 +1,18 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
+
+#include "InputCodingTable.h"
 
 #include <map>
 #include <string>
 #include <vector>
-
-#include "InputCodingTable.h"
 
 class TiXmlElement;
 
@@ -43,17 +32,17 @@ public:
 
   enum ModifierKey
   {
-    ModifierKeyNone   = 0x00,
-    ModifierKeyShift  = 0x01,
+    ModifierKeyNone = 0x00,
+    ModifierKeyShift = 0x01,
     ModifierKeySymbol = 0x02
   };
 
   std::string GetCharAt(unsigned int row, unsigned int column, unsigned int modifiers = 0) const;
 
 private:
-  static std::vector<std::string> BreakCharacters(const std::string &chars);
+  static std::vector<std::string> BreakCharacters(const std::string& chars);
 
-  typedef std::vector< std::vector<std::string> > KeyboardRows;
+  typedef std::vector<std::vector<std::string>> KeyboardRows;
   typedef std::map<unsigned int, KeyboardRows> Keyboards;
 
   std::string m_language;

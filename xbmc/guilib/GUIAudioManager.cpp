@@ -1,49 +1,45 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
 #include "GUIAudioManager.h"
+
 #include "ServiceBroker.h"
-#include "input/ActionIDs.h"
-#include "input/ActionTranslator.h"
-#include "input/Key.h"
-#include "input/WindowTranslator.h"
-#include "settings/lib/Setting.h"
-#include "settings/Settings.h"
-#include "threads/SingleLock.h"
-#include "utils/URIUtils.h"
-#include "utils/XBMCTinyXML.h"
-#include "filesystem/Directory.h"
 #include "addons/AddonManager.h"
 #include "addons/Skin.h"
 #include "cores/AudioEngine/Interfaces/AE.h"
+#include "filesystem/Directory.h"
+#include "input/Key.h"
+#include "input/WindowTranslator.h"
+#include "input/actions/ActionIDs.h"
+#include "input/actions/ActionTranslator.h"
+#include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
+#include "settings/lib/Setting.h"
+#include "threads/SingleLock.h"
+#include "utils/URIUtils.h"
+#include "utils/XBMCTinyXML.h"
 #include "utils/log.h"
-
-CGUIAudioManager g_audioManager;
 
 CGUIAudioManager::CGUIAudioManager()
 {
+  m_settings = CServiceBroker::GetSettingsComponent()->GetSettings();
+
   m_bEnabled = false;
+
+  m_settings->RegisterCallback(this, {
+    CSettings::SETTING_LOOKANDFEEL_SOUNDSKIN,
+  });
 }
 
-CGUIAudioManager::~CGUIAudioManager() = default;
+CGUIAudioManager::~CGUIAudioManager()
+{
+  m_settings->UnregisterCallback(this);
+}
 
 void CGUIAudioManager::OnSettingChanged(std::shared_ptr<const CSetting> setting)
 {
@@ -88,15 +84,17 @@ void CGUIAudioManager::DeInitialize()
 void CGUIAudioManager::Stop()
 {
   CSingleLock lock(m_cs);
-  for (windowSoundMap::iterator it = m_windowSoundMap.begin(); it != m_windowSoundMap.end(); ++it)
+  for (auto& it : m_windowSoundMap)
   {
-    if (it->second.initSound  ) it->second.initSound  ->Stop();
-    if (it->second.deInitSound) it->second.deInitSound->Stop();
+    if (it.second.initSound)
+      it.second.initSound->Stop();
+    if (it.second.deInitSound)
+      it.second.deInitSound->Stop();
   }
 
-  for (pythonSoundsMap::iterator it = m_pythonSounds.begin(); it != m_pythonSounds.end(); ++it)
+  for (auto& it : m_pythonSounds)
   {
-    IAESound* sound = it->second;
+    IAESound* sound = it.second;
     sound->Stop();
   }
 }
@@ -223,15 +221,15 @@ void CGUIAudioManager::UnLoad()
 
 std::string GetSoundSkinPath()
 {
-  auto setting = std::static_pointer_cast<CSettingString>(CServiceBroker::GetSettings().GetSetting(CSettings::SETTING_LOOKANDFEEL_SOUNDSKIN));
+  auto setting = std::static_pointer_cast<CSettingString>(CServiceBroker::GetSettingsComponent()->GetSettings()->GetSetting(CSettings::SETTING_LOOKANDFEEL_SOUNDSKIN));
   auto value = setting->GetValue();
   if (value.empty())
     return "";
 
   ADDON::AddonPtr addon;
-  if (!ADDON::CAddonMgr::GetInstance().GetAddon(value, addon, ADDON::ADDON_RESOURCE_UISOUNDS))
+  if (!CServiceBroker::GetAddonMgr().GetAddon(value, addon, ADDON::ADDON_RESOURCE_UISOUNDS))
   {
-    CLog::Log(LOGNOTICE, "Unknown sounds addon '%s'. Setting default sounds.", value.c_str());
+    CLog::Log(LOGINFO, "Unknown sounds addon '%s'. Setting default sounds.", value.c_str());
     setting->Reset();
   }
   return URIUtils::AddFileToFolder("resource://", setting->GetValue());
@@ -259,7 +257,8 @@ bool CGUIAudioManager::Load()
   //  Load the config file
   if (!xmlDoc.LoadFile(strSoundsXml))
   {
-    CLog::Log(LOGNOTICE, "%s, Line %d\n%s", strSoundsXml.c_str(), xmlDoc.ErrorRow(), xmlDoc.ErrorDesc());
+    CLog::Log(LOGINFO, "%s, Line %d\n%s", strSoundsXml.c_str(), xmlDoc.ErrorRow(),
+              xmlDoc.ErrorDesc());
     return false;
   }
 
@@ -267,7 +266,7 @@ bool CGUIAudioManager::Load()
   std::string strValue = pRoot->Value();
   if ( strValue != "sounds")
   {
-    CLog::Log(LOGNOTICE, "%s Doesn't contain <sounds>", strSoundsXml.c_str());
+    CLog::Log(LOGINFO, "%s Doesn't contain <sounds>", strSoundsXml.c_str());
     return false;
   }
 
@@ -344,9 +343,13 @@ IAESound* CGUIAudioManager::LoadSound(const std::string &filename)
     return it->second.sound;
   }
 
-  IAESound *sound = CServiceBroker::GetActiveAE().MakeSound(filename);
+  IAE *ae = CServiceBroker::GetActiveAE();
+  if (!ae)
+    return nullptr;
+
+  IAESound *sound = ae->MakeSound(filename);
   if (!sound)
-    return NULL;
+    return nullptr;
 
   CSoundInfo info;
   info.usage = 1;
@@ -359,10 +362,15 @@ IAESound* CGUIAudioManager::LoadSound(const std::string &filename)
 void CGUIAudioManager::FreeSound(IAESound *sound)
 {
   CSingleLock lock(m_cs);
-  for(soundCache::iterator it = m_soundCache.begin(); it != m_soundCache.end(); ++it) {
-    if (it->second.sound == sound) {
-      if (--it->second.usage == 0) {     
-        CServiceBroker::GetActiveAE().FreeSound(sound);
+  IAE *ae = CServiceBroker::GetActiveAE();
+  for(soundCache::iterator it = m_soundCache.begin(); it != m_soundCache.end(); ++it)
+  {
+    if (it->second.sound == sound)
+    {
+      if (--it->second.usage == 0)
+      {
+        if (ae)
+          ae->FreeSound(sound);
         m_soundCache.erase(it);
       }
       return;
@@ -373,9 +381,13 @@ void CGUIAudioManager::FreeSound(IAESound *sound)
 void CGUIAudioManager::FreeSoundAllUsage(IAESound *sound)
 {
   CSingleLock lock(m_cs);
-  for(soundCache::iterator it = m_soundCache.begin(); it != m_soundCache.end(); ++it) {
-    if (it->second.sound == sound) {   
-      CServiceBroker::GetActiveAE().FreeSound(sound);
+  IAE *ae = CServiceBroker::GetActiveAE();
+  for(soundCache::iterator it = m_soundCache.begin(); it != m_soundCache.end(); ++it)
+  {
+    if (it->second.sound == sound)
+    {
+      if (ae)
+       ae->FreeSound(sound);
       m_soundCache.erase(it);
       return;
     }
@@ -399,7 +411,7 @@ IAESound* CGUIAudioManager::LoadWindowSound(TiXmlNode* pWindowNode, const std::s
 void CGUIAudioManager::Enable(bool bEnable)
 {
   // always deinit audio when we don't want gui sounds
-  if (CServiceBroker::GetSettings().GetString(CSettings::SETTING_LOOKANDFEEL_SOUNDSKIN).empty())
+  if (CServiceBroker::GetSettingsComponent()->GetSettings()->GetString(CSettings::SETTING_LOOKANDFEEL_SOUNDSKIN).empty())
     bEnable = false;
 
   CSingleLock lock(m_cs);
@@ -412,29 +424,26 @@ void CGUIAudioManager::SetVolume(float level)
   CSingleLock lock(m_cs);
 
   {
-    actionSoundMap::iterator it = m_actionSoundMap.begin();
-    while (it!=m_actionSoundMap.end())
+    for (auto& it : m_actionSoundMap)
     {
-      if (it->second)
-        it->second->SetVolume(level);
-      ++it;
+      if (it.second)
+        it.second->SetVolume(level);
     }
   }
 
-  for(windowSoundMap::iterator it = m_windowSoundMap.begin(); it != m_windowSoundMap.end(); ++it)
+  for (auto& it : m_windowSoundMap)
   {
-    if (it->second.initSound  ) it->second.initSound  ->SetVolume(level);
-    if (it->second.deInitSound) it->second.deInitSound->SetVolume(level);
+    if (it.second.initSound)
+      it.second.initSound->SetVolume(level);
+    if (it.second.deInitSound)
+      it.second.deInitSound->SetVolume(level);
   }
 
   {
-    pythonSoundsMap::iterator it = m_pythonSounds.begin();
-    while (it != m_pythonSounds.end())
+    for (auto& it : m_pythonSounds)
     {
-      if (it->second)
-        it->second->SetVolume(level);
-
-      ++it;
+      if (it.second)
+        it.second->SetVolume(level);
     }
   }
 }

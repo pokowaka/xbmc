@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: KODI Main\n"
-"Report-Msgid-Bugs-To: http://trac.kodi.tv/\n"
+"Report-Msgid-Bugs-To: https://github.com/xbmc/xbmc/issues/\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Kodi Translation Team\n"
@@ -148,10 +148,6 @@ msgctxt "#31033"
 msgid "Your rating"
 msgstr "Tuo voto"
 
-msgctxt "#31034"
-msgid "Extended info"
-msgstr "Info estese"
-
 msgctxt "#31035"
 msgid "Pages"
 msgstr "Pagine"
@@ -199,10 +195,6 @@ msgstr "Disponibile"
 msgctxt "#31050"
 msgid "Press [B]OK[/B] to stop"
 msgstr "Premi [B]OK[/B] per fermare"
-
-msgctxt "#31051"
-msgid "Toggle language"
-msgstr "Scorri lingua"
 
 msgctxt "#31052"
 msgid "filtered"
@@ -268,6 +260,10 @@ msgctxt "#31072"
 msgid "Power Options"
 msgstr "Opzioni Alimentazione"
 
+msgctxt "#31074"
+msgid "Total duration"
+msgstr "Durata totale"
+
 msgctxt "#31075"
 msgid "Movie sets"
 msgstr "Raccolte di Film"
@@ -295,10 +291,6 @@ msgstr "Impostazioni visualizzazione"
 msgctxt "#31089"
 msgid "Available groups"
 msgstr "Gruppi disponibili"
-
-msgctxt "#31090"
-msgid "Search trailer"
-msgstr "Cerca trailer"
 
 msgctxt "#31092"
 msgid "Video menu"
@@ -380,10 +372,6 @@ msgctxt "#31114"
 msgid "Search YouTube"
 msgstr "Cerca su Youtube"
 
-msgctxt "#31115"
-msgid "Search TheMovieDB"
-msgstr "Cerca su TheMovieDB"
-
 msgctxt "#31116"
 msgid "Remove this main menu item"
 msgstr "Rimuovi questo elemento menù principale"
@@ -416,10 +404,6 @@ msgctxt "#31123"
 msgid "Same director"
 msgstr "Stesso regista"
 
-msgctxt "#31124"
-msgid "Show images on map"
-msgstr "Mostra immagini sulla mappa"
-
 msgctxt "#31125"
 msgid "Press up for actor info"
 msgstr "Premi Su per info attore"
@@ -447,6 +431,14 @@ msgstr "Impostazioni relative al menù principale: Configura la schermata home c
 msgctxt "#31131"
 msgid "Choose skin fanart pack"
 msgstr "Scegli pacchetto fanart skin"
+
+msgctxt "#31132"
+msgid "Select Program"
+msgstr "Seleziona programma"
+
+msgctxt "#31133"
+msgid "Select Resolution"
+msgstr "Seleziona risoluzione"
 
 msgctxt "#31134"
 msgid "Remaining"
@@ -555,3 +547,19 @@ msgstr "Gioca ai tuoi giochi personali o scarica uno dei tanti giochi Add-on dal
 msgctxt "#31163"
 msgid "Show Fanart background"
 msgstr "Mostra sfondo Fanart"
+
+msgctxt "#31164"
+msgid "Choose kind of profile identification"
+msgstr "Scegli il tipo di indentificazione del profilo"
+
+msgctxt "#31165"
+msgid "Profile name"
+msgstr "Nome profilo"
+
+msgctxt "#31166"
+msgid "Profile avatar"
+msgstr "Avatar profilo"
+
+msgctxt "#31167"
+msgid "Animate background"
+msgstr "Anima background"

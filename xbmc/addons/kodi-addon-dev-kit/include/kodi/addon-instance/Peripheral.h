@@ -1,23 +1,12 @@
-#pragma once
 /*
- *      Copyright (C) 2014-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2014-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "../AddonBase.h"
 
@@ -34,6 +23,10 @@ extern "C"
 
   /// @name Peripheral types
   ///{
+
+  /*!
+   * @brief API error codes
+   */
   typedef enum PERIPHERAL_ERROR
   {
     PERIPHERAL_NO_ERROR                      =  0, // no error occurred
@@ -45,6 +38,9 @@ extern "C"
     PERIPHERAL_ERROR_CONNECTION_FAILED       = -6, // peripherals are connected, but command was interrupted
   } PERIPHERAL_ERROR;
 
+  /*!
+   * @brief Peripheral types
+   */
   typedef enum PERIPHERAL_TYPE
   {
     PERIPHERAL_TYPE_UNKNOWN,
@@ -52,6 +48,9 @@ extern "C"
     PERIPHERAL_TYPE_KEYBOARD,
   } PERIPHERAL_TYPE;
 
+  /*!
+   * @brief Information shared between peripherals
+   */
   typedef struct PERIPHERAL_INFO
   {
     PERIPHERAL_TYPE type;           /*!< @brief type of peripheral */
@@ -63,8 +62,6 @@ extern "C"
 
   /*!
    * @brief Peripheral add-on capabilities.
-   * If a capability is set to true, then the corresponding methods from
-   * kodi_peripheral_dll.h need to be implemented.
    */
   typedef struct PERIPHERAL_CAPABILITIES
   {
@@ -77,6 +74,10 @@ extern "C"
 
   /// @name Event types
   ///{
+
+  /*!
+   * @brief Types of events that can be sent and received
+   */
   typedef enum PERIPHERAL_EVENT_TYPE
   {
     PERIPHERAL_EVENT_TYPE_NONE,           /*!< @brief unknown event */
@@ -86,12 +87,18 @@ extern "C"
     PERIPHERAL_EVENT_TYPE_SET_MOTOR,      /*!< @brief set the state for joystick rumble motor */
   } PERIPHERAL_EVENT_TYPE;
 
+  /*!
+   * @brief States a button can have
+   */
   typedef enum JOYSTICK_STATE_BUTTON
   {
     JOYSTICK_STATE_BUTTON_UNPRESSED = 0x0,    /*!< @brief button is released */
     JOYSTICK_STATE_BUTTON_PRESSED   = 0x1,    /*!< @brief button is pressed */
   } JOYSTICK_STATE_BUTTON;
 
+  /*!
+   * @brief States a D-pad (also called a hat) can have
+   */
   typedef enum JOYSTICK_STATE_HAT
   {
     JOYSTICK_STATE_HAT_UNPRESSED  = 0x0,    /*!< @brief no directions are pressed */
@@ -106,7 +113,7 @@ extern "C"
   } JOYSTICK_STATE_HAT;
 
   /*!
-   * @brief value in the closed interval [-1.0, 1.0]
+   * @brief Axis value in the closed interval [-1.0, 1.0]
    *
    * The axis state uses the XInput coordinate system:
    *   - Negative values signify down or to the left
@@ -114,13 +121,25 @@ extern "C"
    */
   typedef float JOYSTICK_STATE_AXIS;
 
+  /*!
+   * @brief Motor value in the closed interval [0.0, 1.0]
+   */
   typedef float JOYSTICK_STATE_MOTOR;
 
+  /*!
+   * @brief Event information
+   */
   typedef struct PERIPHERAL_EVENT
   {
-    unsigned int             peripheral_index;
-    PERIPHERAL_EVENT_TYPE    type;
-    unsigned int             driver_index;
+    /*! @brief Index of the peripheral handling/receiving the event */
+    unsigned int peripheral_index;
+
+    /*! @brief Type of the event used to determine which enum field to access below */
+    PERIPHERAL_EVENT_TYPE type;
+
+    /*! @brief The index of the event source */
+    unsigned int driver_index;
+
     JOYSTICK_STATE_BUTTON    driver_button_state;
     JOYSTICK_STATE_HAT       driver_hat_state;
     JOYSTICK_STATE_AXIS      driver_axis_state;
@@ -130,6 +149,10 @@ extern "C"
 
   /// @name Joystick types
   ///{
+
+  /*!
+   * @brief Info specific to joystick peripherals
+   */
   typedef struct JOYSTICK_INFO
   {
     PERIPHERAL_INFO peripheral;         /*!< @brief peripheral info for this joystick */
@@ -142,6 +165,15 @@ extern "C"
     bool            supports_poweroff;  /*!< @brief whether the joystick supports being powered off */
   } ATTRIBUTE_PACKED JOYSTICK_INFO;
 
+  /*!
+   * @brief Driver input primitives
+   *
+   * Mapping lower-level driver values to higher-level controller features is
+   * non-injective; two triggers can share a single axis.
+   *
+   * To handle this, driver values are subdivided into "primitives" that map
+   * injectively to higher-level features.
+   */
   typedef enum JOYSTICK_DRIVER_PRIMITIVE_TYPE
   {
     JOYSTICK_DRIVER_PRIMITIVE_TYPE_UNKNOWN,
@@ -149,13 +181,22 @@ extern "C"
     JOYSTICK_DRIVER_PRIMITIVE_TYPE_HAT_DIRECTION,
     JOYSTICK_DRIVER_PRIMITIVE_TYPE_SEMIAXIS,
     JOYSTICK_DRIVER_PRIMITIVE_TYPE_MOTOR,
+    JOYSTICK_DRIVER_PRIMITIVE_TYPE_KEY,
+    JOYSTICK_DRIVER_PRIMITIVE_TYPE_MOUSE_BUTTON,
+    JOYSTICK_DRIVER_PRIMITIVE_TYPE_RELPOINTER_DIRECTION,
   } JOYSTICK_DRIVER_PRIMITIVE_TYPE;
 
+  /*!
+   * @brief Button primitive
+   */
   typedef struct JOYSTICK_DRIVER_BUTTON
   {
     int              index;
   } ATTRIBUTE_PACKED JOYSTICK_DRIVER_BUTTON;
 
+  /*!
+   * @brief Hat direction
+   */
   typedef enum JOYSTICK_DRIVER_HAT_DIRECTION
   {
     JOYSTICK_DRIVER_HAT_UNKNOWN,
@@ -165,12 +206,18 @@ extern "C"
     JOYSTICK_DRIVER_HAT_DOWN,
   } JOYSTICK_DRIVER_HAT_DIRECTION;
 
+  /*!
+   * @brief Hat direction primitive
+   */
   typedef struct JOYSTICK_DRIVER_HAT
   {
     int                           index;
     JOYSTICK_DRIVER_HAT_DIRECTION direction;
   } ATTRIBUTE_PACKED JOYSTICK_DRIVER_HAT;
 
+  /*!
+   * @brief Semiaxis direction
+   */
   typedef enum JOYSTICK_DRIVER_SEMIAXIS_DIRECTION
   {
     JOYSTICK_DRIVER_SEMIAXIS_NEGATIVE = -1, /*!< @brief negative half of the axis */
@@ -178,6 +225,9 @@ extern "C"
     JOYSTICK_DRIVER_SEMIAXIS_POSITIVE =  1, /*!< @brief positive half of the axis */
   } JOYSTICK_DRIVER_SEMIAXIS_DIRECTION;
 
+  /*!
+   * @brief Semiaxis primitive
+   */
   typedef struct JOYSTICK_DRIVER_SEMIAXIS
   {
     int                                index;
@@ -186,11 +236,70 @@ extern "C"
     unsigned int                       range;
   } ATTRIBUTE_PACKED JOYSTICK_DRIVER_SEMIAXIS;
 
+  /*!
+   * @brief Motor primitive
+   */
   typedef struct JOYSTICK_DRIVER_MOTOR
   {
     int              index;
   } ATTRIBUTE_PACKED JOYSTICK_DRIVER_MOTOR;
 
+  /*!
+   * @brief Keyboard key primitive
+   */
+  typedef struct JOYSTICK_DRIVER_KEY
+  {
+    char keycode[16];
+  } ATTRIBUTE_PACKED JOYSTICK_DRIVER_KEY;
+
+  /*!
+   * @brief Mouse buttons
+   */
+  typedef enum JOYSTICK_DRIVER_MOUSE_INDEX
+  {
+    JOYSTICK_DRIVER_MOUSE_INDEX_UNKNOWN,
+    JOYSTICK_DRIVER_MOUSE_INDEX_LEFT,
+    JOYSTICK_DRIVER_MOUSE_INDEX_RIGHT,
+    JOYSTICK_DRIVER_MOUSE_INDEX_MIDDLE,
+    JOYSTICK_DRIVER_MOUSE_INDEX_BUTTON4,
+    JOYSTICK_DRIVER_MOUSE_INDEX_BUTTON5,
+    JOYSTICK_DRIVER_MOUSE_INDEX_WHEEL_UP,
+    JOYSTICK_DRIVER_MOUSE_INDEX_WHEEL_DOWN,
+    JOYSTICK_DRIVER_MOUSE_INDEX_HORIZ_WHEEL_LEFT,
+    JOYSTICK_DRIVER_MOUSE_INDEX_HORIZ_WHEEL_RIGHT,
+  } JOYSTICK_DRIVER_MOUSE_INDEX;
+
+  /*!
+   * @brief Mouse button primitive
+   */
+  typedef struct JOYSTICK_DRIVER_MOUSE_BUTTON
+  {
+    JOYSTICK_DRIVER_MOUSE_INDEX button;
+  } ATTRIBUTE_PACKED JOYSTICK_DRIVER_MOUSE_BUTTON;
+
+  /*!
+   * @brief Relative pointer direction
+   */
+  typedef enum JOYSTICK_DRIVER_RELPOINTER_DIRECTION
+  {
+    JOYSTICK_DRIVER_RELPOINTER_UNKNOWN,
+    JOYSTICK_DRIVER_RELPOINTER_LEFT,
+    JOYSTICK_DRIVER_RELPOINTER_RIGHT,
+    JOYSTICK_DRIVER_RELPOINTER_UP,
+    JOYSTICK_DRIVER_RELPOINTER_DOWN,
+  } JOYSTICK_DRIVER_RELPOINTER_DIRECTION;
+
+  /*!
+   * @brief Relative pointer direction primitive
+   */
+  typedef struct JOYSTICK_DRIVER_RELPOINTER
+  {
+    JOYSTICK_DRIVER_RELPOINTER_DIRECTION direction;
+  } ATTRIBUTE_PACKED JOYSTICK_DRIVER_RELPOINTER;
+
+  /*!
+   * @brief Driver primitive struct
+   */
   typedef struct JOYSTICK_DRIVER_PRIMITIVE
   {
     JOYSTICK_DRIVER_PRIMITIVE_TYPE    type;
@@ -200,9 +309,18 @@ extern "C"
       struct JOYSTICK_DRIVER_HAT      hat;
       struct JOYSTICK_DRIVER_SEMIAXIS semiaxis;
       struct JOYSTICK_DRIVER_MOTOR    motor;
+      struct JOYSTICK_DRIVER_KEY      key;
+      struct JOYSTICK_DRIVER_MOUSE_BUTTON mouse;
+      struct JOYSTICK_DRIVER_RELPOINTER relpointer;
     };
   } ATTRIBUTE_PACKED JOYSTICK_DRIVER_PRIMITIVE;
 
+  /*!
+   * @brief Controller feature
+   *
+   * Controller features are an abstraction over driver values. Each feature
+   * maps to one or more driver primitives.
+   */
   typedef enum JOYSTICK_FEATURE_TYPE
   {
     JOYSTICK_FEATURE_TYPE_UNKNOWN,
@@ -210,11 +328,19 @@ extern "C"
     JOYSTICK_FEATURE_TYPE_ANALOG_STICK,
     JOYSTICK_FEATURE_TYPE_ACCELEROMETER,
     JOYSTICK_FEATURE_TYPE_MOTOR,
+    JOYSTICK_FEATURE_TYPE_RELPOINTER,
+    JOYSTICK_FEATURE_TYPE_ABSPOINTER,
+    JOYSTICK_FEATURE_TYPE_WHEEL,
+    JOYSTICK_FEATURE_TYPE_THROTTLE,
+    JOYSTICK_FEATURE_TYPE_KEY,
   } JOYSTICK_FEATURE_TYPE;
 
+  /*!
+   * @brief Indices used to access a feature's driver primitives
+   */
   typedef enum JOYSTICK_FEATURE_PRIMITIVE
   {
-    // Scalar feature
+    // Scalar feature (a button, hat direction or semiaxis)
     JOYSTICK_SCALAR_PRIMITIVE = 0,
 
     // Analog stick
@@ -231,10 +357,33 @@ extern "C"
     // Motor
     JOYSTICK_MOTOR_PRIMITIVE = 0,
 
+    // Wheel
+    JOYSTICK_WHEEL_LEFT = 0,
+    JOYSTICK_WHEEL_RIGHT = 1,
+
+    // Throttle
+    JOYSTICK_THROTTLE_UP = 0,
+    JOYSTICK_THROTTLE_DOWN = 1,
+
+    // Key
+    JOYSTICK_KEY_PRIMITIVE = 0,
+
+    // Mouse button
+    JOYSTICK_MOUSE_BUTTON = 0,
+
+    // Relative pointer direction
+    JOYSTICK_RELPOINTER_UP = 0,
+    JOYSTICK_RELPOINTER_DOWN = 1,
+    JOYSTICK_RELPOINTER_RIGHT = 2,
+    JOYSTICK_RELPOINTER_LEFT = 3,
+
     // Maximum number of primitives
     JOYSTICK_PRIMITIVE_MAX = 4,
   } JOYSTICK_FEATURE_PRIMITIVE;
 
+  /*!
+   * @brief Mapping between higher-level controller feature and its driver primitives
+   */
   typedef struct JOYSTICK_FEATURE
   {
     char*                                   name;
@@ -257,6 +406,7 @@ extern "C"
     void (*trigger_scan)(void* kodiInstance);
     void (*refresh_button_maps)(void* kodiInstance, const char* device_name, const char* controller_id);
     unsigned int (*feature_count)(void* kodiInstance, const char* controller_id, JOYSTICK_FEATURE_TYPE type);
+    JOYSTICK_FEATURE_TYPE (*feature_type)(void* kodiInstance, const char* controller_id, const char* feature_name);
   } AddonToKodiFuncTable_Peripheral;
 
   //! @todo Mouse, light gun, multitouch
@@ -307,7 +457,7 @@ namespace addon
   {
   public:
     CInstancePeripheral()
-      : IAddonInstance(ADDON_INSTANCE_PERIPHERAL)
+      : IAddonInstance(ADDON_INSTANCE_PERIPHERAL, GetKodiTypeVersion(ADDON_INSTANCE_PERIPHERAL))
     {
       if (CAddonBase::m_interface->globalSingleInstance != nullptr)
         throw std::logic_error("kodi::addon::CInstancePeripheral: Creation of more as one in single instance way is not allowed!");
@@ -316,8 +466,10 @@ namespace addon
       CAddonBase::m_interface->globalSingleInstance = this;
     }
 
-    CInstancePeripheral(KODI_HANDLE instance)
-      : IAddonInstance(ADDON_INSTANCE_PERIPHERAL)
+    explicit CInstancePeripheral(KODI_HANDLE instance, const std::string& kodiVersion = "")
+      : IAddonInstance(ADDON_INSTANCE_PERIPHERAL,
+                       !kodiVersion.empty() ? kodiVersion
+                                            : GetKodiTypeVersion(ADDON_INSTANCE_PERIPHERAL))
     {
       if (CAddonBase::m_interface->globalSingleInstance != nullptr)
         throw std::logic_error("kodi::addon::CInstancePeripheral: Creation of multiple together with single instance way is not allowed!");
@@ -381,8 +533,7 @@ namespace addon
     virtual void FreeEvents(unsigned int event_count, PERIPHERAL_EVENT* events) { }
 
     /*!
-     * @brief Send an input event to the specified peripheral
-     * @param peripheralIndex The index of the device receiving the input event
+     * @brief Send an input event to the peripheral
      * @param event The input event
      * @return true if the event was handled, false otherwise
      */
@@ -527,9 +678,9 @@ namespace addon
      * @param[optional] deviceName The name of the device to refresh, or empty/null for all devices
      * @param[optional] controllerId The controller ID to refresh, or empty/null for all controllers
      */
-    void RefreshButtonMaps(const std::string& strDeviceName = "", const std::string& strControllerId = "")
+    void RefreshButtonMaps(const std::string& deviceName = "", const std::string& controllerId = "")
     {
-      return m_instanceData->toKodi.refresh_button_maps(m_instanceData->toKodi.kodiInstance, strDeviceName.c_str(), strControllerId.c_str());
+      return m_instanceData->toKodi.refresh_button_maps(m_instanceData->toKodi.kodiInstance, deviceName.c_str(), controllerId.c_str());
     }
 
     /*!
@@ -540,9 +691,23 @@ namespace addon
      *
      * @return The number of features matching the request parameters
      */
-    unsigned int FeatureCount(const std::string& strControllerId, JOYSTICK_FEATURE_TYPE type = JOYSTICK_FEATURE_TYPE_UNKNOWN)
+    unsigned int FeatureCount(const std::string& controllerId, JOYSTICK_FEATURE_TYPE type = JOYSTICK_FEATURE_TYPE_UNKNOWN)
     {
-      return m_instanceData->toKodi.feature_count(m_instanceData->toKodi.kodiInstance, strControllerId.c_str(), type);
+      return m_instanceData->toKodi.feature_count(m_instanceData->toKodi.kodiInstance, controllerId.c_str(), type);
+    }
+
+    /*!
+     * @brief Return the type of the feature
+     *
+     * @param controllerId    The controller ID to check
+     * @param featureName     The feature to check
+     *
+     * @return The type of the specified feature, or JOYSTICK_FEATURE_TYPE_UNKNOWN
+     * if unknown
+     */
+    JOYSTICK_FEATURE_TYPE FeatureType(const std::string& controllerId, const std::string &featureName)
+    {
+      return m_instanceData->toKodi.feature_type(m_instanceData->toKodi.kodiInstance, controllerId.c_str(), featureName.c_str());
     }
 
   private:
@@ -605,7 +770,7 @@ namespace addon
       return addonInstance->toAddon.addonInstance->SendEvent(event);
     }
 
-    
+
     inline static PERIPHERAL_ERROR ADDON_GetJoystickInfo(const AddonInstance_Peripheral* addonInstance, unsigned int index, JOYSTICK_INFO* info)
     {
       return addonInstance->toAddon.addonInstance->GetJoystickInfo(index, info);

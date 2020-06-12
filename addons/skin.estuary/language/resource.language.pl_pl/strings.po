@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: KODI Main\n"
-"Report-Msgid-Bugs-To: http://trac.kodi.tv/\n"
+"Report-Msgid-Bugs-To: https://github.com/xbmc/xbmc/issues/\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Kodi Translation Team\n"
@@ -114,7 +114,7 @@ msgstr "Widok"
 
 msgctxt "#31024"
 msgid "Choose rating to display for media items"
-msgstr "Wybiec ocenę wyświetlaną z mediami"
+msgstr "Wybierz ocenę wyświetlaną z mediami"
 
 msgctxt "#31025"
 msgid "No favourites found. You can add any item from media views to this list by using the context menu."
@@ -147,10 +147,6 @@ msgstr "Porządek"
 msgctxt "#31033"
 msgid "Your rating"
 msgstr "Twoja ocena"
-
-msgctxt "#31034"
-msgid "Extended info"
-msgstr "Dodatkowe"
 
 msgctxt "#31035"
 msgid "Pages"
@@ -199,10 +195,6 @@ msgstr "Dostępne"
 msgctxt "#31050"
 msgid "Press [B]OK[/B] to stop"
 msgstr "Naciśnij [B]OK[/B], aby zatrzymać"
-
-msgctxt "#31051"
-msgid "Toggle language"
-msgstr "Przełącz język"
 
 msgctxt "#31052"
 msgid "filtered"
@@ -268,6 +260,10 @@ msgctxt "#31072"
 msgid "Power Options"
 msgstr "Opcje zasilania"
 
+msgctxt "#31074"
+msgid "Total duration"
+msgstr "Całkowity czas trwania"
+
 msgctxt "#31075"
 msgid "Movie sets"
 msgstr "Serie filmowe"
@@ -295,10 +291,6 @@ msgstr "Ustawienia wizializacji"
 msgctxt "#31089"
 msgid "Available groups"
 msgstr "Dostępne grupy"
-
-msgctxt "#31090"
-msgid "Search trailer"
-msgstr "Szukaj zwiastuna"
 
 msgctxt "#31092"
 msgid "Video menu"
@@ -380,10 +372,6 @@ msgctxt "#31114"
 msgid "Search YouTube"
 msgstr "Szukaj w serwisie YouTube"
 
-msgctxt "#31115"
-msgid "Search TheMovieDB"
-msgstr "Szukaj w serwisie TheMovieDB"
-
 msgctxt "#31116"
 msgid "Remove this main menu item"
 msgstr "Usuń tę pozycję z menu startowego"
@@ -416,10 +404,6 @@ msgctxt "#31123"
 msgid "Same director"
 msgstr "Filmy reżysera"
 
-msgctxt "#31124"
-msgid "Show images on map"
-msgstr "Pokazuj obrazy na mapie"
-
 msgctxt "#31125"
 msgid "Press up for actor info"
 msgstr "Naciśnij Góra, aby zobaczyć notkę o aktorze"
@@ -447,6 +431,14 @@ msgstr "Umożliwia dostosowanie menu startowego do własnych upodobań."
 msgctxt "#31131"
 msgid "Choose skin fanart pack"
 msgstr "Wybierz pakiet fototapet skóry"
+
+msgctxt "#31132"
+msgid "Select Program"
+msgstr "Wybierz program"
+
+msgctxt "#31133"
+msgid "Select Resolution"
+msgstr "Wybierz rozdzielczość"
 
 msgctxt "#31134"
 msgid "Remaining"
@@ -555,3 +547,19 @@ msgstr "Zagraj w posiadane gry lub pobierz jedną z gier z oficjalnego repozytor
 msgctxt "#31163"
 msgid "Show Fanart background"
 msgstr "Pokazuj fototapetę w tle interfejsu"
+
+msgctxt "#31164"
+msgid "Choose kind of profile identification"
+msgstr "Wybierz rodzaj identyfikacji profilu"
+
+msgctxt "#31165"
+msgid "Profile name"
+msgstr "Nazwa profilu"
+
+msgctxt "#31166"
+msgid "Profile avatar"
+msgstr "Awatar profilu"
+
+msgctxt "#31167"
+msgid "Animate background"
+msgstr "Animowane tło"

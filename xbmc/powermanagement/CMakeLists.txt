@@ -4,7 +4,12 @@ set(SOURCES DPMSSupport.cpp
 
 set(HEADERS DPMSSupport.h
             IPowerSyscall.h
-            PowerManager.h)
+            PowerManager.h
+            PowerTypes.h)
+
+if(CORE_SYSTEM_NAME MATCHES windows)
+  list(APPEND HEADERS WinIdleTimer.h)
+endif()
 
 if(MMAL_FOUND)
   list(APPEND SOURCES PowerSyscallVirtualSleep.cpp)

@@ -1,159 +1,159 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#if defined (HAVE_LIBVA)
-#include <va/va_drm.h>
-#include "cores/VideoPlayer/DVDCodecs/Video/VAAPI.h"
-#include "cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.h"
-#endif
+#include "WinSystemGbmGLESContext.h"
 
+#include "OptionalsReg.h"
+#include "cores/RetroPlayer/process/gbm/RPProcessInfoGbm.h"
+#include "cores/RetroPlayer/rendering/VideoRenderers/RPRendererDMA.h"
+#include "cores/RetroPlayer/rendering/VideoRenderers/RPRendererOpenGLES.h"
 #include "cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.h"
+#include "cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecDRMPRIME.h"
+#include "cores/VideoPlayer/Process/gbm/ProcessInfoGBM.h"
+#include "cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIME.h"
+#include "cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIMEGLES.h"
 #include "cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h"
 #include "cores/VideoPlayer/VideoRenderers/RenderFactory.h"
-
-#include "WinSystemGbmGLESContext.h"
+#include "rendering/gles/ScreenshotSurfaceGLES.h"
+#include "utils/BufferObjectFactory.h"
+#include "utils/DMAHeapBufferObject.h"
+#include "utils/DumbBufferObject.h"
+#include "utils/GBMBufferObject.h"
+#include "utils/UDMABufferObject.h"
+#include "utils/XTimeUtils.h"
 #include "utils/log.h"
+
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
+#include <gbm.h>
+
+using namespace KODI::WINDOWING::GBM;
+
+CWinSystemGbmGLESContext::CWinSystemGbmGLESContext()
+: CWinSystemGbmEGLContext(EGL_PLATFORM_GBM_MESA, "EGL_MESA_platform_gbm")
+{}
+
+std::unique_ptr<CWinSystemBase> CWinSystemBase::CreateWinSystem()
+{
+  std::unique_ptr<CWinSystemBase> winSystem(new CWinSystemGbmGLESContext());
+  return winSystem;
+}
 
 bool CWinSystemGbmGLESContext::InitWindowSystem()
 {
+  VIDEOPLAYER::CRendererFactory::ClearRenderer();
+  CDVDFactoryCodec::ClearHWAccels();
   CLinuxRendererGLES::Register();
+  RETRO::CRPProcessInfoGbm::Register();
+  RETRO::CRPProcessInfoGbm::RegisterRendererFactory(new RETRO::CRendererFactoryDMA);
+  RETRO::CRPProcessInfoGbm::RegisterRendererFactory(new RETRO::CRendererFactoryOpenGLES);
 
-  if (!CWinSystemGbm::InitWindowSystem())
+  if (!CWinSystemGbmEGLContext::InitWindowSystemEGL(EGL_OPENGL_ES2_BIT, EGL_OPENGL_ES_API))
   {
     return false;
   }
 
-  if (!m_pGLContext.CreateDisplay(m_nativeDisplay,
-                                  EGL_OPENGL_ES2_BIT,
-                                  EGL_OPENGL_ES_API))
-  {
-    return false;
-  }
+  bool general, deepColor;
+  m_vaapiProxy.reset(GBM::VaapiProxyCreate(m_DRM->GetRenderNodeFileDescriptor()));
+  GBM::VaapiProxyConfig(m_vaapiProxy.get(), m_eglContext.GetEGLDisplay());
+  GBM::VAAPIRegisterRender(m_vaapiProxy.get(), general, deepColor);
 
-#if defined (HAVE_LIBVA)
-  VADisplay vaDpy = static_cast<VADisplay>(CWinSystemGbm::GetVaDisplay());
-  bool general, hevc;
-  CRendererVAAPI::Register(vaDpy, m_pGLContext.m_eglDisplay, general, hevc);
   if (general)
   {
-    VAAPI::CDecoder::Register(hevc);
+    GBM::VAAPIRegister(m_vaapiProxy.get(), deepColor);
   }
+
+  CRendererDRMPRIMEGLES::Register();
+  CRendererDRMPRIME::Register();
+  CDVDVideoCodecDRMPRIME::Register();
+  VIDEOPLAYER::CProcessInfoGBM::Register();
+
+  CScreenshotSurfaceGLES::Register();
+
+  CBufferObjectFactory::ClearBufferObjects();
+  CDumbBufferObject::Register();
+#if defined(HAS_GBM_BO_MAP)
+  CGBMBufferObject::Register();
 #endif
-
-  return true;
-}
-
-bool CWinSystemGbmGLESContext::DestroyWindowSystem()
-{
-  CDVDFactoryCodec::ClearHWAccels();
-  VIDEOPLAYER::CRendererFactory::ClearRenderer();
-
-  if (!CWinSystemGbm::DestroyWindowSystem())
-  {
-    return false;
-  }
-
-  return true;
-}
-
-bool CWinSystemGbmGLESContext::CreateNewWindow(const std::string& name,
-                                               bool fullScreen,
-                                               RESOLUTION_INFO& res)
-{
-  m_pGLContext.Detach();
-
-  if (!CWinSystemGbm::DestroyWindow())
-  {
-    return false;
-  }
-
-  if (!CWinSystemGbm::CreateNewWindow(name, fullScreen, res))
-  {
-    return false;
-  }
-
-  if (!m_pGLContext.CreateSurface(m_nativeWindow))
-  {
-    return false;
-  }
-
-  if (!m_pGLContext.CreateContext())
-  {
-    return false;
-  }
-
-  if (!m_pGLContext.BindContext())
-  {
-    return false;
-  }
-
-  if (!m_pGLContext.SurfaceAttrib())
-  {
-    return false;
-  }
+#if defined(HAVE_LINUX_MEMFD) && defined(HAVE_LINUX_UDMABUF)
+  CUDMABufferObject::Register();
+#endif
+#if defined(HAVE_LINUX_DMA_HEAP)
+  CDMAHeapBufferObject::Register();
+#endif
 
   return true;
 }
 
 bool CWinSystemGbmGLESContext::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool blankOtherDisplays)
 {
-  if (res.iWidth != m_drm->mode->hdisplay ||
-      res.iHeight != m_drm->mode->vdisplay)
+  if (res.iWidth != m_nWidth ||
+      res.iHeight != m_nHeight)
   {
     CLog::Log(LOGDEBUG, "CWinSystemGbmGLESContext::%s - resolution changed, creating a new window", __FUNCTION__);
     CreateNewWindow("", fullScreen, res);
   }
 
-  m_pGLContext.SwapBuffers();
+  if (!m_eglContext.TrySwapBuffers())
+  {
+    CEGLUtils::Log(LOGERROR, "eglSwapBuffers failed");
+    throw std::runtime_error("eglSwapBuffers failed");
+  }
 
   CWinSystemGbm::SetFullScreen(fullScreen, res, blankOtherDisplays);
-  CRenderSystemGLES::ResetRenderSystem(res.iWidth, res.iHeight, fullScreen, res.fRefreshRate);
+  CRenderSystemGLES::ResetRenderSystem(res.iWidth, res.iHeight);
 
   return true;
 }
 
-void CWinSystemGbmGLESContext::PresentRenderImpl(bool rendered)
+void CWinSystemGbmGLESContext::PresentRender(bool rendered, bool videoLayer)
 {
-  if (rendered)
+  if (!m_bRenderCreated)
+    return;
+
+  if (rendered || videoLayer)
   {
-    m_pGLContext.SwapBuffers();
-    CGBMUtils::FlipPage();
+    if (rendered)
+    {
+      if (!m_eglContext.TrySwapBuffers())
+      {
+        CEGLUtils::Log(LOGERROR, "eglSwapBuffers failed");
+        throw std::runtime_error("eglSwapBuffers failed");
+      }
+    }
+    CWinSystemGbm::FlipPage(rendered, videoLayer);
+
+    if (m_dispReset && m_dispResetTimer.IsTimePast())
+    {
+      CLog::Log(LOGDEBUG, "CWinSystemGbmGLESContext::%s - Sending display reset to all clients",
+                __FUNCTION__);
+      m_dispReset = false;
+      CSingleLock lock(m_resourceSection);
+
+      for (auto resource : m_resources)
+        resource->OnResetDisplay();
+    }
+  }
+  else
+  {
+    KODI::TIME::Sleep(10);
   }
 }
 
-EGLDisplay CWinSystemGbmGLESContext::GetEGLDisplay() const
+bool CWinSystemGbmGLESContext::CreateContext()
 {
-  return m_pGLContext.m_eglDisplay;
-}
+  CEGLAttributesVec contextAttribs;
+  contextAttribs.Add({{EGL_CONTEXT_CLIENT_VERSION, 2}});
 
-EGLSurface CWinSystemGbmGLESContext::GetEGLSurface() const
-{
-  return m_pGLContext.m_eglSurface;
-}
-
-EGLContext CWinSystemGbmGLESContext::GetEGLContext() const
-{
-  return m_pGLContext.m_eglContext;
-}
-
-EGLConfig  CWinSystemGbmGLESContext::GetEGLConfig() const
-{
-  return m_pGLContext.m_eglConfig;
+  if (!m_eglContext.CreateContext(contextAttribs))
+  {
+    CLog::Log(LOGERROR, "EGL context creation failed");
+    return false;
+  }
+  return true;
 }

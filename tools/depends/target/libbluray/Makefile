@@ -1,18 +1,18 @@
 include ../../Makefile.include
-DEPS= ../../Makefile.include Makefile
+DEPS= ../../Makefile.include Makefile tvos.patch
 
 # lib name, version
 LIBNAME=libbluray
-VERSION=1.0.1
+VERSION=1.1.2
 SOURCE=$(LIBNAME)-$(VERSION)
 ARCHIVE=$(SOURCE).tar.bz2
 
 # configuration settings
-CONFIGURE=./configure --prefix=$(PREFIX) --exec-prefix=$(PREFIX) \
+CONFIGURE=./configure --prefix=$(PREFIX) --disable-shared --exec-prefix=$(PREFIX) \
   --disable-examples --disable-doxygen-doc \
-  --disable-bdjava-jar --without-libxml2 --without-freetype
+  --disable-bdjava-jar
 
-LIBDYLIB=$(PLATFORM)/src/.libs/libbluray.la
+LIBDYLIB=$(PLATFORM)/.libs/libbluray.la
 
 all: .installed-$(PLATFORM)
 
@@ -28,7 +28,7 @@ $(PLATFORM): $(TARBALLS_LOCATION)/$(ARCHIVE) $(DEPS)
 	cd $(PLATFORM); ./bootstrap
 	cd $(PLATFORM); $(CONFIGURE)
 ifeq ($(TARGET_PLATFORM),appletvos)
-	cd $(PLATFORM); patch -p0 < ../tvos.patch
+	cd $(PLATFORM); patch -p1 -i ../tvos.patch
 endif
 
 $(LIBDYLIB): $(PLATFORM)

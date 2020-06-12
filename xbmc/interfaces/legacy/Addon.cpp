@@ -1,31 +1,21 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "Addon.h"
-#include "LanguageHook.h"
 
+#include "GUIUserMessages.h"
+#include "LanguageHook.h"
+#include "ServiceBroker.h"
 #include "addons/AddonManager.h"
 #include "addons/settings/GUIDialogAddonSettings.h"
+#include "guilib/GUIComponent.h"
 #include "guilib/GUIWindowManager.h"
 #include "guilib/LocalizeStrings.h"
-#include "GUIUserMessages.h"
 #include "utils/StringUtils.h"
 
 using namespace ADDON;
@@ -41,19 +31,19 @@ namespace XBMCAddon
     bool Addon::UpdateSettingInActiveDialog(const char* id, const String& value)
     {
       ADDON::AddonPtr addon(pAddon);
-      if (!g_windowManager.IsWindowActive(WINDOW_DIALOG_ADDON_SETTINGS))
+      if (!CServiceBroker::GetGUI()->GetWindowManager().IsWindowActive(WINDOW_DIALOG_ADDON_SETTINGS))
         return false;
 
-      CGUIDialogAddonSettings* dialog = g_windowManager.GetWindow<CGUIDialogAddonSettings>(WINDOW_DIALOG_ADDON_SETTINGS);
+      CGUIDialogAddonSettings* dialog = CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogAddonSettings>(WINDOW_DIALOG_ADDON_SETTINGS);
       if (dialog->GetCurrentAddonID() != addon->ID())
         return false;
 
       CGUIMessage message(GUI_MSG_SETTING_UPDATED, 0, 0);
       std::vector<std::string> params;
-      params.push_back(id);
+      params.emplace_back(id);
       params.push_back(value);
       message.SetStringParams(params);
-      g_windowManager.SendThreadMessage(message, WINDOW_DIALOG_ADDON_SETTINGS);
+      CServiceBroker::GetGUI()->GetWindowManager().SendThreadMessage(message, WINDOW_DIALOG_ADDON_SETTINGS);
 
       return true;
     }
@@ -71,15 +61,15 @@ namespace XBMCAddon
       if (id.empty())
         throw AddonException("No valid addon id could be obtained. None was passed and the script wasn't executed in a normal xbmc manner.");
 
-      if (!ADDON::CAddonMgr::GetInstance().GetAddon(id.c_str(), pAddon))
+      if (!CServiceBroker::GetAddonMgr().GetAddon(id.c_str(), pAddon))
         throw AddonException("Unknown addon id '%s'.", id.c_str());
 
-      CAddonMgr::GetInstance().AddToUpdateableAddons(pAddon);
+      CServiceBroker::GetAddonMgr().AddToUpdateableAddons(pAddon);
     }
 
     Addon::~Addon()
     {
-      CAddonMgr::GetInstance().RemoveFromUpdateableAddons(pAddon);
+      CServiceBroker::GetAddonMgr().RemoveFromUpdateableAddons(pAddon);
     }
 
     String Addon::getLocalizedString(int id)
@@ -92,7 +82,7 @@ namespace XBMCAddon
       return pAddon->GetSetting(id);
     }
 
-    bool Addon::getSettingBool(const char* id) throw(XBMCAddon::WrongTypeException)
+    bool Addon::getSettingBool(const char* id)
     {
       bool value = false;
       if (!pAddon->GetSettingBool(id, value))
@@ -101,7 +91,7 @@ namespace XBMCAddon
       return value;
     }
 
-    int Addon::getSettingInt(const char* id) throw(XBMCAddon::WrongTypeException)
+    int Addon::getSettingInt(const char* id)
     {
       int value = 0;
       if (!pAddon->GetSettingInt(id, value))
@@ -110,7 +100,7 @@ namespace XBMCAddon
       return value;
     }
 
-    double Addon::getSettingNumber(const char* id) throw(XBMCAddon::WrongTypeException)
+    double Addon::getSettingNumber(const char* id)
     {
       double value = 0.0;
       if (!pAddon->GetSettingNumber(id, value))
@@ -119,7 +109,7 @@ namespace XBMCAddon
       return value;
     }
 
-    String Addon::getSettingString(const char* id) throw(XBMCAddon::WrongTypeException)
+    String Addon::getSettingString(const char* id)
     {
       std::string value;
       if (!pAddon->GetSettingString(id, value))
@@ -139,7 +129,7 @@ namespace XBMCAddon
       }
     }
 
-    bool Addon::setSettingBool(const char* id, bool value) throw(XBMCAddon::WrongTypeException)
+    bool Addon::setSettingBool(const char* id, bool value)
     {
       DelayedCallGuard dcguard(languageHook);
       ADDON::AddonPtr addon(pAddon);
@@ -154,7 +144,7 @@ namespace XBMCAddon
       return true;
     }
 
-    bool Addon::setSettingInt(const char* id, int value) throw(XBMCAddon::WrongTypeException)
+    bool Addon::setSettingInt(const char* id, int value)
     {
       DelayedCallGuard dcguard(languageHook);
       ADDON::AddonPtr addon(pAddon);
@@ -169,7 +159,7 @@ namespace XBMCAddon
       return true;
     }
 
-    bool Addon::setSettingNumber(const char* id, double value) throw(XBMCAddon::WrongTypeException)
+    bool Addon::setSettingNumber(const char* id, double value)
     {
       DelayedCallGuard dcguard(languageHook);
       ADDON::AddonPtr addon(pAddon);
@@ -184,7 +174,7 @@ namespace XBMCAddon
       return true;
     }
 
-    bool Addon::setSettingString(const char* id, const String& value) throw(XBMCAddon::WrongTypeException)
+    bool Addon::setSettingString(const char* id, const String& value)
     {
       DelayedCallGuard dcguard(languageHook);
       ADDON::AddonPtr addon(pAddon);
@@ -209,33 +199,33 @@ namespace XBMCAddon
 
     String Addon::getAddonInfo(const char* id)
     {
-      if (strcmpi(id, "author") == 0)
+      if (StringUtils::CompareNoCase(id, "author") == 0)
         return pAddon->Author();
-      else if (strcmpi(id, "changelog") == 0)
+      else if (StringUtils::CompareNoCase(id, "changelog") == 0)
         return pAddon->ChangeLog();
-      else if (strcmpi(id, "description") == 0)
+      else if (StringUtils::CompareNoCase(id, "description") == 0)
         return pAddon->Description();
-      else if (strcmpi(id, "disclaimer") == 0)
+      else if (StringUtils::CompareNoCase(id, "disclaimer") == 0)
         return pAddon->Disclaimer();
-      else if (strcmpi(id, "fanart") == 0)
+      else if (StringUtils::CompareNoCase(id, "fanart") == 0)
         return pAddon->FanArt();
-      else if (strcmpi(id, "icon") == 0)
+      else if (StringUtils::CompareNoCase(id, "icon") == 0)
         return pAddon->Icon();
-      else if (strcmpi(id, "id") == 0)
+      else if (StringUtils::CompareNoCase(id, "id") == 0)
         return pAddon->ID();
-      else if (strcmpi(id, "name") == 0)
+      else if (StringUtils::CompareNoCase(id, "name") == 0)
         return pAddon->Name();
-      else if (strcmpi(id, "path") == 0)
+      else if (StringUtils::CompareNoCase(id, "path") == 0)
         return pAddon->Path();
-      else if (strcmpi(id, "profile") == 0)
+      else if (StringUtils::CompareNoCase(id, "profile") == 0)
         return pAddon->Profile();
-      else if (strcmpi(id, "stars") == 0)
+      else if (StringUtils::CompareNoCase(id, "stars") == 0)
         return StringUtils::Format("-1");
-      else if (strcmpi(id, "summary") == 0)
+      else if (StringUtils::CompareNoCase(id, "summary") == 0)
         return pAddon->Summary();
-      else if (strcmpi(id, "type") == 0)
+      else if (StringUtils::CompareNoCase(id, "type") == 0)
         return ADDON::CAddonInfo::TranslateType(pAddon->Type());
-      else if (strcmpi(id, "version") == 0)
+      else if (StringUtils::CompareNoCase(id, "version") == 0)
         return pAddon->Version().asString();
       else
         throw AddonException("'%s' is an invalid Id", id);

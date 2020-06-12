@@ -1,31 +1,21 @@
 /*
- *      Copyright (C) 2005-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "AddonInstanceHandler.h"
-#include "BinaryAddonBase.h"
 
-#include "utils/log.h"
+#include "BinaryAddonBase.h"
 #include "utils/StringUtils.h"
+#include "utils/log.h"
 
 namespace ADDON
 {
+
+CCriticalSection IAddonInstanceHandler::m_cdSec;
 
 IAddonInstanceHandler::IAddonInstanceHandler(ADDON_TYPE type, const BinaryAddonBasePtr& addonBase, KODI_HANDLE parentInstance/* = nullptr*/, const std::string& instanceID/* = ""*/)
   : m_type(type),
@@ -80,7 +70,7 @@ std::string IAddonInstanceHandler::Profile() const
 
 AddonVersion IAddonInstanceHandler::Version() const
 {
-  return m_addon ? m_addon->Version() : AddonVersion("0.0.0");
+  return m_addon ? m_addon->Version() : AddonVersion();
 }
 
 ADDON_STATUS IAddonInstanceHandler::CreateInstance(KODI_HANDLE instance)
@@ -88,7 +78,10 @@ ADDON_STATUS IAddonInstanceHandler::CreateInstance(KODI_HANDLE instance)
   if (!m_addon)
     return ADDON_STATUS_UNKNOWN;
 
-  ADDON_STATUS status = m_addon->CreateInstance(m_type, m_instanceId, instance, m_parentInstance);
+  CSingleLock lock(m_cdSec);
+
+  ADDON_STATUS status =
+      m_addon->CreateInstance(m_type, this, m_instanceId, instance, m_parentInstance);
   if (status != ADDON_STATUS_OK)
   {
     CLog::Log(LOGERROR, "IAddonInstanceHandler::%s: %s returned bad status \"%s\" during instance creation",
@@ -101,8 +94,9 @@ ADDON_STATUS IAddonInstanceHandler::CreateInstance(KODI_HANDLE instance)
 
 void IAddonInstanceHandler::DestroyInstance()
 {
+  CSingleLock lock(m_cdSec);
   if (m_addon)
-    m_addon->DestroyInstance(m_instanceId);
+    m_addon->DestroyInstance(this);
 }
 
 } /* namespace ADDON */

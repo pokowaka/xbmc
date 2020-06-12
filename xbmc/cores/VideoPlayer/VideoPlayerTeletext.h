@@ -1,36 +1,24 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "threads/Thread.h"
+#pragma once
+
 #include "DVDMessageQueue.h"
-#include "video/TeletextDefines.h"
 #include "IVideoPlayer.h"
+#include "threads/Thread.h"
+#include "video/TeletextDefines.h"
 
 class CDVDStreamInfo;
 
 class CDVDTeletextData : public CThread, public IDVDStreamPlayer
 {
 public:
-  CDVDTeletextData(CProcessInfo &processInfo);
+  explicit CDVDTeletextData(CProcessInfo &processInfo);
   ~CDVDTeletextData() override;
 
   bool CheckStream(CDVDStreamInfo &hints);
@@ -46,7 +34,7 @@ public:
   bool IsInited() const override { return true; }
   bool IsStalled() const override { return true; }
 
-  TextCacheStruct_t* GetTeletextCache() { return &m_TXTCache; }
+  std::shared_ptr<TextCacheStruct_t> GetTeletextCache() { return m_TXTCache; }
   void LoadPage(int p, int sp, unsigned char* buffer);
 
 protected:
@@ -61,7 +49,7 @@ private:
   void AllocateCache(int magazine);
 
   int m_speed;
-  TextCacheStruct_t  m_TXTCache;
+  std::shared_ptr<TextCacheStruct_t> m_TXTCache = std::make_shared<TextCacheStruct_t>();
   CCriticalSection m_critSection;
   CDVDMessageQueue m_messageQueue;
 };

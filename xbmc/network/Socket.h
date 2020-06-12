@@ -1,36 +1,27 @@
-#pragma once
-
 /*
  * Socket classes
- *      Copyright (c) 2008 d4rk
- *      Copyright (C) 2008-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (c) 2008 d4rk
+ *  Copyright (C) 2008-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <string.h>
+#pragma once
+
 #include <map>
+#include <string.h>
 #include <vector>
-#include <sys/socket.h>
-#include <netinet/in.h>
+
 #include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#include "PlatformDefs.h"
 #ifdef TARGET_POSIX
 typedef int SOCKET;
 #endif
@@ -68,7 +59,7 @@ namespace SOCKETS
       size = sizeof(saddr.saddr4);
     }
 
-    CAddress(const char *address)
+    explicit CAddress(const char *address)
     {
       SetAddress(address);
     }
@@ -123,7 +114,7 @@ namespace SOCKETS
           hash = 0xfffffffeu;
         return (unsigned long)htonl(hash);
       }
-      else 
+      else
         return (unsigned long)saddr.saddr4.sin_addr.s_addr;
     }
   };
@@ -218,6 +209,8 @@ namespace SOCKETS
     CAddress m_addr;
 
   private:
+    bool CheckIPv6(int port, int range);
+
     bool m_ipv6Socket;
   };
 

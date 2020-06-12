@@ -3,7 +3,7 @@
 # ----------
 # Finds the FindOpenGl library
 #
-# This will will define the following variables::
+# This will define the following variables::
 #
 # OPENGL_FOUND - system has OpenGl
 # OPENGL_INCLUDE_DIRS - the OpenGl include directory
@@ -37,7 +37,7 @@ find_package_handle_standard_args(OpenGl
 if(OPENGL_FOUND)
   set(OPENGL_INCLUDE_DIRS ${OPENGL_INCLUDE_DIR})
   set(OPENGL_LIBRARIES ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY})
-  set(OPENGL_DEFINITIONS -DHAVE_LIBGL=1)
+  set(OPENGL_DEFINITIONS -DHAS_GL=1)
 endif()
 
 mark_as_advanced(OPENGL_INCLUDE_DIR OPENGL_gl_LIBRARY OPENGL_glu_LIBRARY)

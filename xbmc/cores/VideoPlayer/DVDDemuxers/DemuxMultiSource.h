@@ -1,24 +1,13 @@
 /*
- *      Copyright (C) 2005-2015 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
+
 #include "DVDDemux.h"
 #include "DVDInputStreams/InputStreamMultiSource.h"
 
@@ -46,7 +35,7 @@ public:
   CDemuxMultiSource();
   ~CDemuxMultiSource() override;
 
-  bool Open(CDVDInputStream* pInput);
+  bool Open(std::shared_ptr<CDVDInputStream> pInput);
 
   // implementation of CDVDDemux
   void Abort() override;
@@ -58,7 +47,7 @@ public:
   std::string GetStreamCodecName(int64_t demuxerId, int iStreamId) override;
   int GetStreamLength() override;
   DemuxPacket* Read() override;
-  void Reset() override;
+  bool Reset() override;
   bool SeekTime(double time, bool backwards = false, double* startpts = NULL) override;
 
 protected:
@@ -68,7 +57,7 @@ private:
   void Dispose();
   void SetMissingStreamDetails(DemuxPtr demuxer);
 
-  InputStreamMultiStreams* m_pInput = NULL;
+  std::shared_ptr<InputStreamMultiStreams> m_pInput = NULL;
   std::map<DemuxPtr, InputStreamPtr> m_DemuxerToInputStreamMap;
   DemuxQueue m_demuxerQueue;
   std::map<int64_t, DemuxPtr> m_demuxerMap;

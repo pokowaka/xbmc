@@ -1,26 +1,14 @@
-#pragma once
 /*
- *      Copyright (C) 2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2016-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
+#pragma once
+
 #include "ContextMenuItem.h"
-#include "guilib/GUIWindowManager.h"
 #include "VideoLibraryQueue.h"
 
 namespace CONTEXTMENU
@@ -56,6 +44,13 @@ struct CMovieInfo : CVideoInfo
   CMovieInfo() : CVideoInfo(MediaTypeMovie) {}
 };
 
+struct CRemoveResumePoint : CStaticContextMenuAction
+{
+  CRemoveResumePoint() : CStaticContextMenuAction(38209) {}
+  bool IsVisible(const CFileItem& item) const override;
+  bool Execute(const CFileItemPtr& item) const override;
+};
+
 struct CMarkWatched : CStaticContextMenuAction
 {
   CMarkWatched() : CStaticContextMenuAction(16103) {}
@@ -83,4 +78,26 @@ struct CPlay : IContextMenuItem
   bool IsVisible(const CFileItem& item) const override;
   bool Execute(const CFileItemPtr& _item) const override;
 };
+
+struct CQueue : CStaticContextMenuAction
+{
+  CQueue() : CStaticContextMenuAction(13347) {} // Queue item
+  bool IsVisible(const CFileItem& item) const override;
+  bool Execute(const CFileItemPtr& item) const override;
+};
+
+struct CPlayNext : CStaticContextMenuAction
+{
+  CPlayNext() : CStaticContextMenuAction(10008) {} // Play next
+  bool IsVisible(const CFileItem& item) const override;
+  bool Execute(const CFileItemPtr& item) const override;
+};
+
+struct CPlayAndQueue : CStaticContextMenuAction
+{
+  CPlayAndQueue() : CStaticContextMenuAction(13412) {} // Play from here
+  bool IsVisible(const CFileItem& item) const override;
+  bool Execute(const CFileItemPtr& item) const override;
+};
+
 }

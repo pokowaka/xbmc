@@ -1,23 +1,12 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "../AddonBase.h"
 
@@ -75,8 +64,14 @@ namespace addon
     /// @param[in] instance             The from Kodi given instance given be
     ///                                 add-on CreateInstance call with instance
     ///                                 id ADDON_INSTANCE_AUDIOENCODER.
-    CInstanceAudioEncoder(KODI_HANDLE instance)
-      : IAddonInstance(ADDON_INSTANCE_AUDIOENCODER)
+    /// @param[in] kodiVersion [opt] Version used in Kodi for this instance, to
+    ///                        allow compatibility to older Kodi versions.
+    ///                        @note Recommended to set.
+    ///
+    explicit CInstanceAudioEncoder(KODI_HANDLE instance, const std::string& kodiVersion = "")
+      : IAddonInstance(ADDON_INSTANCE_AUDIOENCODER,
+                       !kodiVersion.empty() ? kodiVersion
+                                            : GetKodiTypeVersion(ADDON_INSTANCE_AUDIOENCODER))
     {
       if (CAddonBase::m_interface->globalSingleInstance != nullptr)
         throw std::logic_error("kodi::addon::CInstanceAudioEncoder: Creation of multiple together with single instance way is not allowed!");
@@ -136,10 +131,10 @@ namespace addon
     //==========================================================================
     /// \brief Write block of data
     ///
-    /// \param[in] data                 Pointer to the array of elements to be 
+    /// \param[in] data                 Pointer to the array of elements to be
     ///                                 written
     /// \param[in] length               Size in bytes to be written.
-    /// \return                         The total number of bytes 
+    /// \return                         The total number of bytes
     ///                                 successfully written is returned.
     int Write(const uint8_t* data, int length)
     {
@@ -154,7 +149,7 @@ namespace addon
     ///
     /// \param[in] position             the position that you want to seek to
     /// \param[in] whence               [optional] offset relative to
-    ///                                 You can set the value of whence to one 
+    ///                                 You can set the value of whence to one
     ///                                 of three things:
     ///  |   Value  | int | Description                                        |
     ///  |:--------:|:---:|:---------------------------------------------------|

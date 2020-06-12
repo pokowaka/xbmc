@@ -1,34 +1,24 @@
 /*
- *      Copyright (C) 2015 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "KeyboardLayoutManager.h"
 
+#include "FileItem.h"
+#include "URL.h"
+#include "filesystem/Directory.h"
+#include "settings/lib/Setting.h"
+#include "settings/lib/SettingDefinitions.h"
+#include "utils/XBMCTinyXML.h"
+#include "utils/log.h"
+
 #include <algorithm>
 
-#include "FileItem.h"
-#include "filesystem/Directory.h"
-#include "URL.h"
-#include "utils/log.h"
-#include "utils/XBMCTinyXML.h"
-
-#define KEYBOARD_LAYOUTS_PATH   "special://xbmc/system/keyboardlayouts"
+#define KEYBOARD_LAYOUTS_PATH "special://xbmc/system/keyboardlayouts"
 
 CKeyboardLayoutManager::~CKeyboardLayoutManager()
 {
@@ -49,18 +39,25 @@ bool CKeyboardLayoutManager::Load(const std::string& path /* = "" */)
 
   if (!XFILE::CDirectory::Exists(layoutDirectory))
   {
-    CLog::Log(LOGWARNING, "CKeyboardLayoutManager: unable to load keyboard layouts from non-existing directory \"%s\"", layoutDirectory.c_str());
+    CLog::Log(LOGWARNING,
+              "CKeyboardLayoutManager: unable to load keyboard layouts from non-existing directory "
+              "\"%s\"",
+              layoutDirectory.c_str());
     return false;
   }
 
   CFileItemList layouts;
-  if (!XFILE::CDirectory::GetDirectory(CURL(layoutDirectory), layouts, ".xml") || layouts.IsEmpty())
+  if (!XFILE::CDirectory::GetDirectory(CURL(layoutDirectory), layouts, ".xml",
+                                       XFILE::DIR_FLAG_DEFAULTS) ||
+      layouts.IsEmpty())
   {
-    CLog::Log(LOGWARNING, "CKeyboardLayoutManager: no keyboard layouts found in %s", layoutDirectory.c_str());
+    CLog::Log(LOGWARNING, "CKeyboardLayoutManager: no keyboard layouts found in %s",
+              layoutDirectory.c_str());
     return false;
   }
 
-  CLog::Log(LOGINFO, "CKeyboardLayoutManager: loading keyboard layouts from %s...", layoutDirectory.c_str());
+  CLog::Log(LOGINFO, "CKeyboardLayoutManager: loading keyboard layouts from %s...",
+            layoutDirectory.c_str());
   size_t oldLayoutCount = m_layouts.size();
   for (int i = 0; i < layouts.Size(); i++)
   {
@@ -78,13 +75,15 @@ bool CKeyboardLayoutManager::Load(const std::string& path /* = "" */)
     const TiXmlElement* rootElement = xmlDoc.RootElement();
     if (rootElement == NULL)
     {
-      CLog::Log(LOGWARNING, "CKeyboardLayoutManager: missing or invalid XML root element in %s", layoutPath.c_str());
+      CLog::Log(LOGWARNING, "CKeyboardLayoutManager: missing or invalid XML root element in %s",
+                layoutPath.c_str());
       continue;
     }
 
     if (rootElement->ValueStr() != "keyboardlayouts")
     {
-      CLog::Log(LOGWARNING, "CKeyboardLayoutManager: unexpected XML root element \"%s\" in %s", rootElement->Value(), layoutPath.c_str());
+      CLog::Log(LOGWARNING, "CKeyboardLayoutManager: unexpected XML root element \"%s\" in %s",
+                rootElement->Value(), layoutPath.c_str());
       continue;
     }
 
@@ -95,10 +94,13 @@ bool CKeyboardLayoutManager::Load(const std::string& path /* = "" */)
       if (!layout.Load(layoutElement))
         CLog::Log(LOGWARNING, "CKeyboardLayoutManager: failed to load %s", layoutPath.c_str());
       else if (m_layouts.find(layout.GetIdentifier()) != m_layouts.end())
-        CLog::Log(LOGWARNING, "CKeyboardLayoutManager: duplicate layout with identifier \"%s\" in %s", layout.GetIdentifier().c_str(), layoutPath.c_str());
+        CLog::Log(LOGWARNING,
+                  "CKeyboardLayoutManager: duplicate layout with identifier \"%s\" in %s",
+                  layout.GetIdentifier().c_str(), layoutPath.c_str());
       else
       {
-        CLog::Log(LOGDEBUG, "CKeyboardLayoutManager: keyboard layout \"%s\" successfully loaded", layout.GetIdentifier().c_str());
+        CLog::Log(LOGDEBUG, "CKeyboardLayoutManager: keyboard layout \"%s\" successfully loaded",
+                  layout.GetIdentifier().c_str());
         m_layouts.insert(std::make_pair(layout.GetIdentifier(), layout));
       }
 
@@ -127,13 +129,25 @@ bool CKeyboardLayoutManager::GetLayout(const std::string& name, CKeyboardLayout&
   return true;
 }
 
-void CKeyboardLayoutManager::SettingOptionsKeyboardLayoutsFiller(SettingConstPtr setting, std::vector< std::pair<std::string, std::string> > &list, std::string &current, void* data)
+namespace
 {
-  for (KeyboardLayouts::const_iterator it = CKeyboardLayoutManager::GetInstance().m_layouts.begin(); it != CKeyboardLayoutManager::GetInstance().m_layouts.end(); ++it)
+inline bool LayoutSort(const StringSettingOption& i, const StringSettingOption& j)
+{
+  return (i.value < j.value);
+}
+} // namespace
+
+void CKeyboardLayoutManager::SettingOptionsKeyboardLayoutsFiller(
+    SettingConstPtr setting,
+    std::vector<StringSettingOption>& list,
+    std::string& current,
+    void* data)
+{
+  for (const auto& it : CKeyboardLayoutManager::GetInstance().m_layouts)
   {
-    std::string name = it->second.GetName();
-    list.push_back(make_pair(name, name));
+    std::string name = it.second.GetName();
+    list.emplace_back(name, name);
   }
 
-  std::sort(list.begin(), list.end());
+  std::sort(list.begin(), list.end(), LayoutSort);
 }

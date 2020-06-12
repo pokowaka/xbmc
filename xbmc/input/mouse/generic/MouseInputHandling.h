@@ -1,58 +1,66 @@
 /*
- *      Copyright (C) 2016-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2016-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
-#include "input/mouse/IMouseDriverHandler.h"
+#include "input/mouse/MouseTypes.h"
+#include "input/mouse/interfaces/IMouseDriverHandler.h"
 
 namespace KODI
 {
+namespace JOYSTICK
+{
+class IButtonMap;
+}
+
 namespace MOUSE
 {
-  class IMouseInputHandler;
-  class IMouseButtonMap;
-  class CRelativePointer;
+class IMouseInputHandler;
 
-  /*!
-   * \ingroup mouse
-   * \brief Class to translate input from driver info to higher-level features
-   */
-  class CMouseInputHandling : public IMouseDriverHandler
-  {
-  public:
-    CMouseInputHandling(IMouseInputHandler* handler, IMouseButtonMap* buttonMap);
+/*!
+ * \ingroup mouse
+ * \brief Class to translate input from driver info to higher-level features
+ */
+class CMouseInputHandling : public IMouseDriverHandler
+{
+public:
+  CMouseInputHandling(IMouseInputHandler* handler, JOYSTICK::IButtonMap* buttonMap);
 
-    ~CMouseInputHandling(void) override = default;
+  ~CMouseInputHandling(void) override = default;
 
-    // implementation of IMouseDriverHandler
-    bool OnPosition(int x, int y) override;
-    bool OnButtonPress(unsigned int button) override;
-    void OnButtonRelease(unsigned int button) override;
+  // implementation of IMouseDriverHandler
+  bool OnPosition(int x, int y) override;
+  bool OnButtonPress(BUTTON_ID button) override;
+  void OnButtonRelease(BUTTON_ID button) override;
 
-  private:
-    // Construction parameters
-    IMouseInputHandler* const m_handler;
-    IMouseButtonMap* const    m_buttonMap;
+private:
+  // Utility functions
+  static POINTER_DIRECTION GetPointerDirection(int x, int y);
+  static POINTER_DIRECTION GetOrthogonalDirectionCCW(POINTER_DIRECTION direction);
 
-    // Mouse parameters
-    int m_x;
-    int m_y;
-  };
-}
-}
+  static void GetRotation(POINTER_DIRECTION source,
+                          POINTER_DIRECTION target,
+                          int (&rotation)[2][2]);
+  static void GetRotation(int deg, int (&rotation)[2][2]);
+
+  static void GetReflectionCCW(POINTER_DIRECTION source,
+                               POINTER_DIRECTION target,
+                               int (&reflection)[2][2]);
+  static void GetReflection(int deg, int (&reflection)[2][2]);
+
+  // Construction parameters
+  IMouseInputHandler* const m_handler;
+  JOYSTICK::IButtonMap* const m_buttonMap;
+
+  // Mouse parameters
+  bool m_bHasPosition = false;
+  int m_x = 0;
+  int m_y = 0;
+};
+} // namespace MOUSE
+} // namespace KODI

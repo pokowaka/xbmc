@@ -1,32 +1,23 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
+
+#include "XBDateTime.h"
+#include "utils/EmbeddedArt.h"
+#include "utils/Fanart.h"
+#include "utils/ISortable.h"
+#include "utils/ScraperUrl.h"
+#include "utils/StreamDetails.h"
+#include "video/Bookmark.h"
 
 #include <string>
 #include <vector>
-#include "XBDateTime.h"
-#include "utils/ScraperUrl.h"
-#include "utils/Fanart.h"
-#include "utils/ISortable.h"
-#include "utils/StreamDetails.h"
-#include "video/Bookmark.h"
 
 class CArchive;
 class TiXmlNode;
@@ -35,7 +26,6 @@ class CVariant;
 
 struct SActorInfo
 {
-  SActorInfo() : order(-1) {};
   bool operator<(const SActorInfo &right) const
   {
     return order < right.order;
@@ -44,17 +34,17 @@ struct SActorInfo
   std::string strRole;
   CScraperUrl thumbUrl;
   std::string thumb;
-  int        order;
+  int        order = -1;
 };
 
 class CRating
 {
 public:
-  CRating(): rating(0.0f), votes(0) {}
-  CRating(float r): rating(r), votes(0) {}
+  CRating() = default;
+  explicit CRating(float r): rating(r) {}
   CRating(float r, int v): rating(r), votes(v) {}
-  float rating;
-  int votes;
+  float rating = 0.0f;
+  int votes = 0;
 };
 typedef std::map<std::string, CRating> RatingMap;
 
@@ -62,6 +52,7 @@ class CVideoInfoTag : public IArchivable, public ISerializable, public ISortable
 {
 public:
   CVideoInfoTag() { Reset(); };
+  virtual ~CVideoInfoTag() = default;
   void Reset();
   /* \brief Load information to a videoinfotag from an XML element
    There are three types of tags supported:
@@ -88,10 +79,10 @@ public:
   const std::string GetUniqueID(std::string type = "") const;
   const std::map<std::string, std::string>& GetUniqueIDs() const;
   const std::string& GetDefaultUniqueID() const;
-  const bool HasUniqueID() const;
-  const bool HasYear() const;
-  const int GetYear() const;
-  const bool HasPremiered() const;
+  bool HasUniqueID() const;
+  bool HasYear() const;
+  int GetYear() const;
+  bool HasPremiered() const;
   const CDateTime& GetPremiered() const;
   const CDateTime& GetFirstAired() const;
   const std::string GetCast(bool bIncludeRole = false) const;
@@ -135,6 +126,7 @@ public:
   void SetPlotOutline(std::string plotOutline);
   void SetTrailer(std::string trailer);
   void SetPlot(std::string plot);
+  std::string const &GetTitle();
   void SetTitle(std::string title);
   void SetSortTitle(std::string sortTitle);
   void SetPictureURL(CScraperUrl &pictureURL);
@@ -219,7 +211,7 @@ public:
    * @param playerState the player state
    * @return True if resume point was set successfully, false otherwise.
    */
-  virtual bool SetResumePoint(double timeInSeconds, double totalTimeInSeconds, const std::string &playerState = "");
+  virtual bool SetResumePoint(double timeInSeconds, double totalTimeInSeconds, const std::string &playerState);
 
   std::string m_basePath; // the base path of the video, for folder-based lookups
   int m_parentPathID;      // the parent path id where the base path of the video lies
@@ -237,9 +229,13 @@ public:
   std::vector<std::string> m_artist;
   std::vector< SActorInfo > m_cast;
   typedef std::vector< SActorInfo >::const_iterator iCast;
-  std::string m_strSet;
-  int m_iSetId;
-  std::string m_strSetOverview;
+  struct SetInfo //!< Struct holding information about a movie set
+  {
+    std::string title; //!< Title of the movie set
+    int id; //!< ID of movie set in database
+    std::string overview; //!< Overview/description of the movie set
+  };
+  SetInfo m_set; //!< Assigned movie set
   std::vector<std::string> m_tags;
   std::string m_strFile;
   std::string m_strPath;
@@ -280,6 +276,7 @@ public:
   MediaType m_type;
   int m_relevance; // Used for actors' number of appearances
   int m_parsedDetails;
+  std::vector<EmbeddedArtInfo> m_coverArt; ///< art information
 
   // TODO: cannot be private, because of 'struct SDbTableOffsets'
   unsigned int m_duration; ///< duration in seconds

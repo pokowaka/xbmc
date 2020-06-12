@@ -1,36 +1,21 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "system.h"
+#pragma once
+
 #include "cores/AudioEngine/Utils/AEAudioFormat.h"
-#include "cores/AudioEngine/Utils/AEUtil.h"
 #include "cores/VideoPlayer/Process/ProcessInfo.h"
-#include "cores/VideoPlayer/DVDDemuxers/DVDDemuxPacket.h"
-#include "TimingConstants.h"
+#include "cores/VideoPlayer/Interface/Addon/DemuxPacket.h"
 
 #include <vector>
 
 extern "C" {
-#include "libavcodec/avcodec.h"
+#include <libavcodec/avcodec.h>
 }
 
 struct AVStream;
@@ -53,17 +38,18 @@ typedef struct stDVDAudioFrame
   AEAudioFormat format;
   int bits_per_sample;
   bool passthrough;
-  AEAudioFormat audioFormat;
   enum AVAudioServiceType audio_service_type;
   enum AVMatrixEncoding matrix_encoding;
   int profile;
+  bool hasDownmix;
+  double centerMixLevel;
 } DVDAudioFrame;
 
 class CDVDAudioCodec
 {
 public:
 
-  CDVDAudioCodec(CProcessInfo &processInfo) : m_processInfo(processInfo) {}
+  explicit CDVDAudioCodec(CProcessInfo &processInfo) : m_processInfo(processInfo) {}
   virtual ~CDVDAudioCodec() = default;
 
   /*
@@ -81,12 +67,6 @@ public:
    *
    */
   virtual bool AddData(const DemuxPacket &packet) = 0;
-
-  /*
-   * returns nr of bytes in decode buffer
-   * the data is valid until the next call
-   */
-  virtual int GetData(uint8_t** dst) = 0;
 
   /*
    * the data is valid until the next call
@@ -116,7 +96,7 @@ public:
   /*
    * should return codecs name
    */
-  virtual const char* GetName() = 0;
+  virtual std::string GetName() = 0;
 
   /*
    * should return amount of data decoded has buffered in preparation for next audio frame

@@ -1,22 +1,11 @@
 /*
- *      Copyright (C) 2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2016-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
 #include <string>
@@ -25,27 +14,39 @@ namespace ADDON
 {
   struct AddonEvent
   {
+    std::string id;
+    explicit AddonEvent(std::string id) : id(std::move(id)) {};
+
+    // Note: Do not remove the virtual dtor. There are types derived from AddonEvent (see below)
+    //       and there are several places where 'typeid' is used to determine the runtime type of
+    //       AddonEvent references. And 'typeid' only works for polymorphic objects.
     virtual ~AddonEvent() = default;
   };
 
   namespace AddonEvents
   {
+    /**
+     * Emitted after the add-on has been enabled.
+     */
     struct Enabled : AddonEvent
     {
-      std::string id;
-      Enabled(std::string id) : id(std::move(id)) {}
+      explicit Enabled(std::string id) : AddonEvent(std::move(id)) {}
     };
 
+    /**
+     * Emitted after the add-on has been disabled.
+     */
     struct Disabled : AddonEvent
     {
-      std::string id;
-      Disabled(std::string id) : id(std::move(id)) {}
+      explicit Disabled(std::string id) : AddonEvent(std::move(id)) {}
     };
 
+    /**
+     * Emitted after the add-on's metadata has been changed.
+     */
     struct MetadataChanged : AddonEvent
     {
-      std::string id;
-      MetadataChanged(std::string id) : id(std::move(id)) {}
+      explicit MetadataChanged(std::string id) : AddonEvent(std::move(id)) {}
     };
 
     /**
@@ -54,8 +55,7 @@ namespace ADDON
      */
     struct ReInstalled: AddonEvent
     {
-      std::string id;
-      ReInstalled(std::string id) : id(std::move(id)) {}
+      explicit ReInstalled(std::string id) : AddonEvent(std::move(id)) {}
     };
 
     /**
@@ -63,13 +63,23 @@ namespace ADDON
      */
     struct UnInstalled : AddonEvent
     {
-      std::string id;
-      UnInstalled(std::string id) : id(std::move(id)) {}
+      explicit UnInstalled(std::string id) : AddonEvent(std::move(id)) {}
     };
 
     /**
-     * @deprecated Use Enabled, ReInstalled and UnInstalled instead.
+     * Emitted after the add-on has been loaded.
      */
-    struct InstalledChanged : AddonEvent {};
-  };
-};
+    struct Load : AddonEvent
+    {
+      explicit Load(std::string id) : AddonEvent(std::move(id)) {}
+    };
+
+    /**
+     * Emitted after the add-on has been unloaded.
+     */
+    struct Unload : AddonEvent
+    {
+      explicit Unload(std::string id) : AddonEvent(std::move(id)) {}
+    };
+  }
+}

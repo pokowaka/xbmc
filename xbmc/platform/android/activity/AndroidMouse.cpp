@@ -1,41 +1,22 @@
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "AndroidMouse.h"
+
 #include "AndroidExtra.h"
+#include "AppInboundProtocol.h"
+#include "ServiceBroker.h"
 #include "XBMCApp.h"
-#include "Application.h"
 #include "guilib/GUIWindowManager.h"
-#include "windowing/WinEvents.h"
-#include "input/MouseStat.h"
+#include "input/mouse/MouseStat.h"
+#include "windowing/android/WinSystemAndroid.h"
 
 //#define DEBUG_VERBOSE
-
-CAndroidMouse::CAndroidMouse()
-  : m_lastButtonState(0)
-{
-}
-
-CAndroidMouse::~CAndroidMouse()
-{
-}
 
 bool CAndroidMouse::onMouseEvent(AInputEvent* event)
 {
@@ -81,7 +62,9 @@ void CAndroidMouse::MouseMove(float x, float y)
   newEvent.type = XBMC_MOUSEMOTION;
   newEvent.motion.x = x;
   newEvent.motion.y = y;
-  CWinEvents::MessagePush(&newEvent);
+  std::shared_ptr<CAppInboundProtocol> appPort = CServiceBroker::GetAppPort();
+  if (appPort)
+    appPort->OnEvent(newEvent);
 }
 
 void CAndroidMouse::MouseButton(float x, float y, int32_t action, int32_t buttons)
@@ -106,7 +89,10 @@ void CAndroidMouse::MouseButton(float x, float y, int32_t action, int32_t button
     newEvent.button.button = XBMC_BUTTON_RIGHT;
   else if (checkButtons & AMOTION_EVENT_BUTTON_TERTIARY)
     newEvent.button.button = XBMC_BUTTON_MIDDLE;
-  CWinEvents::MessagePush(&newEvent);
+
+  std::shared_ptr<CAppInboundProtocol> appPort = CServiceBroker::GetAppPort();
+  if (appPort)
+    appPort->OnEvent(newEvent);
 
   m_lastButtonState = buttons;
 }
@@ -136,10 +122,11 @@ void CAndroidMouse::MouseWheel(float x, float y, float value)
   newEvent.button.x = x;
   newEvent.button.y = y;
 
-  CWinEvents::MessagePush(&newEvent);
+  std::shared_ptr<CAppInboundProtocol> appPort = CServiceBroker::GetAppPort();
+  if (appPort)
+    appPort->OnEvent(newEvent);
 
   newEvent.type = XBMC_MOUSEBUTTONUP;
 
-  CWinEvents::MessagePush(&newEvent);
+  dynamic_cast<CWinSystemAndroid*>(CServiceBroker::GetWinSystem())->MessagePush(&newEvent);
 }
-

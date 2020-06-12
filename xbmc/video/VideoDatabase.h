@@ -1,35 +1,24 @@
-#pragma once
 /*
- *      Copyright (C) 2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2016-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
+
+#include "Bookmark.h"
+#include "VideoInfoTag.h"
+#include "addons/Scraper.h"
+#include "dbwrappers/Database.h"
+#include "utils/SortUtils.h"
+#include "video/VideoDbUrl.h"
 
 #include <memory>
 #include <set>
 #include <utility>
 #include <vector>
-
-#include "addons/Scraper.h"
-#include "Bookmark.h"
-#include "dbwrappers/Database.h"
-#include "utils/SortUtils.h"
-#include "video/VideoDbUrl.h"
-#include "VideoInfoTag.h"
 
 class CFileItem;
 class CFileItemList;
@@ -217,7 +206,7 @@ const struct SDbTableOffsets
   { VIDEODB_TYPE_INT, my_offsetof(CVideoInfoTag,m_iIdRating) },
   { VIDEODB_TYPE_STRINGARRAY, my_offsetof(CVideoInfoTag,m_writingCredits) },
   { VIDEODB_TYPE_UNUSED, 0 }, // unused
-  { VIDEODB_TYPE_STRING, my_offsetof(CVideoInfoTag,m_strPictureURL.m_xml) },
+  { VIDEODB_TYPE_STRING, my_offsetof(CVideoInfoTag,m_strPictureURL.m_data) },
   { VIDEODB_TYPE_INT, my_offsetof(CVideoInfoTag,m_iIdUniqueID) },
   { VIDEODB_TYPE_STRING, my_offsetof(CVideoInfoTag,m_strSortTitle) },
   { VIDEODB_TYPE_INT, my_offsetof(CVideoInfoTag,m_duration) },
@@ -226,7 +215,7 @@ const struct SDbTableOffsets
   { VIDEODB_TYPE_STRINGARRAY, my_offsetof(CVideoInfoTag,m_genre) },
   { VIDEODB_TYPE_STRINGARRAY, my_offsetof(CVideoInfoTag,m_director) },
   { VIDEODB_TYPE_STRING, my_offsetof(CVideoInfoTag,m_strOriginalTitle) },
-  { VIDEODB_TYPE_STRING, my_offsetof(CVideoInfoTag,m_strPictureURL.m_spoof) },
+  { VIDEODB_TYPE_UNUSED, 0 }, // unused
   { VIDEODB_TYPE_STRINGARRAY, my_offsetof(CVideoInfoTag,m_studio) },
   { VIDEODB_TYPE_STRING, my_offsetof(CVideoInfoTag,m_strTrailer) },
   { VIDEODB_TYPE_STRING, my_offsetof(CVideoInfoTag,m_fanart.m_xml) },
@@ -254,6 +243,7 @@ typedef enum // this enum MUST match the offset struct further down!! and make s
   VIDEODB_ID_TV_MPAA = 13,
   VIDEODB_ID_TV_STUDIOS = 14,
   VIDEODB_ID_TV_SORTTITLE = 15,
+  VIDEODB_ID_TV_TRAILER = 16,
   VIDEODB_ID_TV_MAX
 } VIDEODB_TV_IDS;
 
@@ -265,8 +255,8 @@ const struct SDbTableOffsets DbTvShowOffsets[] =
   { VIDEODB_TYPE_UNUSED, 0 }, //unused
   { VIDEODB_TYPE_INT, my_offsetof(CVideoInfoTag,m_iIdRating) },
   { VIDEODB_TYPE_DATE, my_offsetof(CVideoInfoTag,m_premiered) },
-  { VIDEODB_TYPE_STRING, my_offsetof(CVideoInfoTag,m_strPictureURL.m_xml) },
-  { VIDEODB_TYPE_STRING, my_offsetof(CVideoInfoTag,m_strPictureURL.m_spoof) },
+  { VIDEODB_TYPE_STRING, my_offsetof(CVideoInfoTag,m_strPictureURL.m_data) },
+  { VIDEODB_TYPE_UNUSED, 0 }, // unused
   { VIDEODB_TYPE_STRINGARRAY, my_offsetof(CVideoInfoTag,m_genre) },
   { VIDEODB_TYPE_STRING, my_offsetof(CVideoInfoTag,m_strOriginalTitle)},
   { VIDEODB_TYPE_STRING, my_offsetof(CVideoInfoTag,m_strEpisodeGuide)},
@@ -275,6 +265,7 @@ const struct SDbTableOffsets DbTvShowOffsets[] =
   { VIDEODB_TYPE_STRING, my_offsetof(CVideoInfoTag,m_strMPAARating)},
   { VIDEODB_TYPE_STRINGARRAY, my_offsetof(CVideoInfoTag,m_studio)},
   { VIDEODB_TYPE_STRING, my_offsetof(CVideoInfoTag,m_strSortTitle)},
+  { VIDEODB_TYPE_STRING, my_offsetof(CVideoInfoTag,m_strTrailer)}
 };
 
 //! @todo is this comment valid for seasons? There is no offset structure or am I wrong?
@@ -334,8 +325,8 @@ const struct SDbTableOffsets DbEpisodeOffsets[] =
   { VIDEODB_TYPE_INT, my_offsetof(CVideoInfoTag,m_iIdRating) },
   { VIDEODB_TYPE_STRINGARRAY, my_offsetof(CVideoInfoTag,m_writingCredits) },
   { VIDEODB_TYPE_DATE, my_offsetof(CVideoInfoTag,m_firstAired) },
-  { VIDEODB_TYPE_STRING, my_offsetof(CVideoInfoTag,m_strPictureURL.m_xml) },
-  { VIDEODB_TYPE_STRING, my_offsetof(CVideoInfoTag,m_strPictureURL.m_spoof) },
+  { VIDEODB_TYPE_STRING, my_offsetof(CVideoInfoTag,m_strPictureURL.m_data) },
+  { VIDEODB_TYPE_UNUSED, 0 }, // unused
   { VIDEODB_TYPE_UNUSED, 0 }, // unused
   { VIDEODB_TYPE_INT, my_offsetof(CVideoInfoTag,m_duration) },
   { VIDEODB_TYPE_STRINGARRAY, my_offsetof(CVideoInfoTag,m_director) },
@@ -375,8 +366,8 @@ typedef enum // this enum MUST match the offset struct further down!! and make s
 const struct SDbTableOffsets DbMusicVideoOffsets[] =
 {
   { VIDEODB_TYPE_STRING, my_offsetof(class CVideoInfoTag,m_strTitle) },
-  { VIDEODB_TYPE_STRING, my_offsetof(CVideoInfoTag,m_strPictureURL.m_xml) },
-  { VIDEODB_TYPE_STRING, my_offsetof(CVideoInfoTag,m_strPictureURL.m_spoof) },
+  { VIDEODB_TYPE_STRING, my_offsetof(CVideoInfoTag,m_strPictureURL.m_data) },
+  { VIDEODB_TYPE_UNUSED, 0 }, // unused
   { VIDEODB_TYPE_UNUSED, 0 }, // unused
   { VIDEODB_TYPE_INT, my_offsetof(CVideoInfoTag,m_duration) },
   { VIDEODB_TYPE_STRINGARRAY, my_offsetof(CVideoInfoTag,m_director) },
@@ -504,6 +495,7 @@ public:
   bool GetMovieInfo(const std::string& strFilenameAndPath, CVideoInfoTag& details, int idMovie = -1, int getDetails = VideoDbDetailsAll);
   bool GetTvShowInfo(const std::string& strPath, CVideoInfoTag& details, int idTvShow = -1, CFileItem* item = NULL, int getDetails = VideoDbDetailsAll);
   bool GetSeasonInfo(int idSeason, CVideoInfoTag& details, bool allDetails = true);
+  bool GetEpisodeBasicInfo(const std::string& strFilenameAndPath, CVideoInfoTag& details, int idEpisode  = -1);
   bool GetEpisodeInfo(const std::string& strFilenameAndPath, CVideoInfoTag& details, int idEpisode = -1, int getDetails = VideoDbDetailsAll);
   bool GetMusicVideoInfo(const std::string& strFilenameAndPath, CVideoInfoTag& details, int idMVideo = -1, int getDetails = VideoDbDetailsAll);
   bool GetSetInfo(int idSet, CVideoInfoTag& details);
@@ -558,6 +550,7 @@ public:
   void DeleteMusicVideo(const std::string& strFilenameAndPath, bool bKeepId = false);
   void DeleteDetailsForTvShow(int idTvShow);
   void DeleteDetailsForTvShow(const std::string& strPath);
+  void DeleteStreamDetails(int idFile);
   void RemoveContentForPath(const std::string& strPath,CGUIDialogProgress *progress = NULL);
   void UpdateFanart(const CFileItem &item, VIDEODB_CONTENT_TYPE type);
   void DeleteSet(int idSet);
@@ -585,25 +578,41 @@ public:
   bool GetVideoSettings(const std::string &filePath, CVideoSettings &settings);
 
   /*! \brief Set video settings for the specified file path
-   \param filePath filepath to set the settings for
+   \param fileItem to set the settings for
    \sa GetVideoSettings
    */
-  void SetVideoSettings(const std::string &filePath, const CVideoSettings &settings);
+  void SetVideoSettings(const CFileItem &item, const CVideoSettings &settings);
+
+  /*! \brief Set video settings for the specified file path
+   \param fileId to set the settings for
+   \sa GetVideoSettings
+   */
+  void SetVideoSettings(int idFile, const CVideoSettings &settings);
 
   /**
-   * Erases settings for all files beginning with the specified path. Defaults 
-   * to an empty path, meaning all settings will be erased.
-   * @param path partial path, e.g. pvr://channels
+   * Erases video settings for file item
+   * @param fileitem
    */
-  void EraseVideoSettings(const std::string &path = "");
+  void EraseVideoSettings(const CFileItem &item);
 
-  bool GetStackTimes(const std::string &filePath, std::vector<int> &times);
-  void SetStackTimes(const std::string &filePath, const std::vector<int> &times);
+  /**
+   * Erases all video settings
+   */
+  void EraseAllVideoSettings();
+
+  /**
+   * Erases video settings for files starting with path
+   * @param path pattern
+   */
+  void EraseAllVideoSettings(std::string path);
+
+  bool GetStackTimes(const std::string &filePath, std::vector<uint64_t> &times);
+  void SetStackTimes(const std::string &filePath, const std::vector<uint64_t> &times);
 
   void GetBookMarksForFile(const std::string& strFilenameAndPath, VECBOOKMARKS& bookmarks, CBookmark::EType type = CBookmark::STANDARD, bool bAppend=false, long partNumber=0);
   void AddBookMarkToFile(const std::string& strFilenameAndPath, const CBookmark &bookmark, CBookmark::EType type = CBookmark::STANDARD);
   bool GetResumeBookMark(const std::string& strFilenameAndPath, CBookmark &bookmark);
-  void DeleteResumeBookMark(const std::string &strFilenameAndPath);
+  void DeleteResumeBookMark(const CFileItem& item);
   void ClearBookMarkOfFile(const std::string& strFilenameAndPath, CBookmark& bookmark, CBookmark::EType type = CBookmark::STANDARD);
   void ClearBookMarksOfFile(const std::string& strFilenameAndPath, CBookmark::EType type = CBookmark::STANDARD);
   void ClearBookMarksOfFile(int idFile, CBookmark::EType type = CBookmark::STANDARD);
@@ -653,7 +662,7 @@ public:
    \return true if the scraper is in use, false otherwise.
    */
   bool ScraperInUse(const std::string &scraperID) const;
-  
+
   // scanning hashes and paths scanned
   bool SetPathHash(const std::string &path, const std::string &hash);
   bool GetPathHash(const std::string &path, std::string &hash);
@@ -733,7 +742,7 @@ public:
   bool GetSeasonsNav(const std::string& strBaseDir, CFileItemList& items, int idActor=-1, int idDirector=-1, int idGenre=-1, int idYear=-1, int idShow=-1, bool getLinkedMovies = true);
   bool GetEpisodesNav(const std::string& strBaseDir, CFileItemList& items, int idGenre=-1, int idYear=-1, int idActor=-1, int idDirector=-1, int idShow=-1, int idSeason=-1, const SortDescription &sortDescription = SortDescription(), int getDetails = VideoDbDetailsNone);
   bool GetMusicVideosNav(const std::string& strBaseDir, CFileItemList& items, int idGenre=-1, int idYear=-1, int idArtist=-1, int idDirector=-1, int idStudio=-1, int idAlbum=-1, int idTag=-1, const SortDescription &sortDescription = SortDescription(), int getDetails = VideoDbDetailsNone);
-  
+
   bool GetRecentlyAddedMoviesNav(const std::string& strBaseDir, CFileItemList& items, unsigned int limit=0, int getDetails = VideoDbDetailsNone);
   bool GetRecentlyAddedEpisodesNav(const std::string& strBaseDir, CFileItemList& items, unsigned int limit=0, int getDetails = VideoDbDetailsNone);
   bool GetRecentlyAddedMusicVideosNav(const std::string& strBaseDir, CFileItemList& items, unsigned int limit=0, int getDetails = VideoDbDetailsNone);
@@ -789,7 +798,7 @@ public:
   bool GetSeasonsByWhere(const std::string& strBaseDir, const Filter &filter, CFileItemList& items, bool appendFullShowPath = true, const SortDescription &sortDescription = SortDescription());
   bool GetEpisodesByWhere(const std::string& strBaseDir, const Filter &filter, CFileItemList& items, bool appendFullShowPath = true, const SortDescription &sortDescription = SortDescription(), int getDetails = VideoDbDetailsNone);
   bool GetMusicVideosByWhere(const std::string &baseDir, const Filter &filter, CFileItemList& items, bool checkLocks = true, const SortDescription &sortDescription = SortDescription(), int getDetails = VideoDbDetailsNone);
-  
+
   // retrieve sorted and limited items
   bool GetSortedVideos(const MediaType &mediaType, const std::string& strBaseDir, const SortDescription &sortDescription, CFileItemList& items, const Filter &filter = Filter());
 
@@ -800,8 +809,12 @@ public:
   std::string GetItemById(const std::string &itemType, int id);
 
   // partymode
-  unsigned int GetMusicVideoIDs(const std::string& strWhere, std::vector<std::pair<int, int> > &songIDs);
-  bool GetRandomMusicVideo(CFileItem* item, int& idSong, const std::string& strWhere);
+  /*! \brief Gets music video IDs in random order that match the where clause
+  \param strWhere the SQL where clause to apply in the query
+  \param songIDs a vector of <2, id> pairs suited to party mode use
+  \return count of music video IDs found.
+  */
+  unsigned int GetRandomMusicVideoIDs(const std::string& strWhere, std::vector<std::pair<int, int> > &songIDs);
 
   static void VideoContentTypeToString(VIDEODB_CONTENT_TYPE type, std::string& out)
   {
@@ -828,11 +841,21 @@ public:
   void SetArtForItem(int mediaId, const MediaType &mediaType, const std::map<std::string, std::string> &art);
   bool GetArtForItem(int mediaId, const MediaType &mediaType, std::map<std::string, std::string> &art);
   std::string GetArtForItem(int mediaId, const MediaType &mediaType, const std::string &artType);
+  bool HasArtForItem(int mediaId, const MediaType &mediaType);
   bool RemoveArtForItem(int mediaId, const MediaType &mediaType, const std::string &artType);
   bool RemoveArtForItem(int mediaId, const MediaType &mediaType, const std::set<std::string> &artTypes);
   bool GetTvShowSeasons(int showId, std::map<int, int> &seasons);
+  bool GetTvShowNamedSeasons(int showId, std::map<int, std::string> &seasons);
   bool GetTvShowSeasonArt(int mediaId, std::map<int, std::map<std::string, std::string> > &seasonArt);
   bool GetArtTypes(const MediaType &mediaType, std::vector<std::string> &artTypes);
+
+  /*! \brief Fetch the distinct types of available-but-unassigned art held in the
+  database for a specific media item.
+  \param mediaId the id in the media table.
+  \param mediaType the type of media, which corresponds to the table the item resides in.
+  \return the types of art e.g. "thumb", "fanart", etc.
+  */
+  std::vector<std::string> GetAvailableArtTypesForItem(int mediaId, const MediaType& mediaType);
 
   int AddTag(const std::string &tag);
   void AddTagToItem(int idItem, int idTag, const std::string &type);
@@ -907,11 +930,12 @@ protected:
 
   void AddCast(int mediaId, const char *mediaType, const std::vector<SActorInfo> &cast);
 
-  void DeleteStreamDetails(int idFile);
   CVideoInfoTag GetDetailsForMovie(std::unique_ptr<dbiplus::Dataset> &pDS, int getDetails = VideoDbDetailsNone);
   CVideoInfoTag GetDetailsForMovie(const dbiplus::sql_record* const record, int getDetails = VideoDbDetailsNone);
   CVideoInfoTag GetDetailsForTvShow(std::unique_ptr<dbiplus::Dataset> &pDS, int getDetails = VideoDbDetailsNone, CFileItem* item = NULL);
   CVideoInfoTag GetDetailsForTvShow(const dbiplus::sql_record* const record, int getDetails = VideoDbDetailsNone, CFileItem* item = NULL);
+  CVideoInfoTag GetBasicDetailsForEpisode(std::unique_ptr<dbiplus::Dataset> &pDS);
+  CVideoInfoTag GetBasicDetailsForEpisode(const dbiplus::sql_record* const record);
   CVideoInfoTag GetDetailsForEpisode(std::unique_ptr<dbiplus::Dataset> &pDS, int getDetails = VideoDbDetailsNone);
   CVideoInfoTag GetDetailsForEpisode(const dbiplus::sql_record* const record, int getDetails = VideoDbDetailsNone);
   CVideoInfoTag GetDetailsForMusicVideo(std::unique_ptr<dbiplus::Dataset> &pDS, int getDetails = VideoDbDetailsNone);

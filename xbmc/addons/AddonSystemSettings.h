@@ -1,26 +1,16 @@
-#pragma once
 /*
- *      Copyright (C) 2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2015-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "addons/IAddon.h"
 #include "settings/lib/ISettingCallback.h"
+
 #include <functional>
 #include <string>
 
@@ -43,25 +33,22 @@ public:
   bool IsActive(const IAddon& addon);
 
   /*!
+   * Gets Kodi addon auto update mode
+   *
+   * @return the autoupdate mode value
+  */
+  int GetAddonAutoUpdateMode() const;
+
+  /*!
    * Attempt to unset addon as active. Returns true if addon is no longer active,
    * false if it could not be unset (e.g. if the addon is the default)
    */
   bool UnsetActive(const AddonPtr& addon);
 
-  /*!
-   * Check compatibility of installed addons and attempt to migrate.
-   *
-   * @param onMigrate Called when a long running migration task takes place.
-   * @return list of addons that was modified.
-   */
-  std::vector<std::string> MigrateAddons(std::function<void(void)> onMigrate);
-
 private:
   CAddonSystemSettings();
-  CAddonSystemSettings(const CAddonSystemSettings&) = default;
-  CAddonSystemSettings& operator=(const CAddonSystemSettings&) = default;
-  CAddonSystemSettings(CAddonSystemSettings&&);
-  CAddonSystemSettings& operator=(CAddonSystemSettings&&);
+  CAddonSystemSettings(const CAddonSystemSettings&) = delete;
+  CAddonSystemSettings& operator=(const CAddonSystemSettings&) = delete;
   ~CAddonSystemSettings() override = default;
 
   const std::map<ADDON::TYPE, std::string> m_activeSettings;

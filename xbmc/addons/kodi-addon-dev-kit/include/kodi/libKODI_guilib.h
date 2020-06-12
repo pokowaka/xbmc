@@ -1,23 +1,12 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include <string>
 #include <vector>
@@ -121,8 +110,6 @@ typedef struct CB_GUILib
   void (*ListItem_SetLabel)(void *addonData, GUIHANDLE handle, const char *label);
   const char* (*ListItem_GetLabel2)(void *addonData, GUIHANDLE handle);
   void (*ListItem_SetLabel2)(void *addonData, GUIHANDLE handle, const char *label);
-  void (*ListItem_SetIconImage)(void *addonData, GUIHANDLE handle, const char *image);
-  void (*ListItem_SetThumbnailImage)(void *addonData, GUIHANDLE handle, const char *image);
   void (*ListItem_SetInfo)(void *addonData, GUIHANDLE handle, const char *info);
   void (*ListItem_SetProperty)(void *addonData, GUIHANDLE handle, const char *key, const char *value);
   const char* (*ListItem_GetProperty)(void *addonData, GUIHANDLE handle, const char *key);
@@ -231,18 +218,6 @@ public:
   {
     if (m_controlHandle)
       m_cb->ListItem_SetLabel2(m_Handle->addonData, m_controlHandle, label);
-  }
-
-  void SetIconImage(const char *image)
-  {
-    if (m_controlHandle)
-      m_cb->ListItem_SetIconImage(m_Handle->addonData, m_controlHandle, image);
-  }
-
-  void SetThumbnailImage(const char *image)
-  {
-    if (m_controlHandle)
-      m_cb->ListItem_SetThumbnailImage(m_Handle->addonData, m_controlHandle, image);
   }
 
   void SetInfo(const char *Info)
@@ -539,7 +514,7 @@ public:
 
     return m_cb->Control_Spin_GetValue(m_Handle->addonData, m_controlHandle);
   }
-  
+
   void SetValue(int iValue)
   {
     if (m_controlHandle)
@@ -730,7 +705,7 @@ public:
   {
     m_controlHandle = m_cb->Window_GetControl_SettingsSlider(m_Handle->addonData, m_Window->GetControlHandle(), controlId);
   }
-  
+
   ~CAddonGUISettingsSliderControl(void) override = default;
 
   void SetVisible(bool yesNo)
@@ -906,7 +881,7 @@ inline bool CAddonGUIRenderingControl::OnDirtyCB(GUIHANDLE cbhdl)
 {
   return static_cast<CAddonGUIRenderingControl*>(cbhdl)->Dirty();
 }
-  
+
 class CHelper_libKODI_guilib
 {
 public:
@@ -931,7 +906,7 @@ public:
       m_Callbacks = (KodiAPI::GUI::CB_GUILib*)m_Handle->GUILib_RegisterMe(m_Handle->addonData);
     if (!m_Callbacks)
       fprintf(stderr, "libKODI_guilib-ERROR: GUILib_RegisterMe can't get callback table from Kodi !!!\n");
-  
+
     return m_Callbacks != nullptr;
   }
 

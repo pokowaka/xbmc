@@ -1,46 +1,38 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIDialogProfileSettings.h"
 
-#include <utility>
-
+#include "FileItem.h"
+#include "GUIPassword.h"
+#include "ServiceBroker.h"
+#include "Util.h"
 #include "dialogs/GUIDialogFileBrowser.h"
 #include "dialogs/GUIDialogYesNo.h"
-#include "FileItem.h"
 #include "filesystem/Directory.h"
 #include "filesystem/File.h"
+#include "guilib/GUIComponent.h"
 #include "guilib/GUIKeyboardFactory.h"
 #include "guilib/GUIWindowManager.h"
 #include "guilib/LocalizeStrings.h"
-#include "GUIPassword.h"
+#include "profiles/ProfileManager.h"
 #include "profiles/dialogs/GUIDialogLockSettings.h"
-#include "profiles/ProfilesManager.h"
+#include "settings/SettingsComponent.h"
 #include "settings/lib/Setting.h"
 #include "settings/windows/GUIControlSettings.h"
 #include "storage/MediaManager.h"
-#include "Util.h"
-#include "utils/log.h"
 #include "utils/StringUtils.h"
 #include "utils/URIUtils.h"
 #include "utils/Variant.h"
+#include "utils/log.h"
+
+#include <cassert>
+#include <utility>
 
 #define SETTING_PROFILE_NAME          "profile.name"
 #define SETTING_PROFILE_IMAGE         "profile.image"
@@ -50,18 +42,19 @@
 #define SETTING_PROFILE_MEDIA_SOURCES "profile.mediasources"
 
 CGUIDialogProfileSettings::CGUIDialogProfileSettings()
-    : CGUIDialogSettingsManualBase(WINDOW_DIALOG_PROFILE_SETTINGS, "DialogSettings.xml"),
-      m_needsSaving(false)
+    : CGUIDialogSettingsManualBase(WINDOW_DIALOG_PROFILE_SETTINGS, "DialogSettings.xml")
 { }
 
 CGUIDialogProfileSettings::~CGUIDialogProfileSettings() = default;
 
 bool CGUIDialogProfileSettings::ShowForProfile(unsigned int iProfile, bool firstLogin)
 {
-  if (firstLogin && iProfile > CProfilesManager::GetInstance().GetNumberOfProfiles())
+  const std::shared_ptr<CProfileManager> profileManager = CServiceBroker::GetSettingsComponent()->GetProfileManager();
+
+  if (firstLogin && iProfile > profileManager->GetNumberOfProfiles())
     return false;
 
-  CGUIDialogProfileSettings *dialog = g_windowManager.GetWindow<CGUIDialogProfileSettings>(WINDOW_DIALOG_PROFILE_SETTINGS);
+  CGUIDialogProfileSettings *dialog = CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogProfileSettings>(WINDOW_DIALOG_PROFILE_SETTINGS);
   if (dialog == NULL)
     return false;
 
@@ -69,7 +62,7 @@ bool CGUIDialogProfileSettings::ShowForProfile(unsigned int iProfile, bool first
   dialog->m_isDefault = iProfile == 0;
   dialog->m_showDetails = !firstLogin;
 
-  const CProfile *profile = CProfilesManager::GetInstance().GetProfile(iProfile);
+  const CProfile *profile = profileManager->GetProfile(iProfile);
   if (profile == NULL)
   {
     dialog->m_name.clear();
@@ -77,7 +70,7 @@ bool CGUIDialogProfileSettings::ShowForProfile(unsigned int iProfile, bool first
     dialog->m_sourcesMode = 2;
     dialog->m_locks = CProfile::CLock();
 
-    bool bLock = CProfilesManager::GetInstance().GetMasterProfile().getLockMode() != LOCK_MODE_EVERYONE && !g_passwordManager.bMasterUser;
+    bool bLock = profileManager->GetMasterProfile().getLockMode() != LOCK_MODE_EVERYONE && !g_passwordManager.bMasterUser;
     dialog->m_locks.addonManager = bLock;
     dialog->m_locks.settings = (bLock) ? LOCK_LEVEL::ALL : LOCK_LEVEL::NONE;
     dialog->m_locks.files = bLock;
@@ -124,7 +117,7 @@ bool CGUIDialogProfileSettings::ShowForProfile(unsigned int iProfile, bool first
   dialog->Open();
   if (dialog->m_needsSaving)
   {
-    if (iProfile >= CProfilesManager::GetInstance().GetNumberOfProfiles())
+    if (iProfile >= profileManager->GetNumberOfProfiles())
     {
       if (dialog->m_name.empty() || dialog->m_directory.empty())
         return false;
@@ -133,13 +126,13 @@ bool CGUIDialogProfileSettings::ShowForProfile(unsigned int iProfile, bool first
       strLabel.Format(g_localizeStrings.Get(20047),dialog->m_strName);
       if (!CGUIDialogYesNo::ShowAndGetInput(20058, strLabel, dialog->m_strDirectory, ""))
       {
-        CDirectory::Remove(URIUtils::AddFileToFolder(CProfilesManager::GetInstance().GetUserDataFolder(), dialog->m_strDirectory));
+        CDirectory::Remove(URIUtils::AddFileToFolder(profileManager.GetUserDataFolder(), dialog->m_strDirectory));
         return false;
       }*/
 
       // check for old profile settings
-      CProfile profile(dialog->m_directory, dialog->m_name, CProfilesManager::GetInstance().GetNextProfileId());
-      CProfilesManager::GetInstance().AddProfile(profile);
+      CProfile profile(dialog->m_directory, dialog->m_name, profileManager->GetNextProfileId());
+      profileManager->AddProfile(profile);
       bool exists = XFILE::CFile::Exists(URIUtils::AddFileToFolder("special://masterprofile/", dialog->m_directory, "guisettings.xml"));
 
       if (exists && !CGUIDialogYesNo::ShowAndGetInput(CVariant{20058}, CVariant{20104}))
@@ -178,7 +171,7 @@ bool CGUIDialogProfileSettings::ShowForProfile(unsigned int iProfile, bool first
       if (!CGUIDialogYesNo::ShowAndGetInput(20067, 20103))
         return false;*/
 
-    CProfile *profile = CProfilesManager::GetInstance().GetProfile(iProfile);
+    CProfile *profile = profileManager->GetProfile(iProfile);
     assert(profile);
     profile->setName(dialog->m_name);
     profile->setDirectory(dialog->m_directory);
@@ -188,7 +181,7 @@ bool CGUIDialogProfileSettings::ShowForProfile(unsigned int iProfile, bool first
     profile->setDatabases((dialog->m_dbMode & 2) == 2);
     profile->setSources((dialog->m_sourcesMode & 2) == 2);
     profile->SetLocks(dialog->m_locks);
-    CProfilesManager::GetInstance().Save();
+    profileManager->Save();
 
     return true;
   }
@@ -232,7 +225,7 @@ void CGUIDialogProfileSettings::OnSettingAction(std::shared_ptr<const CSetting> 
   if (settingId == SETTING_PROFILE_IMAGE)
   {
     VECSOURCES shares;
-    g_mediaManager.GetLocalDrives(shares);
+    CServiceBroker::GetMediaManager().GetLocalDrives(shares);
 
     CFileItemList items;
     if (!m_thumb.empty())
@@ -270,15 +263,17 @@ void CGUIDialogProfileSettings::OnSettingAction(std::shared_ptr<const CSetting> 
   {
     if (m_showDetails)
     {
-      if (CProfilesManager::GetInstance().GetMasterProfile().getLockMode() == LOCK_MODE_EVERYONE && !m_isDefault)
+      const std::shared_ptr<CProfileManager> profileManager = CServiceBroker::GetSettingsComponent()->GetProfileManager();
+
+      if (profileManager->GetMasterProfile().getLockMode() == LOCK_MODE_EVERYONE && !m_isDefault)
       {
         if (CGUIDialogYesNo::ShowAndGetInput(CVariant{20066}, CVariant{20118}))
           g_passwordManager.SetMasterLockMode(false);
-        if (CProfilesManager::GetInstance().GetMasterProfile().getLockMode() == LOCK_MODE_EVERYONE)
+        if (profileManager->GetMasterProfile().getLockMode() == LOCK_MODE_EVERYONE)
           return;
       }
       if (CGUIDialogLockSettings::ShowAndGetLock(m_locks, m_isDefault ? 12360 : 20068,
-              CProfilesManager::GetInstance().GetMasterProfile().getLockMode() == LOCK_MODE_EVERYONE || m_isDefault))
+              profileManager->GetMasterProfile().getLockMode() == LOCK_MODE_EVERYONE || m_isDefault))
         m_needsSaving = true;
     }
     else
@@ -330,6 +325,8 @@ void CGUIDialogProfileSettings::InitializeSettings()
     return;
   }
 
+  const std::shared_ptr<CProfileManager> profileManager = CServiceBroker::GetSettingsComponent()->GetProfileManager();
+
   AddEdit(group, SETTING_PROFILE_NAME, 20093, SettingLevel::Basic, m_name);
   AddButton(group, SETTING_PROFILE_IMAGE, 20065, SettingLevel::Basic);
 
@@ -337,7 +334,7 @@ void CGUIDialogProfileSettings::InitializeSettings()
     AddButton(group, SETTING_PROFILE_DIRECTORY, 20070, SettingLevel::Basic);
 
   if (m_showDetails ||
-     (m_locks.mode == LOCK_MODE_EVERYONE && CProfilesManager::GetInstance().GetMasterProfile().getLockMode() != LOCK_MODE_EVERYONE))
+     (m_locks.mode == LOCK_MODE_EVERYONE && profileManager->GetMasterProfile().getLockMode() != LOCK_MODE_EVERYONE))
     AddButton(group, SETTING_PROFILE_LOCKS, 20066, SettingLevel::Basic);
 
   if (!m_isDefault && m_showDetails)
@@ -350,11 +347,11 @@ void CGUIDialogProfileSettings::InitializeSettings()
     }
 
     TranslatableIntegerSettingOptions entries;
-    entries.push_back(std::make_pair(20062, 0));
-    entries.push_back(std::make_pair(20063, 1));
-    entries.push_back(std::make_pair(20061, 2));
-    if (CProfilesManager::GetInstance().GetMasterProfile().getLockMode() != LOCK_MODE_EVERYONE)
-      entries.push_back(std::make_pair(20107, 3));
+    entries.push_back(TranslatableIntegerSettingOption(20062, 0));
+    entries.push_back(TranslatableIntegerSettingOption(20063, 1));
+    entries.push_back(TranslatableIntegerSettingOption(20061, 2));
+    if (profileManager->GetMasterProfile().getLockMode() != LOCK_MODE_EVERYONE)
+      entries.push_back(TranslatableIntegerSettingOption(20107, 3));
 
     AddSpinner(groupMedia, SETTING_PROFILE_MEDIA, 20060, SettingLevel::Basic, m_dbMode, entries);
     AddSpinner(groupMedia, SETTING_PROFILE_MEDIA_SOURCES, 20094, SettingLevel::Basic, m_sourcesMode, entries);

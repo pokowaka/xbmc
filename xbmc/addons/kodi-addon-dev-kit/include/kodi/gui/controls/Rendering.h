@@ -1,26 +1,16 @@
-#pragma once
 /*
- *      Copyright (C) 2005-2017 Team KODI
- *      http://kodi.tv
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with KODI; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
 
 #include "../../AddonBase.h"
 #include "../Window.h"
+#include "../renderHelper.h"
 
 namespace kodi
 {
@@ -190,17 +180,23 @@ namespace controls
      */
     static bool OnCreateCB(void* cbhdl, int x, int y, int w, int h, void* device)
     {
+      static_cast<CRendering*>(cbhdl)->m_renderHelper = kodi::gui::GetRenderHelper();
       return static_cast<CRendering*>(cbhdl)->Create(x, y, w, h, device);
     }
 
     static void OnRenderCB(void* cbhdl)
     {
+      if (!static_cast<CRendering*>(cbhdl)->m_renderHelper)
+        return;
+      static_cast<CRendering*>(cbhdl)->m_renderHelper->Begin();
       static_cast<CRendering*>(cbhdl)->Render();
+      static_cast<CRendering*>(cbhdl)->m_renderHelper->End();
     }
 
     static void OnStopCB(void* cbhdl)
     {
       static_cast<CRendering*>(cbhdl)->Stop();
+      static_cast<CRendering*>(cbhdl)->m_renderHelper = nullptr;
     }
 
     static bool OnDirtyCB(void* cbhdl)
@@ -208,6 +204,7 @@ namespace controls
       return static_cast<CRendering*>(cbhdl)->Dirty();
     }
 
+    std::shared_ptr<kodi::gui::IRenderHelper> m_renderHelper;
   };
 
 } /* namespace controls */

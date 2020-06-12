@@ -1,30 +1,20 @@
 /*
- *      Copyright (C) 2016 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2016-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
 
+#include "DVDCodecs/Video/DVDVideoCodecFFmpeg.h"
+#include "cores/VideoPlayer/VideoRenderers/HwDecRender/MMALRenderer.h"
+
 #include <memory>
 #include <queue>
-#include "DVDCodecs/Video/DVDVideoCodecFFmpeg.h"
-#include "libavcodec/avcodec.h"
-#include "cores/VideoPlayer/VideoRenderers/HwDecRender/MMALRenderer.h"
+
+#include <libavcodec/avcodec.h>
 
 struct MMAL_BUFFER_HEADER_T;
 class CGPUMEM;
@@ -44,7 +34,7 @@ public:
   virtual void GetStrides(int(&strides)[YuvImage::MAX_PLANES]) override;
   virtual void SetDimensions(int width, int height, const int (&strides)[YuvImage::MAX_PLANES]) override;
   virtual void SetDimensions(int width, int height, const int (&strides)[YuvImage::MAX_PLANES], const int (&planeOffsets)[YuvImage::MAX_PLANES]) override;
-  CGPUMEM *Allocate(int size, void *opaque) { m_gmem = new CGPUMEM(size, true); if (m_gmem) m_gmem->m_opaque = opaque; return m_gmem; }
+  CGPUMEM *Allocate(int size, void *opaque);
   CGPUMEM *GetMem() { return m_gmem; }
 protected:
   CGPUMEM *m_gmem = nullptr;

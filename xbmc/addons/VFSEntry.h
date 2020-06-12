@@ -1,28 +1,17 @@
 /*
- *      Copyright (C) 2013 Arne Morten Kvarving
+ *  Copyright (C) 2013 Arne Morten Kvarving
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
 #pragma once
 
 #include "addons/binary-addons/AddonDll.h"
 #include "addons/binary-addons/AddonInstanceHandler.h"
 #include "addons/kodi-addon-dev-kit/include/kodi/addon-instance/VFS.h"
-#include "filesystem/IFile.h"
 #include "filesystem/IDirectory.h"
+#include "filesystem/IFile.h"
 #include "filesystem/IFileDirectory.h"
 
 namespace ADDON
@@ -38,7 +27,7 @@ namespace ADDON
     void Init();
     void Deinit();
     const std::vector<VFSEntryPtr> GetAddonInstances();
-    VFSEntryPtr GetAddonInstance(const std::string& strId, TYPE type);
+    VFSEntryPtr GetAddonInstance(const std::string& strId);
 
   protected:
     void Update();
@@ -52,9 +41,26 @@ namespace ADDON
   class CVFSEntry : public IAddonInstanceHandler
   {
   public:
+    //! \brief A structure encapsulating properties of supplied protocol.
+    struct ProtocolInfo
+    {
+      bool supportPath;      //!< Protocol has path in addition to server name
+      bool supportUsername;  //!< Protocol uses logins
+      bool supportPassword;  //!< Protocol supports passwords
+      bool supportPort;      //!< Protocol supports port customization
+      bool supportBrowsing;  //!< Protocol supports server browsing
+      bool supportWrite;     //!< Protocol supports write operations
+      int defaultPort;       //!< Default port to use for protocol
+      std::string type;      //!< URL type for protocol
+      int label;             //!< String ID to use as label in dialog
+
+      //! \brief The constructor reads the info from an add-on info structure.
+      ProtocolInfo(BinaryAddonBasePtr addonInfo);
+    };
+
     //! \brief Construct from add-on properties.
     //! \param addonInfo General addon properties
-    CVFSEntry(BinaryAddonBasePtr addonInfo);
+    explicit CVFSEntry(BinaryAddonBasePtr addonInfo);
     ~CVFSEntry() override;
 
     // Things that MUST be supplied by the child classes
@@ -81,19 +87,35 @@ namespace ADDON
     void ClearOutIdle();
     void DisconnectAll();
 
-    bool ContainsFiles(const CURL& path, CFileItemList& items);
+    bool ContainsFiles(const CURL& url, CFileItemList& items);
 
     const std::string& GetProtocols() const { return m_protocols; }
     const std::string& GetExtensions() const { return m_extensions; }
     bool HasFiles() const { return m_files; }
     bool HasDirectories() const { return m_directories; }
     bool HasFileDirectories() const { return m_filedirectories; }
+    const std::string& GetZeroconfType() const { return m_zeroconf; }
+    const ProtocolInfo& GetProtocolInfo() const { return m_protocolInfo; }
   protected:
-    std::string m_protocols; //!< Protocols for VFS entry.
+    /*!
+     * @brief TO translate `enum XFILE::EIoControl` to/from `enum VFS_IOCTRL`.
+     *
+     * This is meant to interact securely between Kodi and addon.
+     *
+     * @note The `int` there is `enum XFILE::EIoControl`
+     */
+    //@{
+    static int TranslateIOCTRLToKodi(VFS_IOCTRL ioctrl);
+    static VFS_IOCTRL TranslateIOCTRLToAddon(int ioctrl);
+    //@}
+
+    std::string m_protocols;  //!< Protocols for VFS entry.
     std::string m_extensions; //!< Extensions for VFS entry.
+    std::string m_zeroconf;   //!< Zero conf announce string for VFS protocol.
     bool m_files;             //!< Vfs entry can read files.
     bool m_directories;       //!< VFS entry can list directories.
     bool m_filedirectories;   //!< VFS entry contains file directories.
+    ProtocolInfo m_protocolInfo; //!< Info about protocol for network dialog.
     AddonInstance_VFSEntry m_struct; //!< VFS callback table
   };
 
@@ -105,7 +127,7 @@ namespace ADDON
   public:
     //! \brief The constructor initializes the reference to the wrapped CVFSEntry.
     //! \param ptr The CVFSEntry to wrap.
-    CVFSEntryIFileWrapper(VFSEntryPtr ptr);
+    explicit CVFSEntryIFileWrapper(VFSEntryPtr ptr);
 
     //! \brief Empty destructor.
     ~CVFSEntryIFileWrapper() override;
@@ -189,7 +211,7 @@ namespace ADDON
   public:
     //! \brief The constructor initializes the reference to the wrapped CVFSEntry.
     //! \param ptr The CVFSEntry to wrap.
-    CVFSEntryIDirectoryWrapper(VFSEntryPtr ptr);
+    explicit CVFSEntryIDirectoryWrapper(VFSEntryPtr ptr);
 
     //! \brief Empty destructor.
     ~CVFSEntryIDirectoryWrapper() override = default;
@@ -198,19 +220,19 @@ namespace ADDON
     //! \param[in] url URL to file to list.
     //! \param items List of items in file.
     //! \return True if listing succeeded, false otherwise.
-    bool GetDirectory(const CURL& strPath, CFileItemList& items) override;
+    bool GetDirectory(const CURL& url, CFileItemList& items) override;
 
     //! \brief Check if directory exists.
     //! \param[in] url URL to check.
-    bool Exists(const CURL& strPath) override;
+    bool Exists(const CURL& url) override;
 
     //! \brief Delete directory.
     //! \param[in] url URL to delete.
-    bool Remove(const CURL& strPath) override;
+    bool Remove(const CURL& url) override;
 
     //! \brief Create directory.
     //! \param[in] url URL to delete.
-    bool Create(const CURL& strPath) override;
+    bool Create(const CURL& url) override;
 
     //! \brief Static helper for doing a keyboard callback.
     static bool DoGetKeyboardInput(void* context, const char* heading,
@@ -246,13 +268,13 @@ namespace ADDON
   public:
     //! \brief The constructor initializes the reference to the wrapped CVFSEntry.
     //! \param ptr The CVFSEntry to wrap.
-    CVFSEntryIFileDirectoryWrapper(VFSEntryPtr ptr) : CVFSEntryIDirectoryWrapper(ptr) {}
+    explicit CVFSEntryIFileDirectoryWrapper(VFSEntryPtr ptr) : CVFSEntryIDirectoryWrapper(ptr) {}
 
     //! \brief Empty destructor.
     ~CVFSEntryIFileDirectoryWrapper() override = default;
 
     //! \brief Check if the given file should be treated as a directory.
-    //! \param[in] URL URL for file to probe.
+    //! \param[in] url URL for file to probe.
     bool ContainsFiles(const CURL& url) override
     {
       return m_addon->ContainsFiles(url, m_items);

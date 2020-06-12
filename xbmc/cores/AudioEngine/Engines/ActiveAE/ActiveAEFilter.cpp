@@ -1,21 +1,9 @@
 /*
- *      Copyright (C) 2010-2016 Team Kodi
- *      http://xbmc.org
+ *  Copyright (C) 2010-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "ActiveAEFilter.h"
@@ -24,11 +12,11 @@
 #include <algorithm>
 
 extern "C" {
-#include "libavfilter/avfilter.h"
-#include "libavcodec/avcodec.h"
-#include "libavfilter/buffersink.h"
-#include "libavfilter/buffersrc.h"
-#include "libswresample/swresample.h"
+#include <libavfilter/avfilter.h>
+#include <libavcodec/avcodec.h>
+#include <libavfilter/buffersink.h>
+#include <libavfilter/buffersrc.h>
+#include <libswresample/swresample.h>
 }
 
 using namespace ActiveAE;
@@ -93,8 +81,8 @@ bool CActiveAEFilter::CreateFilterGraph()
     return false;
   }
 
-  AVFilter* srcFilter = avfilter_get_by_name("abuffer");
-  AVFilter* outFilter = avfilter_get_by_name("abuffersink");
+  const AVFilter* srcFilter = avfilter_get_by_name("abuffer");
+  const AVFilter* outFilter = avfilter_get_by_name("abuffersink");
 
   std::string args = StringUtils::Format("time_base=1/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%" PRIx64,
                                          m_sampleRate,
@@ -123,7 +111,7 @@ bool CActiveAEFilter::CreateFilterGraph()
 
 bool CActiveAEFilter::CreateAtempoFilter()
 {
-  AVFilter *atempo;
+  const AVFilter *atempo;
 
   atempo = avfilter_get_by_name("atempo");
   m_pFilterCtxAtempo = avfilter_graph_alloc_filter(m_pFilterGraph, atempo, "atempo");
@@ -169,6 +157,7 @@ bool CActiveAEFilter::CreateAtempoFilter()
   m_needData = true;
   m_filterEof = false;
   m_started = false;
+  m_ptsInitialized = false;
 
   return true;
 }
@@ -194,6 +183,8 @@ void CActiveAEFilter::CloseFilter()
 
   m_SamplesIn = 0;
   m_SamplesOut = 0;
+
+  m_ptsInitialized = false;
 }
 
 int CActiveAEFilter::ProcessFilter(uint8_t **dst_buffer, int dst_samples, uint8_t **src_buffer, int src_samples, int src_bufsize)
@@ -218,11 +209,16 @@ int CActiveAEFilter::ProcessFilter(uint8_t **dst_buffer, int dst_samples, uint8_
 
     int channels = av_get_channel_layout_nb_channels(m_channelLayout);
 
-    av_frame_set_channel_layout(frame, m_channelLayout);
-    av_frame_set_channels(frame, channels);
-    av_frame_set_sample_rate(frame, m_sampleRate);
+    frame->channel_layout = m_channelLayout;
+    frame->channels = channels;
+    frame->sample_rate = m_sampleRate;
     frame->nb_samples = src_samples;
     frame->format = m_sampleFormat;
+    if (!m_ptsInitialized)
+    {
+      frame->pts = 0;
+      m_ptsInitialized = true;
+    }
 
     m_SamplesIn += src_samples;
 
@@ -232,6 +228,7 @@ int CActiveAEFilter::ProcessFilter(uint8_t **dst_buffer, int dst_samples, uint8_
     {
       av_frame_free(&frame);
       CLog::Log(LOGERROR, "CActiveAEFilter::ProcessFilter - avcodec_fill_audio_frame failed");
+      m_filterEof = true;
       return -1;
     }
 
@@ -240,6 +237,7 @@ int CActiveAEFilter::ProcessFilter(uint8_t **dst_buffer, int dst_samples, uint8_
     if (result < 0)
     {
       CLog::Log(LOGERROR, "CActiveAEFilter::ProcessFilter - av_buffersrc_add_frame failed");
+      m_filterEof = true;
       return -1;
     }
 
@@ -251,6 +249,7 @@ int CActiveAEFilter::ProcessFilter(uint8_t **dst_buffer, int dst_samples, uint8_
     if (result < 0)
     {
       CLog::Log(LOGERROR, "CActiveAEFilter::ProcessFilter - av_buffersrc_add_frame");
+      m_filterEof = true;
       return -1;
     }
   }
@@ -277,6 +276,7 @@ int CActiveAEFilter::ProcessFilter(uint8_t **dst_buffer, int dst_samples, uint8_
     else if (result < 0)
     {
       CLog::Log(LOGERROR, "CActiveAEFilter::ProcessFilter - av_buffersink_get_frame");
+      m_filterEof = true;
       return -1;
     }
 
@@ -286,13 +286,14 @@ int CActiveAEFilter::ProcessFilter(uint8_t **dst_buffer, int dst_samples, uint8_
     {
       av_frame_unref(m_pOutFrame);
       m_pOutFrame->format = m_sampleFormat;
-      av_frame_set_channel_layout(m_pOutFrame, m_channelLayout);
-      av_frame_set_sample_rate(m_pOutFrame, m_sampleRate);
+      m_pOutFrame->channel_layout = m_channelLayout;
+      m_pOutFrame->sample_rate = m_sampleRate;
       result = swr_convert_frame(m_pConvertCtx, m_pOutFrame, m_pConvertFrame);
       av_frame_unref(m_pConvertFrame);
       if (result < 0)
       {
         CLog::Log(LOGERROR, "CActiveAEFilter::ProcessFilter - swr_convert_frame failed");
+        m_filterEof = true;
         return -1;
       }
     }
@@ -326,25 +327,22 @@ int CActiveAEFilter::ProcessFilter(uint8_t **dst_buffer, int dst_samples, uint8_
   return 0;
 }
 
-bool CActiveAEFilter::IsEof()
+bool CActiveAEFilter::IsEof() const
 {
   return m_filterEof;
 }
 
-bool CActiveAEFilter::NeedData()
+bool CActiveAEFilter::NeedData() const
 {
   return m_needData;
 }
 
-bool CActiveAEFilter::IsActive()
+bool CActiveAEFilter::IsActive() const
 {
-  if (m_pFilterGraph)
-    return true;
-  else
-    return false;
+  return m_pFilterGraph != nullptr && !m_filterEof;
 }
 
-int CActiveAEFilter::GetBufferedSamples()
+int CActiveAEFilter::GetBufferedSamples() const
 {
   int ret = m_SamplesIn - (m_SamplesOut * m_tempo);
   if (m_hasData)

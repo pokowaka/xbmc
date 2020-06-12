@@ -1,32 +1,22 @@
 /*
- *      Copyright (C) 2011-2015 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2011-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with Kodi; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "FavouritesOperations.h"
+
+#include "ServiceBroker.h"
+#include "URL.h"
+#include "Util.h"
 #include "favourites/FavouritesService.h"
+#include "guilib/WindowIDs.h"
 #include "input/WindowTranslator.h"
 #include "utils/StringUtils.h"
-#include "Util.h"
 #include "utils/URIUtils.h"
 #include "utils/Variant.h"
-#include "guilib/WindowIDs.h"
-#include "ServiceBroker.h"
 
 #include <vector>
 
@@ -36,7 +26,7 @@ JSONRPC_STATUS CFavouritesOperations::GetFavourites(const std::string &method, I
 {
   CFileItemList favourites;
   CServiceBroker::GetFavouritesService().GetAll(favourites);
-  
+
   std::string type = !parameterObject["type"].isNull() ? parameterObject["type"].asString() : "";
 
   std::set<std::string> fields;
@@ -53,7 +43,12 @@ JSONRPC_STATUS CFavouritesOperations::GetFavourites(const std::string &method, I
 
     std::string function;
     std::vector<std::string> parameters;
-    CUtil::SplitExecFunction(item->GetPath(), function, parameters);
+
+    //FIXME: this path is internal to the favourites system and should not be parsed and exposed
+    CURL url(item->GetPath());
+    std::string internalPath = CURL::Decode(url.GetHostName());
+
+    CUtil::SplitExecFunction(internalPath, function, parameters);
     if (parameters.empty())
       continue;
 
@@ -75,7 +70,7 @@ JSONRPC_STATUS CFavouritesOperations::GetFavourites(const std::string &method, I
       {
         if (parameters.size() > 1)
           object["windowparameter"] = parameters[1];
-        else 
+        else
           object["windowparameter"] = "";
       }
     }
@@ -91,13 +86,19 @@ JSONRPC_STATUS CFavouritesOperations::GetFavourites(const std::string &method, I
       if (fields.find("path") !=  fields.end())
         object["path"] = parameters[0];
     }
+    else if (StringUtils::EqualsNoCase(function, "StartAndroidActivity"))
+    {
+      object["type"] = "androidapp";
+      if (fields.find("path") !=  fields.end())
+        object["path"] = parameters[0];
+    }
     else
       object["type"] = "unknown";
-    
+
     if (type.empty() || type.compare(object["type"].asString()) == 0)
       result["favourites"].append(object);
   }
-  
+
   int start, end;
   HandleLimits(parameterObject, result, result["favourites"].size(), start, end);
 
@@ -111,7 +112,7 @@ JSONRPC_STATUS CFavouritesOperations::AddFavourite(const std::string &method, IT
   if (type.compare("unknown") == 0)
     return InvalidParams;
 
-  if ((type.compare("media") == 0 || type.compare("script") == 0) && !ParameterNotNull(parameterObject, "path"))
+  if ((type.compare("media") == 0 || type.compare("script") == 0 || type.compare("androidapp") == 0) && !ParameterNotNull(parameterObject, "path"))
   {
     result["method"] = "Favourites.AddFavourite";
     result["stack"]["message"] = "Missing parameter";
@@ -140,14 +141,20 @@ JSONRPC_STATUS CFavouritesOperations::AddFavourite(const std::string &method, IT
     contextWindow = CWindowTranslator::TranslateWindow(parameterObject["window"].asString());
     if (contextWindow == WINDOW_INVALID)
       return InvalidParams;
-  } 
-  else if (type.compare("script") == 0) 
+  }
+  else if (type.compare("script") == 0)
   {
     if (!URIUtils::IsScript(path))
       path = "script://" + path;
     item = CFileItem(path, false);
   }
-  else if (type.compare("media") == 0) 
+  else if (type.compare("androidapp") == 0)
+  {
+    if (!URIUtils::IsAndroidApp(path))
+      path = "androidapp://" + path;
+    item = CFileItem(path, false);
+  }
+  else if (type.compare("media") == 0)
   {
     item = CFileItem(path, false);
   }

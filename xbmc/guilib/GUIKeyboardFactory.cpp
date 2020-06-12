@@ -1,42 +1,33 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "Application.h"
 #include "ServiceBroker.h"
+#include "GUIComponent.h"
 #include "messaging/ApplicationMessenger.h"
 #include "LocalizeStrings.h"
 #include "GUIKeyboardFactory.h"
-#include "dialogs/GUIDialogOK.h"
 #include "GUIUserMessages.h"
 #include "GUIWindowManager.h"
+#include "messaging/helpers/DialogOKHelper.h"
 #include "settings/Settings.h"
-#include "utils/md5.h"
+#include "settings/SettingsComponent.h"
+#include "utils/Digest.h"
 #include "utils/StringUtils.h"
 #include "utils/Variant.h"
 
 #include "dialogs/GUIDialogKeyboardGeneric.h"
-#if defined(TARGET_DARWIN_IOS)
+#if defined(TARGET_DARWIN_EMBEDDED)
 #include "dialogs/GUIDialogKeyboardTouch.h"
 #endif
 
 using namespace KODI::MESSAGING;
+using KODI::UTILITY::CDigest;
 
 CGUIKeyboard *CGUIKeyboardFactory::g_activeKeyboard = NULL;
 FILTERING CGUIKeyboardFactory::m_filtering = FILTERING_NONE;
@@ -56,7 +47,7 @@ void CGUIKeyboardFactory::keyTypedCB(CGUIKeyboard *ref, const std::string &typed
       case FILTERING_SEARCH:
         message.SetParam1(GUI_MSG_SEARCH_UPDATE);
         message.SetStringParam(typedString);
-        CApplicationMessenger::GetInstance().SendGUIMessage(message, g_windowManager.GetActiveWindow());
+        CApplicationMessenger::GetInstance().SendGUIMessage(message, CServiceBroker::GetGUI()->GetWindowManager().GetActiveWindow());
         break;
       case FILTERING_CURRENT:
         message.SetParam1(GUI_MSG_FILTER_ITEMS);
@@ -84,7 +75,6 @@ bool CGUIKeyboardFactory::SendTextToActiveKeyboard(const std::string &aTextStrin
 bool CGUIKeyboardFactory::ShowAndGetInput(std::string& aTextString, CVariant heading, bool allowEmptyResult, bool hiddenInput /* = false */, unsigned int autoCloseMs /* = 0 */)
 {
   bool confirmed = false;
-  CGUIKeyboard *kb = NULL;
   //heading can be a string or a localization id
   std::string headingStr;
   if (heading.isString())
@@ -92,11 +82,24 @@ bool CGUIKeyboardFactory::ShowAndGetInput(std::string& aTextString, CVariant hea
   else if (heading.isInteger() && heading.asInteger())
     headingStr = g_localizeStrings.Get((uint32_t)heading.asInteger());
 
-#if defined(TARGET_DARWIN_IOS)
-  kb = g_windowManager.GetWindow<CGUIDialogKeyboardTouch>(WINDOW_DIALOG_KEYBOARD_TOUCH);
+  bool useKodiKeyboard = true;
+#if defined(TARGET_DARWIN_EMBEDDED)
+#if defined(TARGET_DARWIN_TVOS)
+  useKodiKeyboard = CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(
+      CSettings::SETTING_INPUT_APPLEUSEKODIKEYBOARD);
 #else
-  kb = g_windowManager.GetWindow<CGUIDialogKeyboardGeneric>(WINDOW_DIALOG_KEYBOARD);
+  useKodiKeyboard = false;
+#endif // defined(TARGET_DARWIN_TVOS)
 #endif
+
+  auto& winManager = CServiceBroker::GetGUI()->GetWindowManager();
+  CGUIKeyboard* kb = nullptr;
+  if (useKodiKeyboard)
+    kb = winManager.GetWindow<CGUIDialogKeyboardGeneric>(WINDOW_DIALOG_KEYBOARD);
+#if defined(TARGET_DARWIN_EMBEDDED)
+  else
+    kb = winManager.GetWindow<CGUIDialogKeyboardTouch>(WINDOW_DIALOG_KEYBOARD_TOUCH);
+#endif // defined(TARGET_DARWIN_EMBEDDED)
 
   if (kb)
   {
@@ -165,11 +168,10 @@ bool CGUIKeyboardFactory::ShowAndVerifyNewPassword(std::string& newPassword, CVa
   // check the password
   if (checkInput == userInput)
   {
-    newPassword = XBMC::XBMC_MD5::GetMD5(userInput);
-    StringUtils::ToLower(newPassword);
+    newPassword = CDigest::Calculate(CDigest::Type::MD5, userInput);
     return true;
   }
-  CGUIDialogOK::ShowAndGetInput(CVariant{12341}, CVariant{12344});
+  HELPERS::ShowOKDialogText(CVariant{12341}, CVariant{12344});
   return false;
 }
 
@@ -195,7 +197,7 @@ int CGUIKeyboardFactory::ShowAndVerifyPassword(std::string& strPassword, const s
   else
     strHeadingTemp = StringUtils::Format("%s - %i %s",
                                          g_localizeStrings.Get(12326).c_str(),
-                                         CServiceBroker::GetSettings().GetInt(CSettings::SETTING_MASTERLOCK_MAXRETRIES) - iRetries,
+                                         CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(CSettings::SETTING_MASTERLOCK_MAXRETRIES) - iRetries,
                                          g_localizeStrings.Get(12343).c_str());
 
   std::string strUserInput;
@@ -205,7 +207,7 @@ int CGUIKeyboardFactory::ShowAndVerifyPassword(std::string& strPassword, const s
 
   if (!strPassword.empty())
   {
-    std::string md5pword2 = XBMC::XBMC_MD5::GetMD5(strUserInput);
+    std::string md5pword2 = CDigest::Calculate(CDigest::Type::MD5, strUserInput);
     if (StringUtils::EqualsNoCase(strPassword, md5pword2))
       return 0;     // user entered correct password
     else return 1;  // user must have entered an incorrect password
@@ -214,8 +216,7 @@ int CGUIKeyboardFactory::ShowAndVerifyPassword(std::string& strPassword, const s
   {
     if (!strUserInput.empty())
     {
-      strPassword = XBMC::XBMC_MD5::GetMD5(strUserInput);
-      StringUtils::ToLower(strPassword);
+      strPassword = CDigest::Calculate(CDigest::Type::MD5, strUserInput);
       return 0; // user entered correct password
     }
     else return 1;

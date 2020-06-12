@@ -1,29 +1,17 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIControlGroup.h"
 
+#include "GUIMessage.h"
+
 #include <cassert>
 #include <utility>
-
-#include "guiinfo/GUIInfoLabels.h"
 
 CGUIControlGroup::CGUIControlGroup()
 {
@@ -95,7 +83,7 @@ void CGUIControlGroup::DynamicResourceAlloc(bool bOnOff)
 void CGUIControlGroup::Process(unsigned int currentTime, CDirtyRegionList &dirtyregions)
 {
   CPoint pos(GetPosition());
-  g_graphicsContext.SetOrigin(pos.x, pos.y);
+  CServiceBroker::GetWinSystem()->GetGfxContext().SetOrigin(pos.x, pos.y);
 
   CRect rect;
   for (auto *control : m_children)
@@ -107,7 +95,7 @@ void CGUIControlGroup::Process(unsigned int currentTime, CDirtyRegionList &dirty
       rect.Union(control->GetRenderRegion());
   }
 
-  g_graphicsContext.RestoreOrigin();
+  CServiceBroker::GetWinSystem()->GetGfxContext().RestoreOrigin();
   CGUIControl::Process(currentTime, dirtyregions);
   m_renderRegion = rect;
 }
@@ -115,7 +103,7 @@ void CGUIControlGroup::Process(unsigned int currentTime, CDirtyRegionList &dirty
 void CGUIControlGroup::Render()
 {
   CPoint pos(GetPosition());
-  g_graphicsContext.SetOrigin(pos.x, pos.y);
+  CServiceBroker::GetWinSystem()->GetGfxContext().SetOrigin(pos.x, pos.y);
   CGUIControl *focusedControl = NULL;
   for (auto *control : m_children)
   {
@@ -127,7 +115,7 @@ void CGUIControlGroup::Render()
   if (focusedControl)
     focusedControl->DoRender();
   CGUIControl::Render();
-  g_graphicsContext.RestoreOrigin();
+  CServiceBroker::GetWinSystem()->GetGfxContext().RestoreOrigin();
 }
 
 void CGUIControlGroup::RenderEx()
@@ -268,14 +256,16 @@ bool CGUIControlGroup::OnMessage(CGUIMessage& message)
 
 bool CGUIControlGroup::SendControlMessage(CGUIMessage &message)
 {
-  CGUIControl *ctrl(GetControl(message.GetControlId(), &m_idCollector));
+  IDCollector collector(m_idCollector);
+
+  CGUIControl *ctrl(GetControl(message.GetControlId(), collector.m_collector));
   // see if a child matches, and send to the child control if so
   if (ctrl && ctrl->OnMessage(message))
     return true;
 
   // Unhandled - send to all matching invisible controls as well
   bool handled(false);
-  for (auto *control : m_idCollector)
+  for (auto *control : *collector.m_collector)
     if (control->OnMessage(message))
       handled = true;
 
@@ -439,7 +429,7 @@ CGUIControl *CGUIControlGroup::GetFocusedControl() const
         return focusedControl;
     }
     else if (control->HasFocus())
-      return (CGUIControl *)control;
+      return control;
   }
   return NULL;
 }
@@ -448,7 +438,7 @@ CGUIControl *CGUIControlGroup::GetFocusedControl() const
 CGUIControl *CGUIControlGroup::GetFirstFocusableControl(int id)
 {
   if (!CanFocus()) return NULL;
-  if (id && id == (int) GetID()) return this; // we're focusable and they want us
+  if (id && id == GetID()) return this; // we're focusable and they want us
   for (auto *pControl : m_children)
   {
     CGUIControlGroup *group(dynamic_cast<CGUIControlGroup*>(pControl));
@@ -457,7 +447,7 @@ CGUIControl *CGUIControlGroup::GetFirstFocusableControl(int id)
       CGUIControl *control = group->GetFirstFocusableControl(id);
       if (control) return control;
     }
-    if ((!id || (int) pControl->GetID() == id) && pControl->CanFocus())
+    if ((!id || pControl->GetID() == id) && pControl->CanFocus())
       return pControl;
   }
   return NULL;
@@ -497,7 +487,7 @@ bool CGUIControlGroup::InsertControl(CGUIControl *control, const CGUIControl *in
 void CGUIControlGroup::SaveStates(std::vector<CControlState> &states)
 {
   // save our state, and that of our children
-  states.push_back(CControlState(GetID(), m_focusedControl));
+  states.emplace_back(GetID(), m_focusedControl);
   for (auto *control : m_children)
     control->SaveStates(states);
 }

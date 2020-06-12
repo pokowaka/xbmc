@@ -1,48 +1,38 @@
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
-#include <Platinum/Source/Platinum/Platinum.h>
-
 #include "UPnPInternal.h"
-#include "UPnP.h"
-#include "UPnPServer.h"
-#include "ServiceBroker.h"
-#include "URL.h"
-#include "Util.h"
-#include "settings/AdvancedSettings.h"
-#include "utils/log.h"
-#include "utils/StringUtils.h"
-#include "utils/URIUtils.h"
+
 #include "FileItem.h"
-#include "filesystem/File.h"
-#include "filesystem/StackDirectory.h"
-#include "filesystem/MusicDatabaseDirectory.h"
-#include "filesystem/VideoDatabaseDirectory.h"
-#include "video/VideoInfoTag.h"
-#include "music/MusicDatabase.h"
-#include "music/tags/MusicInfoTag.h"
+#include "ServiceBroker.h"
 #include "TextureDatabase.h"
 #include "ThumbLoader.h"
+#include "UPnP.h"
+#include "UPnPServer.h"
+#include "URL.h"
+#include "Util.h"
+#include "filesystem/File.h"
+#include "filesystem/MusicDatabaseDirectory.h"
+#include "filesystem/StackDirectory.h"
+#include "filesystem/VideoDatabaseDirectory.h"
+#include "music/MusicDatabase.h"
+#include "music/tags/MusicInfoTag.h"
+#include "settings/AdvancedSettings.h"
 #include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
 #include "utils/LangCodeExpander.h"
+#include "utils/StringUtils.h"
+#include "utils/URIUtils.h"
+#include "utils/log.h"
+#include "video/VideoInfoTag.h"
 
 #include <algorithm>
+
+#include <Platinum/Source/Platinum/Platinum.h>
 
 using namespace MUSIC_INFO;
 using namespace XFILE;
@@ -276,9 +266,9 @@ PopulateObjectFromTag(CVideoInfoTag&         tag,
     if (tag.m_iDbId != -1 ) {
         if (tag.m_type == MediaTypeMusicVideo) {
           object.m_ObjectClass.type = "object.item.videoItem.musicVideoClip";
-          object.m_Creator = StringUtils::Join(tag.m_artist, g_advancedSettings.m_videoItemSeparator).c_str();
-          for (std::vector<std::string>::const_iterator itArtist = tag.m_artist.begin(); itArtist != tag.m_artist.end(); ++itArtist)
-              object.m_People.artists.Add(itArtist->c_str());
+          object.m_Creator = StringUtils::Join(tag.m_artist, CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_videoItemSeparator).c_str();
+          for (const auto& itArtist : tag.m_artist)
+            object.m_People.artists.Add(itArtist.c_str());
           object.m_Affiliation.album = tag.m_strAlbum.c_str();
           object.m_Title = tag.m_strTitle.c_str();
           object.m_Date = tag.GetPremiered().GetAsW3CDate().c_str();
@@ -364,25 +354,29 @@ BuildObject(CFileItem&                    item,
             CUPnPServer*                  upnp_server /* = NULL */,
             UPnPService                   upnp_service /* = UPnPServiceNone */)
 {
-    PLT_MediaItemResource resource;
-    PLT_MediaObject*      object = NULL;
-    std::string thumb;
+  static Logger logger = CServiceBroker::GetLogging().GetLogger("UPNP::BuildObject");
 
-    CLog::Log(LOGDEBUG, "UPnP: Building didl for object '%s'", item.GetPath().c_str());
+  PLT_MediaItemResource resource;
+  PLT_MediaObject* object = NULL;
+  std::string thumb;
 
-    EClientQuirks quirks = GetClientQuirks(context);
+  logger->debug("Building didl for object '{}'", item.GetPath());
 
-    // get list of ip addresses
-    NPT_List<NPT_IpAddress> ips;
-    NPT_HttpUrl rooturi;
-    NPT_CHECK_LABEL(PLT_UPnPMessageHelper::GetIPAddresses(ips), failure);
+  EClientQuirks quirks = GetClientQuirks(context);
 
-    // if we're passed an interface where we received the request from
-    // move the ip to the top
-    if (context && context->GetLocalAddress().GetIpAddress().ToString() != "0.0.0.0") {
-        rooturi = NPT_HttpUrl(context->GetLocalAddress().GetIpAddress().ToString(), context->GetLocalAddress().GetPort(), "/");
-        ips.Remove(context->GetLocalAddress().GetIpAddress());
-        ips.Insert(ips.GetFirstItem(), context->GetLocalAddress().GetIpAddress());
+  // get list of ip addresses
+  NPT_List<NPT_IpAddress> ips;
+  NPT_HttpUrl rooturi;
+  NPT_CHECK_LABEL(PLT_UPnPMessageHelper::GetIPAddresses(ips), failure);
+
+  // if we're passed an interface where we received the request from
+  // move the ip to the top
+  if (context && context->GetLocalAddress().GetIpAddress().ToString() != "0.0.0.0")
+  {
+    rooturi = NPT_HttpUrl(context->GetLocalAddress().GetIpAddress().ToString(),
+                          context->GetLocalAddress().GetPort(), "/");
+    ips.Remove(context->GetLocalAddress().GetIpAddress());
+    ips.Insert(ips.GetFirstItem(), context->GetLocalAddress().GetIpAddress());
     } else if(upnp_server) {
         rooturi = NPT_HttpUrl("localhost", upnp_server->GetPort(), "/");
     }
@@ -396,7 +390,7 @@ BuildObject(CFileItem&                    item,
             object->m_ObjectClass.type = "object.item.audioItem.musicTrack";
 
             if (item.HasMusicInfoTag()) {
-                CMusicInfoTag *tag = (CMusicInfoTag*)item.GetMusicInfoTag();
+                CMusicInfoTag *tag = item.GetMusicInfoTag();
                 PopulateObjectFromTag(*tag, *object, &file_path, &resource, quirks, upnp_service);
             }
         } else if (item.IsVideoDb() || item.IsVideo()) {
@@ -406,7 +400,7 @@ BuildObject(CFileItem&                    item,
                 object->m_Affiliation.album = "[Unknown Series]";
 
             if (item.HasVideoInfoTag()) {
-                CVideoInfoTag *tag = (CVideoInfoTag*)item.GetVideoInfoTag();
+                CVideoInfoTag *tag = item.GetVideoInfoTag();
                 PopulateObjectFromTag(*tag, *object, &file_path, &resource, quirks, upnp_service);
             }
         } else if (item.IsPicture()) {
@@ -472,7 +466,7 @@ BuildObject(CFileItem&                    item,
             switch(node) {
                 case MUSICDATABASEDIRECTORY::NODE_TYPE_ARTIST: {
                       container->m_ObjectClass.type += ".person.musicArtist";
-                      CMusicInfoTag *tag = (CMusicInfoTag*)item.GetMusicInfoTag();
+                      CMusicInfoTag *tag = item.GetMusicInfoTag();
                       if (tag) {
                           container->m_People.artists.Add(
                               CorrectAllItemsSortHack(tag->GetArtistString()).c_str(), "Performer");
@@ -486,12 +480,10 @@ BuildObject(CFileItem&                    item,
                   }
                   break;
                 case MUSICDATABASEDIRECTORY::NODE_TYPE_ALBUM:
-                case MUSICDATABASEDIRECTORY::NODE_TYPE_ALBUM_COMPILATIONS:
-                case MUSICDATABASEDIRECTORY::NODE_TYPE_ALBUM_RECENTLY_ADDED:
-                case MUSICDATABASEDIRECTORY::NODE_TYPE_YEAR_ALBUM: {
+                case MUSICDATABASEDIRECTORY::NODE_TYPE_ALBUM_RECENTLY_ADDED: {
                       container->m_ObjectClass.type += ".album.musicAlbum";
                       // for Sonos to be happy
-                      CMusicInfoTag *tag = (CMusicInfoTag*)item.GetMusicInfoTag();
+                      CMusicInfoTag *tag = item.GetMusicInfoTag();
                       if (tag) {
                           container->m_People.artists.Add(
                               CorrectAllItemsSortHack(tag->GetArtistString()).c_str(), "Performer");
@@ -513,14 +505,14 @@ BuildObject(CFileItem&                    item,
             }
         } else if (item.IsVideoDb()) {
             VIDEODATABASEDIRECTORY::NODE_TYPE node = CVideoDatabaseDirectory::GetDirectoryType(item.GetPath());
-            CVideoInfoTag &tag = *(CVideoInfoTag*)item.GetVideoInfoTag();
+            CVideoInfoTag &tag = *item.GetVideoInfoTag();
             switch(node) {
                 case VIDEODATABASEDIRECTORY::NODE_TYPE_GENRE:
                   container->m_ObjectClass.type += ".genre.movieGenre";
                   break;
                 case VIDEODATABASEDIRECTORY::NODE_TYPE_ACTOR:
                   container->m_ObjectClass.type += ".person.videoArtist";
-                  container->m_Creator = StringUtils::Join(tag.m_artist, g_advancedSettings.m_videoItemSeparator).c_str();
+                  container->m_Creator = StringUtils::Join(tag.m_artist, CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_videoItemSeparator).c_str();
                   container->m_Title   = tag.m_strTitle.c_str();
                   break;
                 case VIDEODATABASEDIRECTORY::NODE_TYPE_SEASONS:
@@ -588,7 +580,13 @@ BuildObject(CFileItem&                    item,
             thumb_loader->LoadItem(&item);
 
         // finally apply the found artwork
-        thumb = item.GetArt("thumb");
+        // note: movies should use poster as the preferred "thumb" image
+        if (item.HasVideoInfoTag() && item.GetVideoInfoTag()->m_type == MediaTypeMovie &&
+            item.HasArt("poster"))
+          thumb = item.GetArt("poster");
+        else
+          thumb = item.GetArt("thumb");
+
         if (!thumb.empty()) {
             PLT_AlbumArtInfo art;
             art.uri = upnp_server->BuildSafeResourceUri(
@@ -605,13 +603,18 @@ BuildObject(CFileItem&                    item,
             object->m_ExtraInfo.album_arts.Add(art);
         }
 
-        for (CGUIListItem::ArtMap::const_iterator itArtwork = item.GetArt().begin(); itArtwork != item.GetArt().end(); ++itArtwork) {
-            if (!itArtwork->first.empty() && !itArtwork->second.empty()) {
-                std::string wrappedUrl = CTextureUtils::GetWrappedImageURL(itArtwork->second);
-                object->m_XbmcInfo.artwork.Add(itArtwork->first.c_str(),
-                  upnp_server->BuildSafeResourceUri(rooturi, (*ips.GetFirstItem()).ToString(), wrappedUrl.c_str()));
-                upnp_server->AddSafeResourceUri(object, rooturi, ips, wrappedUrl.c_str(), ("xbmc.org:*:" + itArtwork->first + ":*").c_str());
-            }
+        for (const auto& itArtwork : item.GetArt())
+        {
+          if (!itArtwork.first.empty() && !itArtwork.second.empty())
+          {
+            std::string wrappedUrl = CTextureUtils::GetWrappedImageURL(itArtwork.second);
+            object->m_XbmcInfo.artwork.Add(
+                itArtwork.first.c_str(),
+                upnp_server->BuildSafeResourceUri(rooturi, (*ips.GetFirstItem()).ToString(),
+                                                  wrappedUrl.c_str()));
+            upnp_server->AddSafeResourceUri(object, rooturi, ips, wrappedUrl.c_str(),
+                                            ("xbmc.org:*:" + itArtwork.first + ":*").c_str());
+          }
         }
     }
 
@@ -620,7 +623,7 @@ BuildObject(CFileItem&                    item,
     // to look for external subtitles
     if (upnp_server != NULL && item.IsVideo() &&
        (upnp_service == UPnPPlayer || upnp_service == UPnPRenderer ||
-        CServiceBroker::GetSettings().GetBool(CSettings::SETTING_SERVICES_UPNPLOOKFOREXTERNALSUBTITLES)))
+        CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_SERVICES_UPNPLOOKFOREXTERNALSUBTITLES)))
     {
         // find any available external subtitles
         std::vector<std::string> filenames;
@@ -650,7 +653,7 @@ BuildObject(CFileItem&                    item,
         else if (!subtitles.empty())
         {
             /* trying to find subtitle with prefered language settings */
-            std::string preferredLanguage = (CServiceBroker::GetSettings().GetSetting("locale.subtitlelanguage"))->ToString();
+            std::string preferredLanguage = (CServiceBroker::GetSettingsComponent()->GetSettings()->GetSetting("locale.subtitlelanguage"))->ToString();
             std::string preferredLanguageCode;
             g_LangCodeExpander.ConvertToISO6392B(preferredLanguage, preferredLanguageCode);
 
@@ -805,7 +808,7 @@ PopulateTagFromObject(CVideoInfoTag&         tag,
     else if(object.m_ObjectClass.type == "object.item.videoItem.musicVideoClip") {
         tag.m_type = MediaTypeMusicVideo;
         for (unsigned int index = 0; index < object.m_People.artists.GetItemCount(); index++)
-            tag.m_artist.push_back(object.m_People.artists.GetItem(index)->name.GetChars());
+          tag.m_artist.emplace_back(object.m_People.artists.GetItem(index)->name.GetChars());
         tag.m_strAlbum = object.m_Affiliation.album;
     }
     else
@@ -816,13 +819,13 @@ PopulateTagFromObject(CVideoInfoTag&         tag,
     }
 
     for (unsigned int index = 0; index < object.m_People.publisher.GetItemCount(); index++)
-        tag.m_studio.push_back(object.m_People.publisher.GetItem(index)->GetChars());
+      tag.m_studio.emplace_back(object.m_People.publisher.GetItem(index)->GetChars());
 
     tag.m_dateAdded.SetFromW3CDate((const char*)object.m_XbmcInfo.date_added);
     tag.SetRating(object.m_XbmcInfo.rating, object.m_XbmcInfo.votes);
     tag.SetUniqueID(object.m_XbmcInfo.unique_identifier.GetChars());
     for (unsigned int index = 0; index < object.m_XbmcInfo.countries.GetItemCount(); index++)
-      tag.m_country.push_back(object.m_XbmcInfo.countries.GetItem(index)->GetChars());
+      tag.m_country.emplace_back(object.m_XbmcInfo.countries.GetItem(index)->GetChars());
     tag.m_iUserRating = object.m_XbmcInfo.user_rating;
 
     for (unsigned int index = 0; index < object.m_Affiliation.genres.GetItemCount(); index++)
@@ -832,12 +835,12 @@ PopulateTagFromObject(CVideoInfoTag&         tag,
           *object.m_Affiliation.genres.GetItem(index) == "Unknown")
           break;
 
-      tag.m_genre.push_back(object.m_Affiliation.genres.GetItem(index)->GetChars());
+      tag.m_genre.emplace_back(object.m_Affiliation.genres.GetItem(index)->GetChars());
     }
     for (unsigned int index = 0; index < object.m_People.directors.GetItemCount(); index++)
-      tag.m_director.push_back(object.m_People.directors.GetItem(index)->name.GetChars());
+      tag.m_director.emplace_back(object.m_People.directors.GetItem(index)->name.GetChars());
     for (unsigned int index = 0; index < object.m_People.authors.GetItemCount(); index++)
-      tag.m_writingCredits.push_back(object.m_People.authors.GetItem(index)->name.GetChars());
+      tag.m_writingCredits.emplace_back(object.m_People.authors.GetItem(index)->name.GetChars());
     for (unsigned int index = 0; index < object.m_People.actors.GetItemCount(); index++)
     {
       SActorInfo info;
@@ -960,9 +963,9 @@ CFileItemPtr BuildObject(PLT_MediaObject* entry,
 
   // look for date?
   if(entry->m_Description.date.GetLength()) {
-    SYSTEMTIME time = {};
-    sscanf(entry->m_Description.date, "%hu-%hu-%huT%hu:%hu:%hu",
-           &time.wYear, &time.wMonth, &time.wDay, &time.wHour, &time.wMinute, &time.wSecond);
+    KODI::TIME::SystemTime time = {};
+    sscanf(entry->m_Description.date, "%hu-%hu-%huT%hu:%hu:%hu", &time.year, &time.month, &time.day,
+           &time.hour, &time.minute, &time.second);
     pItem->m_dateTime = time;
   }
 
@@ -1001,7 +1004,7 @@ CFileItemPtr BuildObject(PLT_MediaObject* entry,
 
 struct ResourcePrioritySort
 {
-  ResourcePrioritySort(const PLT_MediaObject* entry)
+  explicit ResourcePrioritySort(const PLT_MediaObject* entry)
   {
     if (entry->m_ObjectClass.type.StartsWith("object.item.audioItem"))
         m_content = "audio";
@@ -1043,6 +1046,8 @@ struct ResourcePrioritySort
 
 bool GetResource(const PLT_MediaObject* entry, CFileItem& item)
 {
+  static Logger logger = CServiceBroker::GetLogging().GetLogger("CUPnPDirectory::GetResource");
+
   PLT_MediaItemResource resource;
 
   // store original path so we remember it
@@ -1064,19 +1069,17 @@ bool GetResource(const PLT_MediaObject* entry, CFileItem& item)
   // if it's an item, path is the first url to the item
   // we hope the server made the first one reachable for us
   // (it could be a format we dont know how to play however)
-  item.SetPath((const char*) resource.m_Uri);
+  item.SetDynPath((const char*) resource.m_Uri);
 
   // look for content type in protocol info
   if (resource.m_ProtocolInfo.IsValid()) {
-    CLog::Log(LOGDEBUG, "CUPnPDirectory::GetResource - resource protocol info '%s'",
-              (const char*)(resource.m_ProtocolInfo.ToString()));
+    logger->debug("resource protocol info '{}'", (const char*)(resource.m_ProtocolInfo.ToString()));
 
     if (resource.m_ProtocolInfo.GetContentType().Compare("application/octet-stream") != 0) {
       item.SetMimeType((const char*)resource.m_ProtocolInfo.GetContentType());
     }
   } else {
-    CLog::Log(LOGERROR, "CUPnPDirectory::GetResource - invalid protocol info '%s'",
-              (const char*)(resource.m_ProtocolInfo.ToString()));
+    logger->error("invalid protocol info '{}'", (const char*)(resource.m_ProtocolInfo.ToString()));
   }
 
   // look for subtitles
@@ -1089,9 +1092,9 @@ bool GetResource(const PLT_MediaObject* entry, CFileItem& item)
       , "text/ssa"
       , "text/sub"
       , "text/idx" };
-    for(unsigned type = 0; type < ARRAY_SIZE(allowed); type++)
+    for(const char* const type : allowed)
     {
-      if(info.Match(PLT_ProtocolInfo("*", "*", allowed[type], "*")))
+      if(info.Match(PLT_ProtocolInfo("*", "*", type, "*")))
       {
         std::string prop = StringUtils::Format("subtitle:%d", ++subs);
         item.SetProperty(prop, (const char*)res.m_Uri);

@@ -1,27 +1,16 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #pragma once
 
 #include "AddonString.h"
 #include "Tuple.h"
+
 #include <vector>
 
 #ifndef DOXYGEN_SHOULD_SKIP_THIS
@@ -44,7 +33,6 @@ namespace XBMCAddon
     ///
     /// \ingroup python_xbmcvfs
     /// @brief \python_func{ xbmcvfs.copy(source, destination) }
-    ///-------------------------------------------------------------------------
     /// Copy file to destination, returns true/false.
     ///
     /// @param source                file to copy.
@@ -70,8 +58,7 @@ namespace XBMCAddon
     ///
     /// \ingroup python_xbmcvfs
     /// @brief \python_func{ xbmcvfs.delete(file) }
-    ///-------------------------------------------------------------------------
-    /// @brief Delete a file
+    /// Delete a file
     ///
     /// @param file                  File to delete
     /// @return                      True if successed
@@ -86,7 +73,7 @@ namespace XBMCAddon
     /// ..
     /// ~~~~~~~~~~~~~
     ///
-    deleteFile(...);
+    delete(...);
 #else
     bool deleteFile(const String& file);
 #endif
@@ -95,8 +82,7 @@ namespace XBMCAddon
     ///
     /// \ingroup python_xbmcvfs
     /// @brief \python_func{ xbmcvfs.rename(file, newFileName) }
-    ///-------------------------------------------------------------------------
-    /// @brief Rename a file
+    /// Rename a file
     ///
     /// @param file                  File to rename
     /// @param newFileName           New filename, including the full path
@@ -124,8 +110,7 @@ namespace XBMCAddon
     ///
     /// \ingroup python_xbmcvfs
     /// @brief \python_func{ xbmcvfs.exists(path) }
-    ///-------------------------------------------------------------------------
-    /// @brief Check for a file or folder existence
+    /// Check for a file or folder existence
     ///
     /// @param path                  File or folder (folder must end with
     ///                              slash or backslash)
@@ -149,8 +134,72 @@ namespace XBMCAddon
 #ifdef DOXYGEN_SHOULD_USE_THIS
     ///
     /// \ingroup python_xbmcvfs
-    /// @brief \python_func{ xbmcvfs.mkdir(path) }
+    /// @brief \python_func{ xbmcvfs.makeLegalFilename(filename) }
+    /// Returns a legal filename or path as a string.
+    ///
+    /// @param filename              string - filename/path to make legal
+    /// @return              Legal filename or path as a string
+    ///
+    ///
+    /// @note The returned value is platform-specific. This is due to the fact that
+    /// the chars that need to be replaced to make a path legal depend on the
+    /// underlying OS filesystem. This is useful, for example, if you want to create
+    /// a file or folder based on data over which you have no control (e.g. an external API).
+    ///
+    ///
     ///-------------------------------------------------------------------------
+    /// @python_v19 New function added (replaces old **xbmc.makeLegalFilename**)
+    ///
+    /// **Example:**
+    /// ~~~~~~~~~~~~~{.py}
+    /// ..
+    /// # windows
+    /// >> xbmcvfs.makeLegalFilename('C://Trailers/Ice Age: The Meltdown.avi')
+    /// C:\Trailers\Ice Age_ The Meltdown.avi
+    /// # non-windows
+    /// >> xbmcvfs.makeLegalFilename("///\\jk???lj????.mpg")
+    /// /jk___lj____.mpg
+    /// ..
+    /// ~~~~~~~~~~~~~
+    ///
+    makeLegalFilename(...);
+#else
+    String makeLegalFilename(const String& filename);
+#endif
+
+#ifdef DOXYGEN_SHOULD_USE_THIS
+    ///
+    /// \ingroup python_xbmcvfs
+    /// @brief \python_func{ xbmcvfs.validatePath(path) }
+    /// Returns the validated path.
+    ///
+    /// @param path                  string  - Path to format
+    /// @return            Validated path
+    ///
+    /// @note The result is platform-specific. Only useful if you are coding
+    ///       for multiple platfforms for fixing slash problems
+    ///         (e.g. Corrects 'Z://something' -> 'Z:\something').
+    ///
+    ///
+    /// ------------------------------------------------------------------------
+    /// @python_v19 New function added (replaces old **xbmc.validatePath**)
+    ///
+    /// **Example:**
+    /// ~~~~~~~~~~~~~{.py}
+    /// ..
+    /// fpath = xbmcvfs.validatePath(somepath)
+    /// ..
+    /// ~~~~~~~~~~~~~
+    ///
+    validatePath(...);
+#else
+    String validatePath(const String& path);
+#endif
+
+#ifdef DOXYGEN_SHOULD_USE_THIS
+    ///
+    /// \ingroup python_xbmcvfs
+    /// @brief \python_func{ xbmcvfs.mkdir(path) }
     /// Create a folder.
     ///
     /// @param path                  Folder to create
@@ -175,7 +224,6 @@ namespace XBMCAddon
     ///
     /// \ingroup python_xbmcvfs
     /// @brief \python_func{ xbmcvfs.mkdirs(path) }
-    ///-------------------------------------------------------------------------
     /// Make all directories along the path
     ///
     /// Create folder(s) - it will create all folders in the path.
@@ -202,7 +250,6 @@ namespace XBMCAddon
     ///
     /// \ingroup python_xbmcvfs
     /// @brief \python_func{ xbmcvfs.rmdir(path) }
-    ///-------------------------------------------------------------------------
     /// Remove a folder.
     ///
     /// @param path                  Folder to remove
@@ -227,7 +274,6 @@ namespace XBMCAddon
     ///
     /// \ingroup python_xbmcvfs
     /// @brief \python_func{ xbmcvfs.listdir(path) }
-    ///-------------------------------------------------------------------------
     /// Lists content of a folder.
     ///
     /// @param path                  Folder to get list from

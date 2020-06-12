@@ -1,38 +1,28 @@
 /*
- *      Copyright (C) 2013-2015 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2013-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "ContextMenuManager.h"
+
 #include "ContextMenuItem.h"
+#include "ContextMenus.h"
+#include "ServiceBroker.h"
 #include "addons/Addon.h"
 #include "addons/ContextMenuAddon.h"
 #include "addons/ContextMenus.h"
 #include "addons/IAddon.h"
+#include "dialogs/GUIDialogContextMenu.h"
 #include "favourites/ContextMenus.h"
 #include "music/ContextMenus.h"
 #include "pvr/PVRContextMenus.h"
-#include "video/ContextMenus.h"
 #include "utils/log.h"
-#include "ServiceBroker.h"
+#include "video/ContextMenus.h"
 
 #include <iterator>
-#include "ContextMenus.h"
 
 using namespace ADDON;
 using namespace PVR;
@@ -51,23 +41,23 @@ CContextMenuManager::~CContextMenuManager()
 
 void CContextMenuManager::Deinit()
 {
+  CPVRContextMenuManager::GetInstance().Events().Unsubscribe(this);
   m_addonMgr.Events().Unsubscribe(this);
   m_items.clear();
-}
-
-CContextMenuManager& CContextMenuManager::GetInstance()
-{
-  return CServiceBroker::GetContextMenuManager();
 }
 
 void CContextMenuManager::Init()
 {
   m_addonMgr.Events().Subscribe(this, &CContextMenuManager::OnEvent);
+  CPVRContextMenuManager::GetInstance().Events().Subscribe(this, &CContextMenuManager::OnPVREvent);
 
   CSingleLock lock(m_criticalSection);
   m_items = {
       std::make_shared<CONTEXTMENU::CResume>(),
       std::make_shared<CONTEXTMENU::CPlay>(),
+      std::make_shared<CONTEXTMENU::CPlayAndQueue>(),
+      std::make_shared<CONTEXTMENU::CPlayNext>(),
+      std::make_shared<CONTEXTMENU::CQueue>(),
       std::make_shared<CONTEXTMENU::CAddonInfo>(),
       std::make_shared<CONTEXTMENU::CEnableAddon>(),
       std::make_shared<CONTEXTMENU::CDisableAddon>(),
@@ -82,11 +72,13 @@ void CContextMenuManager::Init()
       std::make_shared<CONTEXTMENU::CSongInfo>(),
       std::make_shared<CONTEXTMENU::CMarkWatched>(),
       std::make_shared<CONTEXTMENU::CMarkUnWatched>(),
+      std::make_shared<CONTEXTMENU::CRemoveResumePoint>(),
       std::make_shared<CONTEXTMENU::CEjectDisk>(),
       std::make_shared<CONTEXTMENU::CEjectDrive>(),
       std::make_shared<CONTEXTMENU::CRemoveFavourite>(),
       std::make_shared<CONTEXTMENU::CRenameFavourite>(),
       std::make_shared<CONTEXTMENU::CChooseThumbnailForFavourite>(),
+      std::make_shared<CONTEXTMENU::CAddRemoveFavourite>(),
   };
 
   ReloadAddonItems();
@@ -121,14 +113,15 @@ void CContextMenuManager::ReloadAddonItems()
 
 void CContextMenuManager::OnEvent(const ADDON::AddonEvent& event)
 {
-  if (typeid(event) == typeid(AddonEvents::InstalledChanged))
+  if (typeid(event) == typeid(AddonEvents::ReInstalled) ||
+      typeid(event) == typeid(AddonEvents::UnInstalled))
   {
     ReloadAddonItems();
   }
-  else if (auto enableEvent = dynamic_cast<const AddonEvents::Enabled*>(&event))
+  else if (typeid(event) == typeid(AddonEvents::Enabled))
   {
     AddonPtr addon;
-    if (m_addonMgr.GetAddon(enableEvent->id, addon, ADDON_CONTEXT_ITEM))
+    if (m_addonMgr.GetAddon(event.id, addon, ADDON_CONTEXT_ITEM))
     {
       CSingleLock lock(m_criticalSection);
       auto items = std::static_pointer_cast<CContextMenuAddon>(addon)->GetItems();
@@ -138,16 +131,39 @@ void CContextMenuManager::OnEvent(const ADDON::AddonEvent& event)
         if (it == m_addonItems.end())
           m_addonItems.push_back(item);
       }
-      CLog::Log(LOGDEBUG, "ContextMenuManager: loaded %s.", enableEvent->id.c_str());
+      CLog::Log(LOGDEBUG, "ContextMenuManager: loaded %s.", event.id.c_str());
     }
   }
-  else if (auto disableEvent = dynamic_cast<const AddonEvents::Disabled*>(&event))
+  else if (typeid(event) == typeid(AddonEvents::Disabled))
   {
-    AddonPtr addon;
-    if (m_addonMgr.GetAddon(disableEvent->id, addon, ADDON_CONTEXT_ITEM, false))
+    if (m_addonMgr.HasType(event.id, ADDON_CONTEXT_ITEM))
     {
       ReloadAddonItems();
     }
+  }
+}
+
+void CContextMenuManager::OnPVREvent(const PVRContextMenuEvent& event)
+{
+  switch (event.action)
+  {
+    case PVRContextMenuEventAction::ADD_ITEM:
+    {
+      CSingleLock lock(m_criticalSection);
+      m_items.emplace_back(event.item);
+      break;
+    }
+    case PVRContextMenuEventAction::REMOVE_ITEM:
+    {
+      CSingleLock lock(m_criticalSection);
+      auto it = std::find(m_items.begin(), m_items.end(), event.item);
+      if (it != m_items.end())
+        m_items.erase(it);
+      break;
+    }
+
+    default:
+      break;
   }
 }
 
@@ -190,7 +206,7 @@ ContextMenuView CContextMenuManager::GetAddonItems(const CFileItem& fileItem, co
         result.emplace_back(new CContextMenuItem(menu));
   }
 
-  if (&root == &MAIN || &root == &MANAGE)
+  if (&root == &MANAGE)
   {
     std::sort(result.begin(), result.end(),
         [&](const ContextMenuView::value_type& lhs, const ContextMenuView::value_type& rhs)
@@ -207,14 +223,17 @@ bool CONTEXTMENU::ShowFor(const CFileItemPtr& fileItem, const CContextMenuItem& 
   if (!fileItem)
     return false;
 
-  auto menuItems = CContextMenuManager::GetInstance().GetItems(*fileItem, root);
-  for (auto&& item : CContextMenuManager::GetInstance().GetAddonItems(*fileItem, root))
+  const CContextMenuManager &contextMenuManager = CServiceBroker::GetContextMenuManager();
+
+  auto menuItems = contextMenuManager.GetItems(*fileItem, root);
+  for (auto&& item : contextMenuManager.GetAddonItems(*fileItem, root))
     menuItems.emplace_back(std::move(item));
 
   if (menuItems.empty())
     return true;
 
   CContextButtons buttons;
+  buttons.reserve(menuItems.size());
   for (size_t i = 0; i < menuItems.size(); ++i)
     buttons.Add(i, menuItems[i]->GetLabel(*fileItem));
 

@@ -1,25 +1,14 @@
 /*
- *      Copyright (C) 2010-2017 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2010-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "utils/log.h"
-#include "assert.h"
+
+#include <assert.h>
 
 #ifndef UINT16_MAX
 #define UINT16_MAX             (65535U)
@@ -28,6 +17,8 @@
 #include "BitstreamConverter.h"
 #include "BitstreamReader.h"
 #include "BitstreamWriter.h"
+
+#include <algorithm>
 
 enum {
   AVC_NAL_SLICE=1,
@@ -101,14 +92,15 @@ enum {
   SEI_TONE_MAPPING
 };
 
-////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////
-// GStreamer h264 parser
-// Copyright (C) 2005 Michal Benes <michal.benes@itonis.tv>
-//           (C) 2008 Wim Taymans <wim.taymans@gmail.com>
-// gsth264parse.c:
-//  * License as published by the Free Software Foundation; either
-//  * version 2.1 of the License, or (at your option) any later version.
+/*
+ *  GStreamer h264 parser
+ *  Copyright (C) 2005 Michal Benes <michal.benes@itonis.tv>
+ *            (C) 2008 Wim Taymans <wim.taymans@gmail.com>
+ *  gsth264parse.c
+ *  
+ *  SPDX-License-Identifier: LGPL-2.1-or-later
+ *  See LICENSES/README.md for more information.
+ */
 static void nal_bs_init(nal_bitstream *bs, const uint8_t *data, size_t size)
 {
   bs->data = data;
@@ -397,7 +389,7 @@ bool CBitstreamConverter::Open(enum AVCodecID codec, uint8_t *in_extradata, int 
           }
           else
           {
-            CLog::Log(LOGNOTICE, "CBitstreamConverter::Open invalid avcC atom data");
+            CLog::Log(LOGINFO, "CBitstreamConverter::Open invalid avcC atom data");
             return false;
           }
         }
@@ -434,7 +426,7 @@ bool CBitstreamConverter::Open(enum AVCodecID codec, uint8_t *in_extradata, int 
       // valid hvcC data (bitstream) always starts with the value 1 (version)
       if(m_to_annexb)
       {
-       /** @todo from Amlogic
+       /**
         * It seems the extradata is encoded as hvcC format.
         * Temporarily, we support configurationVersion==0 until 14496-15 3rd
         * is finalized. When finalized, configurationVersion will be 1 and we
@@ -467,7 +459,7 @@ bool CBitstreamConverter::Open(enum AVCodecID codec, uint8_t *in_extradata, int 
           }
           else
           {
-            CLog::Log(LOGNOTICE, "CBitstreamConverter::Open invalid hvcC atom data");
+            CLog::Log(LOGINFO, "CBitstreamConverter::Open invalid hvcC atom data");
             return false;
           }
         }
@@ -709,13 +701,13 @@ bool CBitstreamConverter::BitstreamConvertInitAVC(void *in_extradata, int in_ext
     unit_size = extradata[0] << 8 | extradata[1];
     total_size += unit_size + 4;
 
-    if (total_size > INT_MAX - FF_INPUT_BUFFER_PADDING_SIZE ||
+    if (total_size > INT_MAX - AV_INPUT_BUFFER_PADDING_SIZE ||
       (extradata + 2 + unit_size) > ((uint8_t*)in_extradata + in_extrasize))
     {
       av_free(out);
       return false;
     }
-    tmp = av_realloc(out, total_size + FF_INPUT_BUFFER_PADDING_SIZE);
+    tmp = av_realloc(out, total_size + AV_INPUT_BUFFER_PADDING_SIZE);
     if (!tmp)
     {
       av_free(out);
@@ -736,7 +728,7 @@ pps:
   }
 
   if (out)
-    memset(out + total_size, 0, FF_INPUT_BUFFER_PADDING_SIZE);
+    memset(out + total_size, 0, AV_INPUT_BUFFER_PADDING_SIZE);
 
   if (!sps_seen)
       CLog::Log(LOGDEBUG, "SPS NALU missing or invalid. The resulting stream may not play");
@@ -799,13 +791,13 @@ bool CBitstreamConverter::BitstreamConvertInitHEVC(void *in_extradata, int in_ex
       }
       total_size += unit_size + 4;
 
-      if (total_size > INT_MAX - FF_INPUT_BUFFER_PADDING_SIZE ||
+      if (total_size > INT_MAX - AV_INPUT_BUFFER_PADDING_SIZE ||
         (extradata + unit_size) > ((uint8_t*)in_extradata + in_extrasize))
       {
         av_free(out);
         return false;
       }
-      tmp = av_realloc(out, total_size + FF_INPUT_BUFFER_PADDING_SIZE);
+      tmp = av_realloc(out, total_size + AV_INPUT_BUFFER_PADDING_SIZE);
       if (!tmp)
       {
         av_free(out);
@@ -819,7 +811,7 @@ bool CBitstreamConverter::BitstreamConvertInitHEVC(void *in_extradata, int in_ex
   }
 
   if (out)
-    memset(out + total_size, 0, FF_INPUT_BUFFER_PADDING_SIZE);
+    memset(out + total_size, 0, AV_INPUT_BUFFER_PADDING_SIZE);
 
   if (!sps_seen)
       CLog::Log(LOGDEBUG, "SPS NALU missing or invalid. The resulting stream may not play");
@@ -842,7 +834,8 @@ bool CBitstreamConverter::IsIDR(uint8_t unit_type)
       return unit_type == AVC_NAL_IDR_SLICE;
     case AV_CODEC_ID_HEVC:
       return unit_type == HEVC_NAL_IDR_W_RADL ||
-             unit_type == HEVC_NAL_IDR_N_LP;
+             unit_type == HEVC_NAL_IDR_N_LP ||
+             unit_type == HEVC_NAL_CRA_NUT;
     default:
       return false;
   }
@@ -993,7 +986,7 @@ void CBitstreamConverter::BitstreamAllocAndCopy( uint8_t **poutbuf, int *poutbuf
   }
 }
 
-const int CBitstreamConverter::avc_parse_nal_units(AVIOContext *pb, const uint8_t *buf_in, int size)
+int CBitstreamConverter::avc_parse_nal_units(AVIOContext *pb, const uint8_t *buf_in, int size)
 {
   const uint8_t *p = buf_in;
   const uint8_t *end = p + size;
@@ -1016,7 +1009,7 @@ const int CBitstreamConverter::avc_parse_nal_units(AVIOContext *pb, const uint8_
   return size;
 }
 
-const int CBitstreamConverter::avc_parse_nal_units_buf(const uint8_t *buf_in, uint8_t **buf, int *size)
+int CBitstreamConverter::avc_parse_nal_units_buf(const uint8_t *buf_in, uint8_t **buf, int *size)
 {
   AVIOContext *pb;
   int ret = avio_open_dyn_buf(&pb);
@@ -1030,7 +1023,7 @@ const int CBitstreamConverter::avc_parse_nal_units_buf(const uint8_t *buf_in, ui
   return 0;
 }
 
-const int CBitstreamConverter::isom_write_avcc(AVIOContext *pb, const uint8_t *data, int len)
+int CBitstreamConverter::isom_write_avcc(AVIOContext *pb, const uint8_t *data, int len)
 {
   // extradata from bytestream h264, convert to avcC atom data for bitstream
   if (len > 6)
@@ -1053,7 +1046,7 @@ const int CBitstreamConverter::isom_write_avcc(AVIOContext *pb, const uint8_t *d
       {
         uint32_t size;
         uint8_t  nal_type;
-        size = FFMIN(BS_RB32(buf), end - buf - 4);
+        size = std::min<uint32_t>(BS_RB32(buf), end - buf - 4);
         buf += 4;
         nal_type = buf[0] & 0x1f;
         if (nal_type == 7) /* SPS */
@@ -1224,86 +1217,3 @@ bool CBitstreamConverter::mpeg2_sequence_header(const uint8_t *data, const uint3
   return changed;
 }
 
-void CBitstreamConverter::parseh264_sps(const uint8_t *sps, const uint32_t sps_size, bool *interlaced, int32_t *max_ref_frames)
-{
-  nal_bitstream bs;
-  sps_info_struct sps_info;
-
-  nal_bs_init(&bs, sps, sps_size);
-
-  sps_info.profile_idc  = nal_bs_read(&bs, 8);
-  nal_bs_read(&bs, 1);  // constraint_set0_flag
-  nal_bs_read(&bs, 1);  // constraint_set1_flag
-  nal_bs_read(&bs, 1);  // constraint_set2_flag
-  nal_bs_read(&bs, 1);  // constraint_set3_flag
-  nal_bs_read(&bs, 4);  // reserved
-  sps_info.level_idc    = nal_bs_read(&bs, 8);
-  sps_info.sps_id       = nal_bs_read_ue(&bs);
-
-  if (sps_info.profile_idc == 100 ||
-      sps_info.profile_idc == 110 ||
-      sps_info.profile_idc == 122 ||
-      sps_info.profile_idc == 244 ||
-      sps_info.profile_idc == 44  ||
-      sps_info.profile_idc == 83  ||
-      sps_info.profile_idc == 86)
-  {
-    sps_info.chroma_format_idc                    = nal_bs_read_ue(&bs);
-    if (sps_info.chroma_format_idc == 3)
-      sps_info.separate_colour_plane_flag         = nal_bs_read(&bs, 1);
-    sps_info.bit_depth_luma_minus8                = nal_bs_read_ue(&bs);
-    sps_info.bit_depth_chroma_minus8              = nal_bs_read_ue(&bs);
-    sps_info.qpprime_y_zero_transform_bypass_flag = nal_bs_read(&bs, 1);
-
-    sps_info.seq_scaling_matrix_present_flag = nal_bs_read (&bs, 1);
-    if (sps_info.seq_scaling_matrix_present_flag)
-    {
-      //! @todo unfinished
-    }
-  }
-  sps_info.log2_max_frame_num_minus4 = nal_bs_read_ue(&bs);
-  if (sps_info.log2_max_frame_num_minus4 > 12)
-  { // must be between 0 and 12
-    return;
-  }
-  sps_info.pic_order_cnt_type = nal_bs_read_ue(&bs);
-  if (sps_info.pic_order_cnt_type == 0)
-  {
-    sps_info.log2_max_pic_order_cnt_lsb_minus4 = nal_bs_read_ue(&bs);
-  }
-  else if (sps_info.pic_order_cnt_type == 1)
-  { //! @todo unfinished
-    /*
-    delta_pic_order_always_zero_flag = gst_nal_bs_read (bs, 1);
-    offset_for_non_ref_pic = gst_nal_bs_read_se (bs);
-    offset_for_top_to_bottom_field = gst_nal_bs_read_se (bs);
-
-    num_ref_frames_in_pic_order_cnt_cycle = gst_nal_bs_read_ue (bs);
-    for( i = 0; i < num_ref_frames_in_pic_order_cnt_cycle; i++ )
-    offset_for_ref_frame[i] = gst_nal_bs_read_se (bs);
-    */
-  }
-
-  sps_info.max_num_ref_frames             = nal_bs_read_ue(&bs);
-  sps_info.gaps_in_frame_num_value_allowed_flag = nal_bs_read(&bs, 1);
-  sps_info.pic_width_in_mbs_minus1        = nal_bs_read_ue(&bs);
-  sps_info.pic_height_in_map_units_minus1 = nal_bs_read_ue(&bs);
-
-  sps_info.frame_mbs_only_flag            = nal_bs_read(&bs, 1);
-  if (!sps_info.frame_mbs_only_flag)
-    sps_info.mb_adaptive_frame_field_flag = nal_bs_read(&bs, 1);
-
-  sps_info.direct_8x8_inference_flag      = nal_bs_read(&bs, 1);
-
-  sps_info.frame_cropping_flag            = nal_bs_read(&bs, 1);
-  if (sps_info.frame_cropping_flag)
-  {
-    sps_info.frame_crop_left_offset       = nal_bs_read_ue(&bs);
-    sps_info.frame_crop_right_offset      = nal_bs_read_ue(&bs);
-    sps_info.frame_crop_top_offset        = nal_bs_read_ue(&bs);
-    sps_info.frame_crop_bottom_offset     = nal_bs_read_ue(&bs);
-  }
-
-  *interlaced = !sps_info.frame_mbs_only_flag;
-  *max_ref_frames = sps_info.max_num_ref_frames;
-}

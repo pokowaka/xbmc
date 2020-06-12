@@ -1,38 +1,27 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 #include "VideoReferenceClock.h"
+
 #include "ServiceBroker.h"
-#include "utils/MathUtils.h"
-#include "utils/log.h"
-#include "utils/TimeUtils.h"
-#include "threads/SingleLock.h"
-#include "guilib/GraphicContext.h"
 #include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
+#include "threads/SingleLock.h"
+#include "utils/MathUtils.h"
+#include "utils/TimeUtils.h"
+#include "utils/log.h"
+#include "windowing/GraphicContext.h"
 #include "windowing/VideoSync.h"
-#include "windowing/WindowingFactory.h"
+#include "windowing/WinSystem.h"
 
 CVideoReferenceClock::CVideoReferenceClock() : CThread("RefClock")
 {
   m_SystemFrequency = CurrentHostFrequency();
   m_ClockSpeed = 1.0;
-  m_ClockOffset = 0;
   m_TotalMissedVblanks = 0;
   m_UseVblank = false;
 
@@ -42,20 +31,21 @@ CVideoReferenceClock::CVideoReferenceClock() : CThread("RefClock")
   m_RefreshRate = 0.0;
   m_MissedVblanks = 0;
   m_VblankTime = 0;
+  m_vsyncStopEvent.Reset();
 
   Start();
 }
 
 CVideoReferenceClock::~CVideoReferenceClock()
 {
+  m_bStop = true;
   m_vsyncStopEvent.Set();
   StopThread();
 }
 
 void CVideoReferenceClock::Start()
 {
-  m_ClockOffset = CurrentHostCounter();
-  if(CServiceBroker::GetSettings().GetBool(CSettings::SETTING_VIDEOPLAYER_USEDISPLAYASCLOCK) && !IsRunning())
+  if(CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_VIDEOPLAYER_USEDISPLAYASCLOCK) && !IsRunning())
     Create();
 }
 
@@ -76,7 +66,7 @@ void CVideoReferenceClock::Process()
 
   while(!m_bStop)
   {
-    m_pVideoSync = g_Windowing.GetVideoSync(this);
+    m_pVideoSync = CServiceBroker::GetWinSystem()->GetVideoSync(this);
 
     if (m_pVideoSync)
     {
@@ -86,7 +76,7 @@ void CVideoReferenceClock::Process()
 
     CSingleLock SingleLock(m_CritSection);
     Now = CurrentHostCounter();
-    m_CurrTime = Now + m_ClockOffset; //add the clock offset from the previous time we stopped
+    m_CurrTime = Now;
     m_LastIntTime = m_CurrTime;
     m_CurrTimeFract = 0.0;
     m_ClockSpeed = 1.0;
@@ -99,9 +89,13 @@ void CVideoReferenceClock::Process()
       m_VblankTime = Now;          //initialize the timestamp of the last vblank
       SingleLock.Leave();
 
-      m_vsyncStopEvent.Reset();
-      //run the clock
-      m_pVideoSync->Run(m_vsyncStopEvent);
+      // we might got signalled while we did not wait
+      if (!m_vsyncStopEvent.Signaled())
+      {
+        //run the clock
+        m_pVideoSync->Run(m_vsyncStopEvent);
+        m_vsyncStopEvent.Reset();
+      }
     }
     else
     {
@@ -111,8 +105,6 @@ void CVideoReferenceClock::Process()
 
     SingleLock.Enter();
     m_UseVblank = false;                       //we're back to using the systemclock
-    Now = CurrentHostCounter();                //set the clockoffset between the vblank clock and systemclock
-    m_ClockOffset = m_CurrTime - Now;
     SingleLock.Leave();
 
     //clean up the vblank clock
@@ -206,7 +198,7 @@ int64_t CVideoReferenceClock::GetTime(bool interpolated /* = true*/)
   }
   else
   {
-    return CurrentHostCounter() + m_ClockOffset;
+    return CurrentHostCounter();
   }
 }
 
@@ -219,7 +211,7 @@ void CVideoReferenceClock::SetSpeed(double Speed)
     if (Speed != m_ClockSpeed)
     {
       m_ClockSpeed = Speed;
-      CLog::Log(LOGDEBUG, "CVideoReferenceClock: Clock speed %f%%", m_ClockSpeed * 100.0);
+      CLog::Log(LOGDEBUG, "CVideoReferenceClock: Clock speed %0.2f %%", m_ClockSpeed * 100.0);
     }
   }
 }

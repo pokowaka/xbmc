@@ -1,32 +1,21 @@
-#pragma once
 /*
- *      Copyright (C) 2012-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2012-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
+
+#pragma once
+
+#include "DatabaseUtils.h"
+#include "LabelFormatter.h"
+#include "SortFileItem.h"
 
 #include <map>
 #include <memory>
 #include <string>
 #include <vector>
-
-#include "DatabaseUtils.h"
-#include "SortFileItem.h"
-#include "LabelFormatter.h"
 
 typedef enum {
   SortOrderNone = 0,
@@ -38,7 +27,8 @@ typedef enum {
   SortAttributeNone           = 0x0,
   SortAttributeIgnoreArticle  = 0x1,
   SortAttributeIgnoreFolders  = 0x2,
-  SortAttributeUseArtistSortName = 0x4
+  SortAttributeUseArtistSortName = 0x4,
+  SortAttributeIgnoreLabel = 0x8
 } SortAttribute;
 
 typedef enum {
@@ -163,20 +153,23 @@ typedef enum {
   SortByLastUpdated,
   /// __52__ : Sort by last used                  <em>(String: <b><c>lastused</c></b>)</em>
   SortByLastUsed,
+  /// __53__ : Sort by client channel order       <em>(String: <b><c>ClientChannelOrder</c></b>)</em>
+  SortByClientChannelOrder,
+  /// __54__ : Sort by total number of discs      <em>(String: <b><c>totaldiscs</c></b>)</em>
+  SortByTotalDiscs,
+  /// __55__ : Sort by original release date      <em>(String: <b><c>Originaldate</c></b>)</em>
+  SortByOrigDate,
+  /// __56__ : Sort by BPM                        <em>(String: <b><c>bpm</c></b>)</em>
+  SortByBPM,
 } SortBy;
 ///@}
 
 typedef struct SortDescription {
-  SortBy sortBy;
-  SortOrder sortOrder;
-  SortAttribute sortAttributes;
-  int limitStart;
-  int limitEnd;
-
-  SortDescription()
-    : sortBy(SortByNone), sortOrder(SortOrderAscending), sortAttributes(SortAttributeNone),
-      limitStart(0), limitEnd(-1)
-  { }
+  SortBy sortBy = SortByNone;
+  SortOrder sortOrder = SortOrderAscending;
+  SortAttribute sortAttributes = SortAttributeNone;
+  int limitStart = 0;
+  int limitEnd = -1;
 } SortDescription;
 
 typedef struct GUIViewSortDetails
@@ -212,14 +205,15 @@ public:
   static void Sort(const SortDescription &sortDescription, DatabaseResults& items);
   static void Sort(const SortDescription &sortDescription, SortItems& items);
   static bool SortFromDataset(const SortDescription &sortDescription, const MediaType &mediaType, const std::unique_ptr<dbiplus::Dataset> &dataset, DatabaseResults &results);
-  
+
+  static void GetFieldsForSQLSort(const MediaType& mediaType, SortBy sortMethod, FieldList& fields);
   static const Fields& GetFieldsForSorting(SortBy sortBy);
   static std::string RemoveArticles(const std::string &label);
-  
+
   typedef std::string (*SortPreparator) (SortAttribute, const SortItem&);
   typedef bool (*Sorter) (const DatabaseResult &, const DatabaseResult &);
   typedef bool (*SorterIndirect) (const SortItemPtr &, const SortItemPtr &);
-  
+
 private:
   static const SortPreparator& getPreparator(SortBy sortBy);
   static Sorter getSorter(SortOrder sortOrder, SortAttribute attributes);

@@ -1,37 +1,26 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "GUIDialogFavourites.h"
+
+#include "ContextMenuManager.h"
+#include "FileItem.h"
+#include "ServiceBroker.h"
 #include "dialogs/GUIDialogContextMenu.h"
 #include "dialogs/GUIDialogFileBrowser.h"
-#include "ServiceBroker.h"
 #include "favourites/FavouritesService.h"
 #include "filesystem/Directory.h"
-#include "guilib/GUIWindowManager.h"
+#include "guilib/GUIComponent.h"
 #include "guilib/GUIKeyboardFactory.h"
-#include "input/Key.h"
-#include "filesystem/File.h"
-#include "FileItem.h"
+#include "guilib/GUIWindowManager.h"
 #include "guilib/LocalizeStrings.h"
+#include "input/Key.h"
 #include "storage/MediaManager.h"
-#include "ContextMenuManager.h"
 #include "utils/Variant.h"
 
 using namespace XFILE;
@@ -105,11 +94,12 @@ void CGUIDialogFavourites::OnClick(int item)
   if (item < 0 || item >= m_favourites->Size())
     return;
 
-  Close();
-
   CGUIMessage message(GUI_MSG_EXECUTE, 0, GetID());
   message.SetStringParam(m_favouritesService.GetExecutePath(*(*m_favourites)[item], GetID()));
-  g_windowManager.SendMessage(message);
+
+  Close();
+
+  CServiceBroker::GetGUI()->GetWindowManager().SendMessage(message);
 }
 
 void CGUIDialogFavourites::OnPopupMenu(int item)
@@ -134,7 +124,9 @@ void CGUIDialogFavourites::OnPopupMenu(int item)
 
   //temporary workaround until the context menu ids are removed
   const int addonItemOffset = 10000;
-  auto addonItems = CContextMenuManager::GetInstance().GetAddonItems(*itemPtr);
+
+  auto addonItems = CServiceBroker::GetContextMenuManager().GetAddonItems(*itemPtr);
+
   for (size_t i = 0; i < addonItems.size(); ++i)
     choices.Add(addonItemOffset + i, addonItems[i]->GetLabel(*itemPtr));
 
@@ -250,13 +242,13 @@ bool CGUIDialogFavourites::ChooseAndSetNewThumbnail(const CFileItemPtr &item)
   }
 
   const CFileItemPtr none(std::make_shared<CFileItem>("thumb://None", false));
-  none->SetIconImage(item->GetIconImage());
+  none->SetArt("icon", item->GetArt("icon"));
   none->SetLabel(g_localizeStrings.Get(20018)); // No thumb
   prefilledItems.Add(none);
 
   std::string thumb;
   VECSOURCES sources;
-  g_mediaManager.GetLocalDrives(sources);
+  CServiceBroker::GetMediaManager().GetLocalDrives(sources);
   if (CGUIDialogFileBrowser::ShowAndGetImage(prefilledItems, sources, g_localizeStrings.Get(1030), thumb)) // Browse for image
   {
     item->SetArt("thumb", thumb);

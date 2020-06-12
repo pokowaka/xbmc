@@ -1,32 +1,28 @@
 /*
- *      Copyright (C) 2007-2015 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2007-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "RendererVTBGLES.h"
+
 #include "../RenderFactory.h"
+#include "ServiceBroker.h"
 #include "cores/IPlayer.h"
-#include "utils/log.h"
-#include "utils/GLUtils.h"
 #include "cores/VideoPlayer/DVDCodecs/Video/VTB.h"
 #include "settings/MediaSettings.h"
-#include "windowing/WindowingFactory.h"
-#include "platform/darwin/DarwinUtils.h"
+#include "utils/GLUtils.h"
+#include "utils/log.h"
+#if defined(TARGET_DARWIN_IOS)
+#include "windowing/ios/WinSystemIOS.h"
+#define WIN_SYSTEM_CLASS CWinSystemIOS
+#elif defined(TARGET_DARWIN_TVOS)
+#include "windowing/tvos/WinSystemTVOS.h"
+#define WIN_SYSTEM_CLASS CWinSystemTVOS
+#endif
+
 #include <CoreVideo/CVBuffer.h>
 #include <CoreVideo/CVPixelBuffer.h>
 #include <OpenGLES/ES2/glext.h>
@@ -49,9 +45,11 @@ bool CRendererVTB::Register()
 CRendererVTB::CRendererVTB()
 {
   m_textureCache = nullptr;
+  auto winSystem = dynamic_cast<WIN_SYSTEM_CLASS*>(CServiceBroker::GetWinSystem());
+  m_glContext = winSystem->GetEAGLContextObj();
   CVReturn ret = CVOpenGLESTextureCacheCreate(kCFAllocatorDefault,
                                               NULL,
-                                              g_Windowing.GetEAGLContextObj(),
+                                              m_glContext,
                                               NULL,
                                               &m_textureCache);
   if (ret != kCVReturnSuccess)
@@ -81,7 +79,7 @@ CRendererVTB::~CRendererVTB()
 
 void CRendererVTB::ReleaseBuffer(int idx)
 {
-  YUVBUFFER &buf = m_buffers[idx];
+  CPictureBuffer &buf = m_buffers[idx];
   CRenderBuffer &renderBuf = m_vtbBuffers[idx];
   if (buf.videoBuffer)
   {
@@ -102,26 +100,19 @@ EShaderFormat CRendererVTB::GetShaderFormat()
 
 bool CRendererVTB::LoadShadersHook()
 {
-  float ios_version = CDarwinUtils::GetIOSVersion();
-  CLog::Log(LOGNOTICE, "GL: Using CVBREF render method");
+  CLog::Log(LOGINFO, "GL: Using CVBREF render method");
   m_textureTarget = GL_TEXTURE_2D;
-  m_renderMethod = RENDER_CVREF;
-
-  if (ios_version < 5.0)
-  {
-    CLog::Log(LOGNOTICE, "GL: ios version < 5 is not supported");
-    return false;
-  }
+  m_renderMethod = RENDER_CUSTOM;
 
   if (!m_textureCache)
   {
-    CLog::Log(LOGNOTICE, "CRendererVTB::LoadShadersHook: no texture cache");
+    CLog::Log(LOGINFO, "CRendererVTB::LoadShadersHook: no texture cache");
     return false;
   }
 
   CVReturn ret = CVOpenGLESTextureCacheCreate(kCFAllocatorDefault,
                                               NULL,
-                                              g_Windowing.GetEAGLContextObj(),
+                                              m_glContext,
                                               NULL,
                                               &m_textureCache);
   if (ret != kCVReturnSuccess)
@@ -132,18 +123,18 @@ bool CRendererVTB::LoadShadersHook()
 
 bool CRendererVTB::CreateTexture(int index)
 {
-  YUVBUFFER &buf = m_buffers[index];
+  CPictureBuffer &buf = m_buffers[index];
   YuvImage &im = buf.image;
-  YUVPLANE (&planes)[YuvImage::MAX_PLANES] = buf.fields[0];
-  
+  CYuvPlane (&planes)[YuvImage::MAX_PLANES] = buf.fields[0];
+
   DeleteTexture(index);
-  
+
   memset(&im    , 0, sizeof(im));
-  memset(&planes, 0, sizeof(YUVPLANE[YuvImage::MAX_PLANES]));
-  
+  memset(&planes, 0, sizeof(CYuvPlane[YuvImage::MAX_PLANES]));
+
   im.height = m_sourceHeight;
   im.width = m_sourceWidth;
-  
+
   planes[0].texwidth  = im.width;
   planes[0].texheight = im.height;
   planes[1].texwidth  = planes[0].texwidth >> im.cshift_x;
@@ -164,7 +155,7 @@ bool CRendererVTB::CreateTexture(int index)
 void CRendererVTB::DeleteTexture(int index)
 {
   CRenderBuffer &renderBuf = m_vtbBuffers[index];
-  YUVPLANE (&planes)[YuvImage::MAX_PLANES] = m_buffers[index].fields[0];
+  CYuvPlane (&planes)[YuvImage::MAX_PLANES] = m_buffers[index].fields[0];
 
   if (renderBuf.m_textureY)
     CFRelease(renderBuf.m_textureY);
@@ -184,8 +175,8 @@ void CRendererVTB::DeleteTexture(int index)
 bool CRendererVTB::UploadTexture(int index)
 {
   CRenderBuffer &renderBuf = m_vtbBuffers[index];
-  YUVBUFFER &buf = m_buffers[index];
-  YUVPLANE (&planes)[YuvImage::MAX_PLANES] = m_buffers[index].fields[0];
+  CPictureBuffer &buf = m_buffers[index];
+  CYuvPlane (&planes)[YuvImage::MAX_PLANES] = m_buffers[index].fields[0];
   YuvImage &im = m_buffers[index].image;
 
   VTB::CVideoBufferVTB *vb = dynamic_cast<VTB::CVideoBufferVTB*>(buf.videoBuffer);
@@ -236,8 +227,6 @@ bool CRendererVTB::UploadTexture(int index)
   planes[1].id = CVOpenGLESTextureGetName(renderBuf.m_textureUV);
   planes[2].id = CVOpenGLESTextureGetName(renderBuf.m_textureUV);
 
-  glEnable(m_textureTarget);
-
   for (int p=0; p<2; p++)
   {
     glBindTexture(m_textureTarget, planes[p].id);
@@ -274,7 +263,7 @@ bool CRendererVTB::NeedBuffer(int idx)
     if (syncState != GL_SIGNALED_APPLE)
       return true;
   }
-  
+
   return false;
 }
 

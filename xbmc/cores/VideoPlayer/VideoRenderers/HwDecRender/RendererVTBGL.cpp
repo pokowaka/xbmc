@@ -1,34 +1,25 @@
 /*
- *      Copyright (C) 2007-2015 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2007-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "RendererVTBGL.h"
+
 #include "../RenderFactory.h"
-#include "settings/Settings.h"
-#include "settings/AdvancedSettings.h"
+#include "ServiceBroker.h"
 #include "cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.h"
 #include "cores/VideoPlayer/DVDCodecs/Video/VTB.h"
 #include "utils/log.h"
+#include "windowing/WinSystem.h"
+#include "windowing/osx/WinSystemOSX.h"
+
 #include "platform/darwin/osx/CocoaInterface.h"
+
 #include <CoreVideo/CoreVideo.h>
 #include <OpenGL/CGLIOSurface.h>
-#include "windowing/WindowingFactory.h"
 
 CBaseRenderer* CRendererVTB::Create(CVideoBuffer *buffer)
 {
@@ -45,21 +36,18 @@ bool CRendererVTB::Register()
   return true;
 }
 
-CRendererVTB::CRendererVTB()
-{
-}
-
 CRendererVTB::~CRendererVTB()
 {
   for (int i = 0; i < NUM_BUFFERS; ++i)
   {
+    ReleaseBuffer(i);
     DeleteTexture(i);
   }
 }
 
 void CRendererVTB::ReleaseBuffer(int idx)
 {
-  YUVBUFFER &buf = m_buffers[idx];
+  CPictureBuffer &buf = m_buffers[idx];
   if (buf.videoBuffer)
   {
     VTB::CVideoBufferVTB *vb = dynamic_cast<VTB::CVideoBufferVTB*>(buf.videoBuffer);
@@ -78,26 +66,27 @@ void CRendererVTB::ReleaseBuffer(int idx)
 
 EShaderFormat CRendererVTB::GetShaderFormat()
 {
-  return SHADER_YV12;
+  return SHADER_NV12;
 }
 
 bool CRendererVTB::LoadShadersHook()
 {
-  CLog::Log(LOGNOTICE, "GL: Using CVBREF render method");
-  m_textureTarget = GL_TEXTURE_RECTANGLE_ARB;
+  CLog::Log(LOGINFO, "GL: Using CVBREF render method");
+  m_textureTarget = GL_TEXTURE_RECTANGLE;
   return false;
 }
 
 bool CRendererVTB::CreateTexture(int index)
 {
-  YUVBUFFER &buf = m_buffers[index];
+  CPictureBuffer &buf = m_buffers[index];
   YuvImage &im = buf.image;
-  YUVPLANE (&planes)[YuvImage::MAX_PLANES] = buf.fields[0];
+  CYuvPlane (&planes)[YuvImage::MAX_PLANES] = buf.fields[0];
 
+  ReleaseBuffer(index);
   DeleteTexture(index);
 
   memset(&im    , 0, sizeof(im));
-  memset(&planes, 0, sizeof(YUVPLANE[YuvImage::MAX_PLANES]));
+  memset(&planes, 0, sizeof(CYuvPlane[YuvImage::MAX_PLANES]));
 
   im.bpp    = 1;
   im.width  = m_sourceWidth;
@@ -119,20 +108,18 @@ bool CRendererVTB::CreateTexture(int index)
     planes[p].pixpertex_y = 1;
   }
 
-  glEnable(m_textureTarget);
   glGenTextures(1, &planes[0].id);
   glGenTextures(1, &planes[1].id);
   planes[2].id = planes[1].id;
-  glDisable(m_textureTarget);
 
   return true;
 }
 
 void CRendererVTB::DeleteTexture(int index)
 {
-  YUVPLANE (&planes)[YuvImage::MAX_PLANES] = m_buffers[index].fields[0];
-
-  ReleaseBuffer(index);
+  CPictureBuffer& buf = m_buffers[index];
+  CYuvPlane (&planes)[YuvImage::MAX_PLANES] = buf.fields[0];
+  buf.loaded = false;
 
   if (planes[0].id && glIsTexture(planes[0].id))
   {
@@ -149,8 +136,8 @@ void CRendererVTB::DeleteTexture(int index)
 
 bool CRendererVTB::UploadTexture(int index)
 {
-  YUVBUFFER &buf = m_buffers[index];
-  YUVPLANE (&planes)[YuvImage::MAX_PLANES] = m_buffers[index].fields[0];
+  CPictureBuffer &buf = m_buffers[index];
+  CYuvPlane (&planes)[YuvImage::MAX_PLANES] = m_buffers[index].fields[0];
 
   VTB::CVideoBufferVTB *vb = dynamic_cast<VTB::CVideoBufferVTB*>(buf.videoBuffer);
   if (!vb)
@@ -160,11 +147,10 @@ bool CRendererVTB::UploadTexture(int index)
 
   CVImageBufferRef cvBufferRef = vb->GetPB();
 
-  glEnable(m_textureTarget);
-
   // It is the fastest way to render a CVPixelBuffer backed
   // with an IOSurface as there is no CPU -> GPU upload.
-  CGLContextObj cgl_ctx  = (CGLContextObj)g_Windowing.GetCGLContextObj();
+  CWinSystemOSX* winSystem = dynamic_cast<CWinSystemOSX*>(CServiceBroker::GetWinSystem());
+  CGLContextObj cgl_ctx  = (CGLContextObj)winSystem->GetCGLContextObj();
   IOSurfaceRef surface  = CVPixelBufferGetIOSurface(cvBufferRef);
   OSType format_type = IOSurfaceGetPixelFormat(surface);
 
@@ -187,8 +173,8 @@ bool CRendererVTB::UploadTexture(int index)
 
   glBindTexture(m_textureTarget, planes[0].id);
 
-  CGLTexImageIOSurface2D(cgl_ctx, m_textureTarget, GL_LUMINANCE,
-                         widthY, heightY, GL_LUMINANCE, GL_UNSIGNED_BYTE, surface, 0);
+  CGLTexImageIOSurface2D(cgl_ctx, m_textureTarget, GL_RED,
+                         widthY, heightY, GL_RED, GL_UNSIGNED_BYTE, surface, 0);
   glTexParameteri(m_textureTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(m_textureTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTexParameteri(m_textureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -196,16 +182,14 @@ bool CRendererVTB::UploadTexture(int index)
 
   glBindTexture(m_textureTarget, planes[1].id);
 
-  CGLTexImageIOSurface2D(cgl_ctx, m_textureTarget, GL_LUMINANCE_ALPHA,
-                         widthUV, heightUV, GL_LUMINANCE_ALPHA, GL_UNSIGNED_BYTE, surface, 1);
+  CGLTexImageIOSurface2D(cgl_ctx, m_textureTarget, GL_RG,
+                         widthUV, heightUV, GL_RG, GL_UNSIGNED_BYTE, surface, 1);
   glTexParameteri(m_textureTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(m_textureTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTexParameteri(m_textureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(m_textureTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
   glBindTexture(m_textureTarget, 0);
-
-  glDisable(m_textureTarget);
 
   CalculateTextureSourceRects(index, 3);
 
@@ -214,7 +198,7 @@ bool CRendererVTB::UploadTexture(int index)
 
 void CRendererVTB::AfterRenderHook(int idx)
 {
-  YUVBUFFER &buf = m_buffers[idx];
+  CPictureBuffer &buf = m_buffers[idx];
   VTB::CVideoBufferVTB *vb = dynamic_cast<VTB::CVideoBufferVTB*>(buf.videoBuffer);
   if (!vb)
   {
@@ -231,7 +215,7 @@ void CRendererVTB::AfterRenderHook(int idx)
 
 bool CRendererVTB::NeedBuffer(int idx)
 {
-  YUVBUFFER &buf = m_buffers[idx];
+  CPictureBuffer &buf = m_buffers[idx];
   VTB::CVideoBufferVTB *vb = dynamic_cast<VTB::CVideoBufferVTB*>(buf.videoBuffer);
   if (!vb)
   {

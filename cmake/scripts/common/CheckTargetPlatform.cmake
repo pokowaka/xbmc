@@ -9,9 +9,9 @@ function(check_target_platform dir target_platform build)
   if(EXISTS ${dir} AND EXISTS ${dir}/platforms.txt)
     # get all the specified platforms
     file(STRINGS ${dir}/platforms.txt platforms)
-    
+
     list( LENGTH platforms listlen )
-    if(${listlen} EQUAL 1)    
+    if(${listlen} EQUAL 1)
         string(REPLACE " " ";" platforms ${platforms})
     endif()
 
@@ -29,7 +29,10 @@ function(check_target_platform dir target_platform build)
           string(SUBSTRING ${platform} 1 ${platform_length} platform)
 
           # check if the current platform does not match the extracted platform
-          if(NOT ${platform} STREQUAL ${target_platform})
+          if(${platform} STREQUAL ${target_platform})
+            set(${build} FALSE)
+            break()
+          elseif(NOT ${platform} STREQUAL ${target_platform})
             set(${build} TRUE)
           endif()
         endif()

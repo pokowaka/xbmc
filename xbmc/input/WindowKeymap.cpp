@@ -1,39 +1,45 @@
 /*
- *      Copyright (C) 2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2017-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "WindowKeymap.h"
 
+#include "WindowTranslator.h"
+
 using namespace KODI;
 
-CWindowKeymap::CWindowKeymap(const std::string &controllerId) :
-  m_controllerId(controllerId)
+CWindowKeymap::CWindowKeymap(const std::string& controllerId) : m_controllerId(controllerId)
 {
 }
 
-void CWindowKeymap::MapAction(int windowId, const std::string &keyName, JOYSTICK::KeymapAction action)
+void CWindowKeymap::MapAction(int windowId,
+                              const std::string& keyName,
+                              JOYSTICK::KeymapAction action)
 {
-  m_windowKeymap[windowId][keyName].insert(std::move(action));
+  auto& actionGroup = m_windowKeymap[windowId][keyName];
+
+  actionGroup.windowId = windowId;
+  auto it = actionGroup.actions.begin();
+  while (it != actionGroup.actions.end())
+  {
+    if (it->holdTimeMs == action.holdTimeMs && it->hotkeys == action.hotkeys)
+      it = actionGroup.actions.erase(it);
+    else
+      it++;
+  }
+  actionGroup.actions.insert(std::move(action));
 }
 
-const JOYSTICK::KeymapActions &CWindowKeymap::GetActions(int windowId, const std::string& keyName) const
+const JOYSTICK::KeymapActionGroup& CWindowKeymap::GetActions(int windowId,
+                                                             const std::string& keyName) const
 {
+  // handle virtual windows
+  windowId = CWindowTranslator::GetVirtualWindow(windowId);
+
   auto it = m_windowKeymap.find(windowId);
   if (it != m_windowKeymap.end())
   {
@@ -43,6 +49,6 @@ const JOYSTICK::KeymapActions &CWindowKeymap::GetActions(int windowId, const std
       return it2->second;
   }
 
-  static const JOYSTICK::KeymapActions empty;
+  static const JOYSTICK::KeymapActionGroup empty{};
   return empty;
 }

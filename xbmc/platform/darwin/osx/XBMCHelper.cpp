@@ -1,48 +1,36 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#if defined(__APPLE__) && !defined(__arm__) && !defined(__aarch64__)
+#include "XBMCHelper.h"
+
+#include "CompileInfo.h"
+#include "ServiceBroker.h"
+#include "URL.h"
+#include "Util.h"
+#include "dialogs/GUIDialogOK.h"
+#include "dialogs/GUIDialogYesNo.h"
+#include "filesystem/Directory.h"
+#include "filesystem/File.h"
+#include "settings/Settings.h"
+#include "settings/SettingsComponent.h"
+#include "settings/lib/Setting.h"
+#include "threads/Atomics.h"
+#include "utils/SystemInfo.h"
+#include "utils/TimeUtils.h"
+#include "utils/log.h"
+
 #include <fstream>
 #include <signal.h>
 #include <sstream>
+
 #include <mach-o/dyld.h>
 
-#include "XBMCHelper.h"
 #include "PlatformDefs.h"
-#include "ServiceBroker.h"
-#include "Util.h"
-#include "CompileInfo.h"
-
-#include "dialogs/GUIDialogOK.h"
-#include "dialogs/GUIDialogYesNo.h"
-#include "utils/log.h"
-#include "system.h"
-#include "settings/lib/Setting.h"
-#include "settings/Settings.h"
-#include "utils/SystemInfo.h"
-#include "utils/TimeUtils.h"
-#include "filesystem/Directory.h"
-#include "filesystem/File.h"
-#include "URL.h"
-
-#include "threads/Atomics.h"
 
 static std::atomic_flag sg_singleton_lock_variable = ATOMIC_FLAG_INIT;
 XBMCHelper* XBMCHelper::smp_instance = 0;
@@ -66,11 +54,6 @@ XBMCHelper::GetInstance()
 
 /////////////////////////////////////////////////////////////////////////////
 XBMCHelper::XBMCHelper()
-  : m_alwaysOn(false)
-  , m_mode(APPLE_REMOTE_DISABLED)
-  , m_sequenceDelay(0)
-  , m_port(0)
-  , m_errorStarting(false)
 {
   // Compute the KODI_HOME path.
   std::string homePath;
@@ -80,7 +63,7 @@ XBMCHelper::XBMCHelper()
   // Compute the helper filename.
   m_helperFile = m_homepath + "/tools/darwin/runtime/";
   m_helperFile += XBMC_HELPER_PROGRAM;
-  
+
   // Compute the local (pristine) launch agent filename.
   m_launchAgentLocalFile = m_homepath + "/tools/darwin/runtime/";
   m_launchAgentLocalFile += XBMC_LAUNCH_PLIST;
@@ -111,7 +94,7 @@ bool XBMCHelper::OnSettingChanging(std::shared_ptr<const CSetting> setting)
     if (remoteMode != APPLE_REMOTE_DISABLED)
     {
       // if starting the event server fails, we have to revert the change
-      if (!CServiceBroker::GetSettings().SetBool("services.esenabled", true))
+      if (!CServiceBroker::GetSettingsComponent()->GetSettings()->SetBool("services.esenabled", true))
         return false;
     }
 
@@ -170,7 +153,7 @@ void XBMCHelper::Stop()
   int pid = GetProcessPid(XBMC_HELPER_PROGRAM);
   if (pid != -1)
   {
-    CLog::Log(LOGDEBUG,"XBMCHelper: Sending SIGKILL to %s\n", XBMC_HELPER_PROGRAM);
+    CLog::Log(LOGDEBUG, "XBMCHelper: Sending SIGKILL to %s", XBMC_HELPER_PROGRAM);
     kill(pid, SIGKILL);
   }
 }
@@ -184,9 +167,10 @@ void XBMCHelper::Configure()
 
   // Read the new configuration.
   m_errorStarting = false;
-  m_mode = CServiceBroker::GetSettings().GetInt(CSettings::SETTING_INPUT_APPLEREMOTEMODE);
-  m_sequenceDelay = CServiceBroker::GetSettings().GetInt(CSettings::SETTING_INPUT_APPLEREMOTESEQUENCETIME);
-  m_port = CServiceBroker::GetSettings().GetInt(CSettings::SETTING_SERVICES_ESPORT);
+  const std::shared_ptr<CSettings> settings = CServiceBroker::GetSettingsComponent()->GetSettings();
+  m_mode = settings->GetInt(CSettings::SETTING_INPUT_APPLEREMOTEMODE);
+  m_sequenceDelay = settings->GetInt(CSettings::SETTING_INPUT_APPLEREMOTESEQUENCETIME);
+  m_port = settings->GetInt(CSettings::SETTING_SERVICES_ESPORT);
 
 
   // Don't let it enable if sofa control or remote buddy is around.
@@ -197,7 +181,7 @@ void XBMCHelper::Configure()
       m_errorStarting = true;
 
     m_mode = APPLE_REMOTE_DISABLED;
-    CServiceBroker::GetSettings().SetInt(CSettings::SETTING_INPUT_APPLEREMOTEMODE, APPLE_REMOTE_DISABLED);
+    settings->SetInt(CSettings::SETTING_INPUT_APPLEREMOTEMODE, APPLE_REMOTE_DISABLED);
   }
 
   // New configuration.
@@ -272,7 +256,7 @@ void XBMCHelper::Configure()
 void XBMCHelper::HandleLaunchAgent()
 {
   bool oldAlwaysOn = m_alwaysOn;
-  m_alwaysOn = CServiceBroker::GetSettings().GetBool(CSettings::SETTING_INPUT_APPLEREMOTEALWAYSON);
+  m_alwaysOn = CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_INPUT_APPLEREMOTEALWAYSON);
 
   // Installation/uninstallation.
   if (oldAlwaysOn == false && m_alwaysOn == true)
@@ -293,7 +277,7 @@ void XBMCHelper::Install()
   // Load template.
   std::string plistData = ReadFile(m_launchAgentLocalFile.c_str());
 
-  if (plistData != "") 
+  if (plistData != "")
   {
       std::string launchd_args;
 
@@ -301,7 +285,7 @@ void XBMCHelper::Install()
       int start = plistData.find("${PATH}");
       plistData.replace(start, 7, m_helperFile.c_str(), m_helperFile.length());
 
-      // Replace ARG1 with a single argument, additional args 
+      // Replace ARG1 with a single argument, additional args
       // will need ARG2, ARG3 added to plist.
       launchd_args = "-x";
       start = plistData.find("${ARG1}");
@@ -328,7 +312,7 @@ void XBMCHelper::Uninstall()
   std::string cmd = "/bin/launchctl unload ";
   cmd += m_launchAgentInstallFile;
   system(cmd.c_str());
-  
+
   //this also stops the helper, so restart it here again, if not disabled
   if(m_mode != APPLE_REMOTE_DISABLED)
     Start();
@@ -365,7 +349,7 @@ std::string XBMCHelper::ReadFile(const char* fileName)
 {
   std::string ret = "";
   std::ifstream is;
-  
+
   is.open(fileName);
   if( is.good() )
   {
@@ -497,7 +481,7 @@ static int GetBSDProcessList(kinfo_proc **procList, size_t *procCount)
 
       if (err == -1)
         err = errno;
-        
+
       if (err == 0)
       {
         done = true;
@@ -526,4 +510,3 @@ static int GetBSDProcessList(kinfo_proc **procList, size_t *procCount)
   assert( (err == 0) == (*procList != NULL) );
   return err;
 }
-#endif

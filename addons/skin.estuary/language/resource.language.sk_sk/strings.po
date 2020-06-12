@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: KODI Main\n"
-"Report-Msgid-Bugs-To: http://trac.kodi.tv/\n"
+"Report-Msgid-Bugs-To: https://github.com/xbmc/xbmc/issues/\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Kodi Translation Team\n"
@@ -148,10 +148,6 @@ msgctxt "#31033"
 msgid "Your rating"
 msgstr "Vaše hodnotenie"
 
-msgctxt "#31034"
-msgid "Extended info"
-msgstr "Rozšírené informácie"
-
 msgctxt "#31035"
 msgid "Pages"
 msgstr "Stránky"
@@ -199,10 +195,6 @@ msgstr "K dispozícii"
 msgctxt "#31050"
 msgid "Press [B]OK[/B] to stop"
 msgstr "Stlačte [B]OK[/B] pre zastavenie"
-
-msgctxt "#31051"
-msgid "Toggle language"
-msgstr "Prepnúť jazyk"
 
 msgctxt "#31052"
 msgid "filtered"
@@ -268,6 +260,10 @@ msgctxt "#31072"
 msgid "Power Options"
 msgstr "Možnosti napájania"
 
+msgctxt "#31074"
+msgid "Total duration"
+msgstr "Celkové trvanie"
+
 msgctxt "#31075"
 msgid "Movie sets"
 msgstr "Filmové kolekcie"
@@ -295,10 +291,6 @@ msgstr "Nastavenia vizualizácií"
 msgctxt "#31089"
 msgid "Available groups"
 msgstr "Dostupné skupiny"
-
-msgctxt "#31090"
-msgid "Search trailer"
-msgstr "Hľadať upútavku"
 
 msgctxt "#31092"
 msgid "Video menu"
@@ -380,10 +372,6 @@ msgctxt "#31114"
 msgid "Search YouTube"
 msgstr "Hľadať na YouTube"
 
-msgctxt "#31115"
-msgid "Search TheMovieDB"
-msgstr "Hľadať na TheMovieDB"
-
 msgctxt "#31116"
 msgid "Remove this main menu item"
 msgstr "Odobrať túto položku hlavnej ponuky"
@@ -416,10 +404,6 @@ msgctxt "#31123"
 msgid "Same director"
 msgstr "Rovnaký režisér"
 
-msgctxt "#31124"
-msgid "Show images on map"
-msgstr "Zobraziť obrázky na mape"
-
 msgctxt "#31125"
 msgid "Press up for actor info"
 msgstr "Stlačte nahor pre zobrazenie informácií o hercovi"
@@ -447,6 +431,14 @@ msgstr "Nastavenia týkajúce sa hlavnej ponuky: Nastavte si domovskú obrazovku
 msgctxt "#31131"
 msgid "Choose skin fanart pack"
 msgstr "Vyberte fanart balík pre vzhľad"
+
+msgctxt "#31132"
+msgid "Select Program"
+msgstr "Vybrať program"
+
+msgctxt "#31133"
+msgid "Select Resolution"
+msgstr "Vyberte rozlíšenie"
 
 msgctxt "#31134"
 msgid "Remaining"
@@ -555,3 +547,19 @@ msgstr "Zahrajte si vaše osobné hry alebo si prevezmite jeden z mnohých hern�
 msgctxt "#31163"
 msgid "Show Fanart background"
 msgstr "Zobraziť Fanart pozadie"
+
+msgctxt "#31164"
+msgid "Choose kind of profile identification"
+msgstr "Vyberte si spôsob identifikácie profilu"
+
+msgctxt "#31165"
+msgid "Profile name"
+msgstr "Názov profilu"
+
+msgctxt "#31166"
+msgid "Profile avatar"
+msgstr "Profilový avatar"
+
+msgctxt "#31167"
+msgid "Animate background"
+msgstr "Animovať pozadie"

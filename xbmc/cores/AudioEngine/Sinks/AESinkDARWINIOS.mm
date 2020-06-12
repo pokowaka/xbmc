@@ -1,35 +1,25 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "cores/AudioEngine/Sinks/AESinkDARWINIOS.h"
 
-#include "cores/AudioEngine/Utils/AEUtil.h"
+#include "ServiceBroker.h"
+#include "cores/AudioEngine/AESinkFactory.h"
+#include "cores/AudioEngine/Sinks/darwin/CoreAudioHelpers.h"
 #include "cores/AudioEngine/Utils/AERingBuffer.h"
-#include "cores/AudioEngine/Sinks/osx/CoreAudioHelpers.h"
-#include "platform/darwin/DarwinUtils.h"
-#include "utils/log.h"
-#include "utils/StringUtils.h"
+#include "cores/AudioEngine/Utils/AEUtil.h"
 #include "threads/Condition.h"
-#include "windowing/WindowingFactory.h"
+#include "utils/StringUtils.h"
+#include "utils/log.h"
+#include "windowing/WinSystem.h"
 
 #include <sstream>
+
 #include <AudioToolbox/AudioToolbox.h>
 
 #define CA_MAX_CHANNELS 8
@@ -85,7 +75,7 @@ static float SineWaveGeneratorNextSampleFloat(SineWaveGenerator *ctx)
 class CAAudioUnitSink
 {
   public:
-    CAAudioUnitSink();
+    CAAudioUnitSink() = default;
    ~CAAudioUnitSink();
 
     bool         open(AudioStreamBasicDescription outputFormat);
@@ -120,10 +110,10 @@ class CAAudioUnitSink
                   AudioBufferList *ioData);
 
     bool                m_setup;
-    bool                m_activated;
+    bool m_activated = false;
     AudioUnit           m_audioUnit;
     AudioStreamBasicDescription m_outputFormat;
-    AERingBuffer       *m_buffer;
+    AERingBuffer* m_buffer = nullptr;
 
     bool                m_mute;
     Float32             m_outputVolume;
@@ -133,23 +123,13 @@ class CAAudioUnitSink
     unsigned int        m_sampleRate;
     unsigned int        m_frameSize;
 
-    bool                m_playing;
-    volatile bool       m_started;
+    bool m_playing = false;
+    volatile bool m_started = false;
 
     CAESpinSection      m_render_section;
-    volatile int64_t    m_render_timestamp;
-    volatile uint32_t   m_render_frames;
+    volatile int64_t m_render_timestamp = 0;
+    volatile uint32_t m_render_frames = 0;
 };
-
-CAAudioUnitSink::CAAudioUnitSink()
-: m_activated(false)
-, m_buffer(NULL)
-, m_playing(false)
-, m_started(false)
-, m_render_timestamp(0)
-, m_render_frames(0)
-{
-}
 
 CAAudioUnitSink::~CAAudioUnitSink()
 {
@@ -291,7 +271,7 @@ void CAAudioUnitSink::setCoreAudioBuffersize()
   // set the buffer size, this affects the number of samples
   // that get rendered every time the audio callback is fired.
   Float32 preferredBufferSize = 512 * m_outputFormat.mChannelsPerFrame / m_outputFormat.mSampleRate;
-  CLog::Log(LOGNOTICE, "%s setting buffer duration to %f", __PRETTY_FUNCTION__, preferredBufferSize);
+  CLog::Log(LOGINFO, "%s setting buffer duration to %f", __PRETTY_FUNCTION__, preferredBufferSize);
   OSStatus status = AudioSessionSetProperty(kAudioSessionProperty_PreferredHardwareIOBufferDuration,
                                    sizeof(preferredBufferSize), &preferredBufferSize);
   if (status != noErr)
@@ -316,7 +296,7 @@ bool CAAudioUnitSink::setCoreAudioInputFormat()
 void CAAudioUnitSink::setCoreAudioPreferredSampleRate()
 {
   Float64 preferredSampleRate = m_outputFormat.mSampleRate;
-  CLog::Log(LOGNOTICE, "%s requesting hw samplerate %f", __PRETTY_FUNCTION__, preferredSampleRate);
+  CLog::Log(LOGINFO, "%s requesting hw samplerate %f", __PRETTY_FUNCTION__, preferredSampleRate);
   OSStatus status = AudioSessionSetProperty(kAudioSessionProperty_PreferredHardwareSampleRate,
                                    sizeof(preferredSampleRate), &preferredSampleRate);
   if (status != noErr)
@@ -368,7 +348,9 @@ bool CAAudioUnitSink::setupAudio()
   Float64 realisedSampleRate = getCoreAudioRealisedSampleRate();
   if (m_outputFormat.mSampleRate != realisedSampleRate)
   {
-    CLog::Log(LOGNOTICE, "%s couldn't set requested samplerate %d, coreaudio will resample to %d instead", __PRETTY_FUNCTION__, (int)m_outputFormat.mSampleRate, (int)realisedSampleRate);
+    CLog::Log(LOGINFO,
+              "%s couldn't set requested samplerate %d, coreaudio will resample to %d instead",
+              __PRETTY_FUNCTION__, (int)m_outputFormat.mSampleRate, (int)realisedSampleRate);
     // if we don't ca to resample - but instead let activeae resample -
     // reflect the realised samplerate to the outputformat here
     // well maybe it is handy in the future - as of writing this
@@ -405,7 +387,8 @@ bool CAAudioUnitSink::setupAudio()
 
   m_setup = true;
   std::string formatString;
-  CLog::Log(LOGNOTICE, "%s setup audio format: %s", __PRETTY_FUNCTION__, StreamDescriptionToString(m_outputFormat, formatString));
+  CLog::Log(LOGINFO, "%s setup audio format: %s", __PRETTY_FUNCTION__,
+            StreamDescriptionToString(m_outputFormat, formatString));
 
   return m_setup;
 }
@@ -545,7 +528,7 @@ static void EnumerateDevices(AEDeviceInfoList &list)
   device.m_displayNameExtra = "";
   // TODO screen changing on ios needs to call
   // devices changed once this is available in active
-  if (g_Windowing.GetCurrentScreen() > 0)
+  if (false)
   {
     device.m_deviceType = AE_DEVTYPE_IEC958; //allow passthrough for tvout
     device.m_streamTypes.push_back(CAEStreamInfo::STREAM_TYPE_AC3);
@@ -593,8 +576,23 @@ CAESinkDARWINIOS::CAESinkDARWINIOS()
 {
 }
 
-CAESinkDARWINIOS::~CAESinkDARWINIOS()
+void CAESinkDARWINIOS::Register()
 {
+  AE::AESinkRegEntry reg;
+  reg.sinkName = "DARWINIOS";
+  reg.createFunc = CAESinkDARWINIOS::Create;
+  reg.enumerateFunc = CAESinkDARWINIOS::EnumerateDevicesEx;
+  AE::CAESinkFactory::RegisterSink(reg);
+}
+
+IAESink* CAESinkDARWINIOS::Create(std::string &device, AEAudioFormat &desiredFormat)
+{
+  IAESink *sink = new CAESinkDARWINIOS();
+  if (sink->Initialize(desiredFormat, device))
+    return sink;
+
+  delete sink;
+  return nullptr;
 }
 
 bool CAESinkDARWINIOS::Initialize(AEAudioFormat &format, std::string &device)

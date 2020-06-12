@@ -1,34 +1,22 @@
-#pragma once
-
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "DVDInputStream.h"
-#include "DVDDemuxers/DVDDemux.h"
-#include "../IVideoPlayer.h"
-#include "../DVDCodecs/Overlay/DVDOverlaySpu.h"
-#include <string>
-#include "guilib/Geometry.h"
+#pragma once
 
-#include "DllDvdNav.h"
+#include "../DVDCodecs/Overlay/DVDOverlaySpu.h"
+#include "../IVideoPlayer.h"
+#include "DVDDemuxers/DVDDemux.h"
+#include "DVDInputStream.h"
 #include "DVDInputStreamFile.h"
+#include "DllDvdNav.h"
+#include "utils/Geometry.h"
+
+#include <string>
 
 #define DVD_VIDEO_BLOCKSIZE         DVD_VIDEO_LB_LEN // 2048 bytes
 
@@ -46,47 +34,6 @@ class CDVDOverlayPicture;
 
 struct dvdnav_s;
 
-struct DVDNavStreamInfo
-{
-  std::string name;
-  std::string language;
-
-  DVDNavStreamInfo() = default;
-};
-
-struct DVDNavAudioStreamInfo : DVDNavStreamInfo
-{
-  std::string codec;
-  int channels;
-
-  DVDNavAudioStreamInfo() : DVDNavStreamInfo(),
-    channels(0) {}
-};
-
-struct DVDNavSubtitleStreamInfo : DVDNavStreamInfo
-{
-  CDemuxStream::EFlags flags;
-
-  DVDNavSubtitleStreamInfo() : DVDNavStreamInfo(),
-    flags(CDemuxStream::EFlags::FLAG_NONE) {}
-};
-
-struct DVDNavVideoStreamInfo : DVDNavStreamInfo
-{
-  int angles;
-  float aspectRatio;
-  std::string codec;
-  uint32_t width;
-  uint32_t height;
-
-  DVDNavVideoStreamInfo() : DVDNavStreamInfo(),
-    angles(0),
-    aspectRatio(0.0f),
-    width(0),
-    height(0)
-  {}
-};
-
 class CDVDInputStreamNavigator
   : public CDVDInputStream
   , public CDVDInputStream::IDisplayTime
@@ -102,7 +49,6 @@ public:
   void Close() override;
   int Read(uint8_t* buf, int buf_size) override;
   int64_t Seek(int64_t offset, int whence) override;
-  bool Pause(double dTime) override { return false; };
   int GetBlockSize() override { return DVDSTREAM_BLOCK_SIZE_DVD; }
   bool IsEOF() override { return m_bEOF; }
   int64_t GetLength() override { return 0; }
@@ -133,7 +79,7 @@ public:
 
   int GetActiveSubtitleStream();
   int GetSubTitleStreamCount();
-  DVDNavSubtitleStreamInfo GetSubtitleStreamInfo(const int iId);
+  SubtitleStreamInfo GetSubtitleStreamInfo(const int iId);
 
   bool SetActiveSubtitleStream(int iId);
   void EnableSubtitleStream(bool bEnable);
@@ -144,7 +90,7 @@ public:
   int GetActiveAngle();
   bool SetAngle(int angle);
   bool SetActiveAudioStream(int iId);
-  DVDNavAudioStreamInfo GetAudioStreamInfo(const int iId);
+  AudioStreamInfo GetAudioStreamInfo(const int iId);
 
   bool GetState(std::string &xmlstate) override;
   bool SetState(const std::string &xmlstate) override;
@@ -169,7 +115,7 @@ public:
 
   void CheckButtons();
 
-  DVDNavVideoStreamInfo GetVideoStreamInfo();
+  VideoStreamInfo GetVideoStreamInfo();
 
 protected:
 
@@ -189,8 +135,8 @@ protected:
   int ConvertSubtitleStreamId_XBMCToExternal(int id);
   int ConvertSubtitleStreamId_ExternalToXBMC(int id);
 
-  static void SetAudioStreamName(DVDNavStreamInfo &info, const audio_attr_t &audio_attributes);
-  static void SetSubtitleStreamName(DVDNavStreamInfo &info, const subp_attr_t &subp_attributes);
+  static void SetAudioStreamName(AudioStreamInfo &info, const audio_attr_t &audio_attributes);
+  static void SetSubtitleStreamName(SubtitleStreamInfo &info, const subp_attr_t &subp_attributes);
 
   int GetAngleCount();
   void GetVideoResolution(uint32_t * width, uint32_t * height);

@@ -1,20 +1,20 @@
 include ../../Makefile.include
-DEPS= ../../Makefile.include Makefile
+DEPS= ../../Makefile.include Makefile tvos_remove-fork.patch libgpg-error-1.36-gawk5-support.patch
 
 # lib name, version
 LIBNAME=libgpg-error
-VERSION=1.20
+VERSION=1.36
 SOURCE=$(LIBNAME)-$(VERSION)
 ARCHIVE=$(SOURCE).tar.bz2
 
 # configuration settings
 CONFIGURE=./configure --prefix=$(PREFIX) \
+  --disable-doc \
+  --disable-tests \
   --disable-languages \
   --disable-nls --disable-shared
 
 LIBDYLIB=$(PLATFORM)/src/.libs/$(LIBNAME).a
-
-CLEAN_FILES=$(ARCHIVE) $(PLATFORM)
 
 all: .installed-$(PLATFORM)
 
@@ -24,14 +24,14 @@ $(TARBALLS_LOCATION)/$(ARCHIVE):
 $(PLATFORM): $(TARBALLS_LOCATION)/$(ARCHIVE) $(DEPS)
 	rm -rf $(PLATFORM)/*; mkdir -p $(PLATFORM)
 	cd $(PLATFORM); $(ARCHIVE_TOOL) $(ARCHIVE_TOOL_FLAGS) $(TARBALLS_LOCATION)/$(ARCHIVE)
+	cd $(PLATFORM); patch -p1 -i ../libgpg-error-1.36-gawk5-support.patch
+ifeq ($(TARGET_PLATFORM),appletvos)
+	cd $(PLATFORM); patch -p1 -i ../tvos_remove-fork.patch
+endif
+	cd $(PLATFORM); $(AUTORECONF) -vif
 	cd $(PLATFORM); $(CONFIGURE)
 
 $(LIBDYLIB): $(PLATFORM)
-ifeq ($(OS),osx)
-	$(MAKE) -C $(PLATFORM)/src gen-posix-lock-obj
-	$(PLATFORM)/src/gen-posix-lock-obj > $(PLATFORM)/src/syscfg/tmp.h
-	mv $(PLATFORM)/src/syscfg/tmp.h $(PLATFORM)/src/syscfg/$$(awk 'NR==1 {print $$2}' $(PLATFORM)/src/syscfg/tmp.h)
-endif
 ifeq ($(OS),android)
 ifeq ($(CPU),arm64-v8a)
 	cp lock-obj-pub.aarch64-unknown-linux-android.h $(PLATFORM)/src/syscfg/lock-obj-pub.linux-android.h

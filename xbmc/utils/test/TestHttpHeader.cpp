@@ -1,26 +1,16 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <string.h>
 #include "utils/HttpHeader.h"
-#include "gtest/gtest.h"
+
+#include <string.h>
+
+#include <gtest/gtest.h>
 
 #define CHECK_CNT_TYPE_NAME "Content-Type"
 #define CHECK_CONTENT_TYPE_HTML "text/html"
@@ -392,9 +382,9 @@ TEST(TestHttpHeader, GetValues)
 
   /* Check that all parameter values can be retrieved and order of values is correct */
   testHdr.Parse(CHECK_HEADER_L1);
-  EXPECT_EQ(1, testHdr.GetValues("Server").size()) << "Wrong number of values for parameter \"Server\"";
+  EXPECT_EQ(1U, testHdr.GetValues("Server").size()) << "Wrong number of values for parameter \"Server\"";
   EXPECT_STREQ("nginx/1.4.4", testHdr.GetValues("Server")[0].c_str()) << "Wrong parameter value";
-  EXPECT_EQ(2, testHdr.GetValues("Set-Cookie").size()) << "Wrong number of values for parameter \"Set-Cookie\"";
+  EXPECT_EQ(2U, testHdr.GetValues("Set-Cookie").size()) << "Wrong number of values for parameter \"Set-Cookie\"";
   EXPECT_STREQ("PHPSESSID=90857d437518db8f0944ca012761048a; path=/; domain=example.com", testHdr.GetValues("Set-Cookie")[0].c_str()) << "Wrong parameter value";
   EXPECT_STREQ("user_country=ot; expires=Thu, 09-Jan-2014 18:58:30 GMT; path=/; domain=.example.com", testHdr.GetValues("Set-Cookie")[1].c_str()) << "Wrong parameter value";
   EXPECT_TRUE(testHdr.GetValues("foo").empty()) << "Some values are returned for non-existed parameter";
@@ -415,13 +405,13 @@ TEST(TestHttpHeader, AddParam)
   EXPECT_STREQ("nginx/1.4.4", testHdr.GetValue("Server").c_str()) << "Wrong parameter value";
   testHdr.AddParam("server", "Apache/2.4.7");
   EXPECT_STREQ("Apache/2.4.7", testHdr.GetValue("Server").c_str()) << "Wrong parameter value";
-  EXPECT_EQ(3, testHdr.GetValues("Server").size()) << "Wrong number of values for parameter \"Server\"";
+  EXPECT_EQ(3U, testHdr.GetValues("Server").size()) << "Wrong number of values for parameter \"Server\"";
 
   /* Multiple values */
   testHdr.AddParam("X-foo", "bar1");
   testHdr.AddParam("x-foo", "bar2");
   testHdr.AddParam("x-fOO", "bar3");
-  EXPECT_EQ(3, testHdr.GetValues("X-FOO").size()) << "Wrong number of values for parameter \"X-foo\"";
+  EXPECT_EQ(3U, testHdr.GetValues("X-FOO").size()) << "Wrong number of values for parameter \"X-foo\"";
   EXPECT_STREQ("bar1", testHdr.GetValues("X-FOo")[0].c_str()) << "Wrong parameter value";
   EXPECT_STREQ("bar2", testHdr.GetValues("X-fOo")[1].c_str()) << "Wrong parameter value";
   EXPECT_STREQ("bar3", testHdr.GetValues("x-fOo")[2].c_str()) << "Wrong parameter value";
@@ -430,15 +420,15 @@ TEST(TestHttpHeader, AddParam)
   /* Overwrite value */
   EXPECT_TRUE(testHdr.IsHeaderDone()) << "Parsed header has \"parsing not finished\" state";
   testHdr.AddParam("x-fOO", "superbar", true);
-  EXPECT_EQ(1, testHdr.GetValues("X-FoO").size()) << "Wrong number of values for parameter \"X-foo\"";
+  EXPECT_EQ(1U, testHdr.GetValues("X-FoO").size()) << "Wrong number of values for parameter \"X-foo\"";
   EXPECT_STREQ("superbar", testHdr.GetValue("x-foo").c_str()) << "Wrong parameter value";
 
   /* Check name trimming */
   testHdr.AddParam("\tx-fOO\t ", "bar");
-  EXPECT_EQ(2, testHdr.GetValues("X-FoO").size()) << "Wrong number of values for parameter \"X-foo\"";
+  EXPECT_EQ(2U, testHdr.GetValues("X-FoO").size()) << "Wrong number of values for parameter \"X-foo\"";
   EXPECT_STREQ("bar", testHdr.GetValue("x-foo").c_str()) << "Wrong parameter value";
   testHdr.AddParam(" SerVer \t ", "fakeSrv", true);
-  EXPECT_EQ(1, testHdr.GetValues("serveR").size()) << "Wrong number of values for parameter \"Server\"";
+  EXPECT_EQ(1U, testHdr.GetValues("serveR").size()) << "Wrong number of values for parameter \"Server\"";
   EXPECT_STREQ("fakeSrv", testHdr.GetValue("Server").c_str()) << "Wrong parameter value";
 
   /* Check value trimming */

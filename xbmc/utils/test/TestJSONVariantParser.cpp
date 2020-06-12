@@ -1,27 +1,15 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "utils/JSONVariantParser.h"
 #include "utils/Variant.h"
 
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 
 TEST(TestJSONVariantParser, CannotParseNullptr)
 {
@@ -78,11 +66,11 @@ TEST(TestJSONVariantParser, CanParseUnsignedInteger)
   CVariant variant;
   ASSERT_TRUE(CJSONVariantParser::Parse("0", variant));
   ASSERT_TRUE(variant.isUnsignedInteger());
-  ASSERT_EQ(0, variant.asUnsignedInteger());
+  ASSERT_EQ(0U, variant.asUnsignedInteger());
 
   ASSERT_TRUE(CJSONVariantParser::Parse("1", variant));
   ASSERT_TRUE(variant.isUnsignedInteger());
-  ASSERT_EQ(1, variant.asUnsignedInteger());
+  ASSERT_EQ(1U, variant.asUnsignedInteger());
 }
 
 TEST(TestJSONVariantParser, CanParseSignedInteger64)
@@ -98,7 +86,7 @@ TEST(TestJSONVariantParser, CanParseUnsignedInteger64)
   CVariant variant;
   ASSERT_TRUE(CJSONVariantParser::Parse("4294967296", variant));
   ASSERT_TRUE(variant.isUnsignedInteger());
-  ASSERT_EQ(4294967296, variant.asUnsignedInteger());
+  ASSERT_EQ(4294967296U, variant.asUnsignedInteger());
 }
 
 TEST(TestJSONVariantParser, CanParseDouble)
@@ -177,14 +165,14 @@ TEST(TestJSONVariantParser, CanParseArray)
   variant.clear();
   ASSERT_TRUE(CJSONVariantParser::Parse("[ true ]", variant));
   ASSERT_TRUE(variant.isArray());
-  ASSERT_EQ(1, variant.size());
+  ASSERT_EQ(1U, variant.size());
   ASSERT_TRUE(variant[0].isBoolean());
   ASSERT_TRUE(variant[0].asBoolean());
 
   variant.clear();
   ASSERT_TRUE(CJSONVariantParser::Parse("[ true, \"foo\" ]", variant));
   ASSERT_TRUE(variant.isArray());
-  ASSERT_EQ(2, variant.size());
+  ASSERT_EQ(2U, variant.size());
   ASSERT_TRUE(variant[0].isBoolean());
   ASSERT_TRUE(variant[0].asBoolean());
   ASSERT_TRUE(variant[1].isString());
@@ -193,7 +181,7 @@ TEST(TestJSONVariantParser, CanParseArray)
   variant.clear();
   ASSERT_TRUE(CJSONVariantParser::Parse("[ { \"foo\": \"bar\" } ]", variant));
   ASSERT_TRUE(variant.isArray());
-  ASSERT_EQ(1, variant.size());
+  ASSERT_EQ(1U, variant.size());
   ASSERT_TRUE(variant[0].isObject());
   ASSERT_TRUE(variant[0].isMember("foo"));
   ASSERT_TRUE(variant[0]["foo"].isString());

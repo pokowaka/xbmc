@@ -49,6 +49,7 @@
       <x>ContextMenu</x>
       <y>FullScreen</y>
       <start>ActivateWindow(PlayerControls)</start>
+      <back>ActivateWindow(Home)</back>
       <guide>ActivateWindow(Home)</guide>
       <up>Up</up>
       <down>Down</down>
@@ -70,6 +71,12 @@
       <rightstick direction="down">VolumeDown</rightstick>
     </joystick>
   </global>
+  <Home>
+    <joystick profile="game.controller.default">
+      <b>Back</b>
+      <b holdtime="500">ActivateWindow(ShutdownMenu)</b>
+    </joystick>
+  </Home>
   <FileManager>
     <joystick profile="game.controller.default">
       <rightbumper>Highlight</rightbumper>
@@ -86,10 +93,11 @@
     <joystick profile="game.controller.default">
       <a>Pause</a>
       <b>Stop</b>
+      <b holdtime="500">FullScreen</b>
       <x>OSD</x>
       <y>FullScreen</y>
       <start>Info</start>
-      <back>OSD</back>
+      <back>FullScreen</back>
       <guide>OSD</guide>
       <up>ChapterOrBigStepForward</up>
       <down>ChapterOrBigStepBack</down>
@@ -140,39 +148,66 @@
       <leftstick direction="right" hotkey="back">SaveSlotIncrease</leftstick>
       -->
       <!-- Merged -->
-      <a hotkey="back">Screenshot</a>
-      <b hotkey="back">PlayerControl(Reset)</b>
+      <!-- Screenshot is disabled until it has been further automated
+           (currently pops up multiple annoying confusing dialogs) -->
+      <!-- <a hotkey="back">Screenshot</a> -->
+      <!-- Reset is disabled until player can undo a reset -->
+      <!--<b hotkey="back">PlayerControl(Reset)</b> -->
       <x hotkey="back">OSD</x>
-      <y hotkey="back">FullScreen</y>
+      <y hotkey="back">OSD</y>
       <start hotkey="back">Stop</start>
-      <rightbumper hotkey="back">Save</rightbumper>
-      <leftbumper hotkey="back">Load</leftbumper>
+      <rightbumper hotkey="back">AnalogFastForward</rightbumper>
+      <leftbumper hotkey="back">AnalogRewind</leftbumper>
       <righttrigger hotkey="back">AnalogFastForward</righttrigger>
       <lefttrigger hotkey="back">AnalogRewind</lefttrigger>
+      <!--
       <right hotkey="back">SaveSlotIncrease</right>
       <left hotkey="back">SaveSlotDecrease</left>
       <leftstick direction="left" hotkey="back">SaveSlotDecrease</leftstick>
       <leftstick direction="right" hotkey="back">SaveSlotIncrease</leftstick>
+      -->
     </joystick>
   </FullscreenGame>
   <FullscreenLiveTV>
     <joystick profile="game.controller.default">
+      <a>Pause</a>
+      <b>Stop</b>
+      <b holdtime="500">FullScreen</b>
+      <x>OSD</x>
+      <back>OSD</back>
       <guide>OSD</guide>
+      <start>Info</start>
       <up>ChannelUp</up>
       <down>ChannelDown</down>
       <left>StepBack</left>
       <right>StepForward</right>
     </joystick>
   </FullscreenLiveTV>
+  <TVGuide>
+    <joystick profile="game.controller.default">
+      <back>Menu</back>
+    </joystick>
+  </TVGuide>
   <FullscreenRadio>
     <joystick profile="game.controller.default">
+      <a>Pause</a>
+      <b>Stop</b>
+      <b holdtime="500">FullScreen</b>
+      <x>OSD</x>
+      <back>OSD</back>
       <guide>OSD</guide>
+      <start>Info</start>
       <up>ChannelUp</up>
       <down>ChannelDown</down>
       <left>StepBack</left>
       <right>StepForward</right>
     </joystick>
   </FullscreenRadio>
+  <RadioGuide>
+    <joystick profile="game.controller.default">
+      <back>Menu</back>
+    </joystick>
+  </RadioGuide>
   <FullscreenInfo>
     <joystick profile="game.controller.default">
       <b>Close</b>
@@ -195,7 +230,7 @@
     <joystick profile="game.controller.default">
       <a>Pause</a>
       <b>Stop</b>
-      <x>ActivateWindow(AddonSettings)</x>
+      <x>Addon.Default.OpenSettings(xbmc.player.musicviz)</x>
       <y>ActivateWindow(VisualisationPresetList)</y>
       <start>Info</start>
       <rightthumb>ActivateWindow(MusicOSD)</rightthumb>
@@ -235,10 +270,10 @@
       <down>ZoomOut</down>
       <left>PreviousPicture</left>
       <right>NextPicture</right>
-      <leftstick direction="left">AnalogMoveX</leftstick>
-      <leftstick direction="right">AnalogMoveX</leftstick>
-      <leftstick direction="up">AnalogMoveY</leftstick>
-      <leftstick direction="down">AnalogMoveY</leftstick>
+      <leftstick direction="left">AnalogMoveXLeft</leftstick>
+      <leftstick direction="right">AnalogMoveXRight</leftstick>
+      <leftstick direction="up">AnalogMoveYUp</leftstick>
+      <leftstick direction="down">AnalogMoveYDown</leftstick>
       <lefttrigger>ZoomOut</lefttrigger>
       <righttrigger>ZoomIn</righttrigger>
     </joystick>
@@ -304,6 +339,8 @@
       <leftthumb>Enter</leftthumb>
       <lefttrigger>CursorLeft</lefttrigger>
       <righttrigger>CursorRight</righttrigger>
+      <x>VoiceRecognizer</x>
+      <start>VoiceRecognizer</start>
     </joystick>
   </VirtualKeyboard>
   <ContextMenu>

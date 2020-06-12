@@ -1,27 +1,15 @@
 /*
- *      Copyright (C) 2005-2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2005-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include "video/VideoInfoTag.h"
-#include "AddonClass.h"
-
 #pragma once
+
+#include "AddonClass.h"
+#include "video/VideoInfoTag.h"
 
 namespace XBMCAddon
 {
@@ -60,7 +48,7 @@ namespace XBMCAddon
 
     public:
 #ifndef SWIG
-      InfoTagVideo(const CVideoInfoTag& tag);
+      explicit InfoTagVideo(const CVideoInfoTag& tag);
 #endif
       InfoTagVideo();
       ~InfoTagVideo() override;
@@ -69,7 +57,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getDbId() }
-      ///-----------------------------------------------------------------------
       /// Get identification number of tag in database
       ///
       /// @return [integer] database id
@@ -87,7 +74,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getDirector() }
-      ///-----------------------------------------------------------------------
       /// Get [film director](https://en.wikipedia.org/wiki/Film_director)
       /// who has made the film (if present).
       ///
@@ -106,7 +92,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getWritingCredits() }
-      ///-----------------------------------------------------------------------
       /// Get the writing credits if present from video info tag.
       ///
       /// @return [string] Writing credits
@@ -124,7 +109,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getGenre() }
-      ///-----------------------------------------------------------------------
       /// To get the [Video Genre](https://en.wikipedia.org/wiki/Film_genre)
       /// if available.
       ///
@@ -143,7 +127,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getTagLine() }
-      ///-----------------------------------------------------------------------
       /// Get video tag line if available.
       ///
       /// @return [string] Video tag line
@@ -161,7 +144,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getPlotOutline() }
-      ///-----------------------------------------------------------------------
       /// Get the outline plot of the video if present.
       ///
       /// @return [string] Outline plot
@@ -179,7 +161,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getPlot() }
-      ///-----------------------------------------------------------------------
       /// Get the plot of the video if present.
       ///
       /// @return [string] Plot
@@ -197,7 +178,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getPictureURL() }
-      ///-----------------------------------------------------------------------
       /// Get a picture URL of the video to show as screenshot.
       ///
       /// @return [string] Picture URL
@@ -215,7 +195,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getTitle() }
-      ///-----------------------------------------------------------------------
       /// Get the video title.
       ///
       /// @return [string] Video title
@@ -233,7 +212,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getTVShowTitle() }
-      ///-----------------------------------------------------------------------
       /// Get the video TV show title.
       ///
       /// @return [string] TV show title
@@ -251,7 +229,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getMediaType() }
-      ///-----------------------------------------------------------------------
       /// Get the media type of the video.
       ///
       /// @return [string] media type
@@ -279,7 +256,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getVotes() }
-      ///-----------------------------------------------------------------------
       /// Get the video votes if available from video info tag.
       ///
       /// @return [string] Votes
@@ -297,7 +273,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getCast() }
-      ///-----------------------------------------------------------------------
       /// To get the cast of the video when available.
       ///
       /// @return [string] Video casts
@@ -315,7 +290,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getFile() }
-      ///-----------------------------------------------------------------------
       /// To get the video file name.
       ///
       /// @return [string] File name
@@ -333,7 +307,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getPath() }
-      ///-----------------------------------------------------------------------
       /// To get the path where the video is stored.
       ///
       /// @return [string] Path
@@ -351,7 +324,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getIMDBNumber() }
-      ///-----------------------------------------------------------------------
       /// To get the [IMDb](https://en.wikipedia.org/wiki/Internet_Movie_Database)
       /// number of the video (if present).
       ///
@@ -370,7 +342,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getSeason() }
-      ///-----------------------------------------------------------------------
       /// To get season number of a series
       ///
       /// @return [integer] season number
@@ -388,7 +359,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getEpisode() }
-      ///-----------------------------------------------------------------------
       /// To get episode number of a series
       ///
       /// @return [integer] episode number
@@ -406,7 +376,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getYear() }
-      ///-----------------------------------------------------------------------
       /// Get production year of video if present.
       ///
       /// @return [integer] Production Year
@@ -424,7 +393,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getRating() }
-      ///-----------------------------------------------------------------------
       /// Get the video rating if present as float (double where supported).
       ///
       /// @return [float] The rating of the video
@@ -442,7 +410,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getUserRating() }
-      ///-----------------------------------------------------------------------
       /// Get the user rating if present as integer.
       ///
       /// @return [integer] The user rating of the video
@@ -460,7 +427,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getPlayCount() }
-      ///-----------------------------------------------------------------------
       /// To get the number of plays of the video.
       ///
       /// @return [integer] Play Count
@@ -478,7 +444,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getLastPlayed() }
-      ///-----------------------------------------------------------------------
       /// Get the last played date / time as string.
       ///
       /// @return [string] Last played date / time
@@ -496,7 +461,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getOriginalTitle() }
-      ///-----------------------------------------------------------------------
       /// To get the original title of the video.
       ///
       /// @return [string] Original title
@@ -514,7 +478,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getPremiered() }
-      ///-----------------------------------------------------------------------
       /// To get [premiered](https://en.wikipedia.org/wiki/Premiere) date
       /// of the video, if available.
       ///
@@ -533,7 +496,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getFirstAired() }
-      ///-----------------------------------------------------------------------
       /// Returns first aired date as string from info tag.
       ///
       /// @return [string] First aired date
@@ -551,7 +513,6 @@ namespace XBMCAddon
       ///
       /// \ingroup python_InfoTagVideo
       /// @brief \python_func{ getTrailer() }
-      ///-----------------------------------------------------------------------
       /// To get the path where the trailer is stored.
       ///
       /// @return [string] Trailer path
@@ -563,6 +524,74 @@ namespace XBMCAddon
       getTrailer();
 #else
       String getTrailer();
+#endif
+
+#ifdef DOXYGEN_SHOULD_USE_THIS
+      ///
+      /// \ingroup python_InfoTagVideo
+      /// @brief \python_func{ getArtist() }
+      /// To get the artist name (for musicvideos)
+      ///
+      /// @return [std::vector<std::string>] Artist name
+      ///
+      ///
+      ///-----------------------------------------------------------------------
+      /// @python_v18 New function added.
+      ///
+      getArtist();
+#else
+      std::vector<std::string> getArtist();
+#endif
+
+#ifdef DOXYGEN_SHOULD_USE_THIS
+      ///
+      /// \ingroup python_InfoTagVideo
+      /// @brief \python_func{ getAlbum() }
+      /// To get the album name (for musicvideos)
+      ///
+      /// @return [string] Album name
+      ///
+      ///
+      ///-----------------------------------------------------------------------
+      /// @python_v18 New function added.
+      ///
+      getAlbum();
+#else
+      String getAlbum();
+#endif
+
+#ifdef DOXYGEN_SHOULD_USE_THIS
+      ///
+      /// \ingroup python_InfoTagVideo
+      /// @brief \python_func{ getTrack() }
+      /// To get the track number (for musicvideos)
+      ///
+      /// @return [int] Track number
+      ///
+      ///
+      ///-----------------------------------------------------------------------
+      /// @python_v18 New function added.
+      ///
+      getTrack();
+#else
+      int getTrack();
+#endif
+
+#ifdef DOXYGEN_SHOULD_USE_THIS
+      ///
+      /// \ingroup python_InfoTagVideo
+      /// @brief \python_func{ getDuration() }
+      /// To get the duration
+      ///
+      /// @return [unsigned int] Duration
+      ///
+      ///
+      ///-----------------------------------------------------------------------
+      /// @python_v18 New function added.
+      ///
+      getDuration();
+#else
+      unsigned int getDuration();
 #endif
     };
   }

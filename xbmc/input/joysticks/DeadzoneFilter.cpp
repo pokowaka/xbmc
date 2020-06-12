@@ -1,26 +1,16 @@
 /*
- *      Copyright (C) 2016-2017 Team Kodi
- *      http://kodi.tv
+ *  Copyright (C) 2016-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this Program; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
 #include "DeadzoneFilter.h"
+
 #include "JoystickIDs.h"
-#include "IButtonMap.h"
+#include "games/controllers/ControllerIDs.h"
+#include "input/joysticks/interfaces/IButtonMap.h"
 #include "peripherals/devices/Peripheral.h"
 #include "utils/log.h"
 
@@ -30,26 +20,29 @@
 using namespace KODI;
 using namespace JOYSTICK;
 
-#define AXIS_EPSILON  0.01f // Allowed noise for detecting discrete D-pads (value of 0.007 when centered has been observed)
+#define AXIS_EPSILON \
+  0.01f // Allowed noise for detecting discrete D-pads (value of 0.007 when centered has been
+        // observed)
 
 // Settings for analog sticks
-#define SETTING_LEFT_STICK_DEADZONE   "left_stick_deadzone"
-#define SETTING_RIGHT_STICK_DEADZONE  "right_stick_deadzone"
+#define SETTING_LEFT_STICK_DEADZONE "left_stick_deadzone"
+#define SETTING_RIGHT_STICK_DEADZONE "right_stick_deadzone"
 
-CDeadzoneFilter::CDeadzoneFilter(IButtonMap* buttonMap, PERIPHERALS::CPeripheral* peripheral) :
-  m_buttonMap(buttonMap),
-  m_peripheral(peripheral)
+CDeadzoneFilter::CDeadzoneFilter(IButtonMap* buttonMap, PERIPHERALS::CPeripheral* peripheral)
+  : m_buttonMap(buttonMap), m_peripheral(peripheral)
 {
   if (m_buttonMap->ControllerID() != DEFAULT_CONTROLLER_ID)
-    CLog::Log(LOGERROR, "ERROR: Must use default controller profile instead of %s", m_buttonMap->ControllerID().c_str());
+    CLog::Log(LOGERROR, "ERROR: Must use default controller profile instead of %s",
+              m_buttonMap->ControllerID().c_str());
 }
 
 float CDeadzoneFilter::FilterAxis(unsigned int axisIndex, float axisValue)
 {
   float deadzone = 0.0f;
 
-  bool bSuccess = GetDeadzone(axisIndex, deadzone, DEFAULT_LEFT_STICK_NAME, SETTING_LEFT_STICK_DEADZONE) ||
-                  GetDeadzone(axisIndex, deadzone, DEFAULT_RIGHT_STICK_NAME, SETTING_RIGHT_STICK_DEADZONE);
+  bool bSuccess =
+      GetDeadzone(axisIndex, deadzone, DEFAULT_LEFT_STICK_NAME, SETTING_LEFT_STICK_DEADZONE) ||
+      GetDeadzone(axisIndex, deadzone, DEFAULT_RIGHT_STICK_NAME, SETTING_RIGHT_STICK_DEADZONE);
 
   if (bSuccess)
     return ApplyDeadzone(axisValue, deadzone);
@@ -61,13 +54,16 @@ float CDeadzoneFilter::FilterAxis(unsigned int axisIndex, float axisValue)
   return axisValue;
 }
 
-bool CDeadzoneFilter::GetDeadzone(unsigned int axisIndex, float& deadzone, const char* featureName, const char* settingName)
+bool CDeadzoneFilter::GetDeadzone(unsigned int axisIndex,
+                                  float& deadzone,
+                                  const char* featureName,
+                                  const char* settingName)
 {
   std::vector<ANALOG_STICK_DIRECTION> dirs = {
-    ANALOG_STICK_DIRECTION::UP,
-    ANALOG_STICK_DIRECTION::RIGHT,
-    ANALOG_STICK_DIRECTION::DOWN,
-    ANALOG_STICK_DIRECTION::LEFT,
+      ANALOG_STICK_DIRECTION::UP,
+      ANALOG_STICK_DIRECTION::RIGHT,
+      ANALOG_STICK_DIRECTION::DOWN,
+      ANALOG_STICK_DIRECTION::LEFT,
   };
 
   CDriverPrimitive primitive;

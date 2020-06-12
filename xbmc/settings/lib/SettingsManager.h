@@ -1,38 +1,29 @@
-#pragma once
 /*
- *      Copyright (C) 2013 Team XBMC
- *      http://xbmc.org
+ *  Copyright (C) 2013-2018 Team Kodi
+ *  This file is part of Kodi - https://kodi.tv
  *
- *  This Program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2, or (at your option)
- *  any later version.
- *
- *  This Program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with XBMC; see the file COPYING.  If not, see
- *  <http://www.gnu.org/licenses/>.
- *
+ *  SPDX-License-Identifier: GPL-2.0-or-later
+ *  See LICENSES/README.md for more information.
  */
 
-#include <map>
-#include <set>
-#include <vector>
+#pragma once
 
 #include "ISettingCallback.h"
 #include "ISettingControlCreator.h"
 #include "ISettingCreator.h"
 #include "ISettingsHandler.h"
-#include "ISubSettings.h"
+#include "ISettingsValueSerializer.h"
 #include "Setting.h"
 #include "SettingConditions.h"
 #include "SettingDefinitions.h"
 #include "SettingDependency.h"
 #include "threads/SharedSection.h"
+#include "utils/StaticLoggerBase.h"
+
+#include <map>
+#include <set>
+#include <unordered_set>
+#include <vector>
 
 class CSettingCategory;
 class CSettingGroup;
@@ -47,25 +38,30 @@ class TiXmlNode;
  \brief Settings manager responsible for initializing, loading and handling
  all settings.
  */
-class CSettingsManager : public ISettingCreator, public ISettingControlCreator,
-                         private ISettingCallback, private ISettingsHandler,
-                         private ISubSettings
+class CSettingsManager : public ISettingCreator,
+                         public ISettingControlCreator,
+                         protected CStaticLoggerBase,
+                         private ISettingCallback,
+                         private ISettingsHandler
 {
 public:
   /*!
    \brief Creates a new (uninitialized) settings manager.
    */
-  CSettingsManager() = default;
+  CSettingsManager();
   ~CSettingsManager() override;
 
-  static const uint32_t Version = 2;
-  static const uint32_t MinimumSupportedVersion = 0;
+  static const uint32_t Version;
+  static const uint32_t MinimumSupportedVersion;
 
   // implementation of ISettingCreator
   std::shared_ptr<CSetting> CreateSetting(const std::string &settingType, const std::string &settingId, CSettingsManager *settingsManager = nullptr) const override;
 
   // implementation of ISettingControlCreator
   std::shared_ptr<ISettingControl> CreateControl(const std::string &controlType) const override;
+
+  uint32_t GetVersion() const { return Version; }
+  uint32_t GetMinimumSupportedVersion() const { return MinimumSupportedVersion; }
 
   /*!
    \brief Try to get the version of the setting definitions/values represented by the given XML element.
@@ -94,12 +90,12 @@ public:
    */
   bool Load(const TiXmlElement *root, bool &updated, bool triggerEvents = true, std::map<std::string, std::shared_ptr<CSetting>> *loadedSettings = nullptr);
   /*!
-   \brief Saves the setting values to the given XML node.
+   \brief Saves the setting values using the given serializer.
 
-   \param root XML node
-   \return True if the setting values were successfully saved, false otherwise
+   \param serializer Settings value serializer to use
+   \return True if the setting values were successfully serialized, false otherwise
    */
-  bool Save(TiXmlNode *root) const override;
+  bool Save(const ISettingsValueSerializer* serializer, std::string& serializedValues) const;
   /*!
    \brief Unloads the previously loaded setting values.
 
@@ -113,7 +109,7 @@ public:
    returns to the uninitialized state. Any registered callbacks or
    implementations stay registered.
    */
-  void Clear() override;
+  void Clear();
 
   /*!
   \brief Loads the setting being represented by the given XML node with the
@@ -224,7 +220,7 @@ public:
    When a setting control definition for a registered custom setting control
    type is found its ISettingControlCreator implementation is called to create
    and deserialize the setting control definition.
-   
+
    \param controlType String representation of the custom setting control type
    \param settingControlCreator ISettingControlCreator implementation
    */
@@ -234,27 +230,15 @@ public:
    \brief Registers the given ISettingsHandler implementation.
 
    \param settingsHandler ISettingsHandler implementation
+   \param bFront If True, insert the handler in front of other registered handlers, insert at the end otherwise.
    */
-  void RegisterSettingsHandler(ISettingsHandler *settingsHandler);
+  void RegisterSettingsHandler(ISettingsHandler *settingsHandler, bool bFront = false);
   /*!
    \brief Unregisters the given ISettingsHandler implementation.
 
    \param settingsHandler ISettingsHandler implementation
    */
   void UnregisterSettingsHandler(ISettingsHandler *settingsHandler);
-
-  /*!
-   \brief Registers the given ISubSettings implementation.
-
-   \param subSettings ISubSettings implementation
-   */
-  void RegisterSubSettings(ISubSettings *subSettings);
-  /*!
-   \brief Unregisters the given ISubSettings implementation.
-
-   \param subSettings ISubSettings implementation
-   */
-  void UnregisterSubSettings(ISubSettings *subSettings);
 
   /*!
    \brief Registers the given integer setting options filler under the given identifier.
@@ -284,6 +268,12 @@ public:
    \return Implementation of the setting options filler (either IntegerSettingOptionsFiller or StringSettingOptionsFiller)
    */
   void* GetSettingOptionsFiller(std::shared_ptr<const CSetting> setting);
+
+  /*!
+   \brief Checks whether any settings have been initialized.
+   
+   \return True if at least one setting has been initialized, false otherwise*/
+  bool HasSettings() const;
 
   /*!
    \brief Gets the setting with the given identifier.
@@ -452,7 +442,14 @@ public:
    \param condition Implementation of the dynamic condition
    \param data Opaque data pointer, will be passed back to SettingConditionCheck function
    */
-  void AddCondition(const std::string &identifier, SettingConditionCheck condition, void *data = nullptr);
+  void AddDynamicCondition(const std::string &identifier, SettingConditionCheck condition, void *data = nullptr);
+
+  /*!
+   \brief Removes the given dynamic condition.
+
+   \param identifier Identifier of the dynamic condition
+   */
+  void RemoveDynamicCondition(const std::string &identifier);
 
 private:
   // implementation of ISettingCallback
@@ -469,9 +466,6 @@ private:
   bool OnSettingsSaving() const override;
   void OnSettingsSaved() const override;
   void OnSettingsCleared() override;
-
-  // implementation of ISubSettings
-  bool Load(const TiXmlNode *settings) override;
 
   bool Serialize(TiXmlNode *parent) const;
   bool Deserialize(const TiXmlNode *node, bool &updated, std::map<std::string, std::shared_ptr<CSetting>> *loadedSettings = nullptr);
@@ -500,6 +494,7 @@ private:
     SettingDependencyMap dependencies;
     std::set<std::string> children;
     CallbackSet callbacks;
+    std::unordered_set<std::string> references;
   };
 
   using SettingMap = std::map<std::string, Setting>;
@@ -524,7 +519,6 @@ private:
   using SettingControlCreatorMap = std::map<std::string, ISettingControlCreator*>;
   SettingControlCreatorMap m_settingControlCreators;
 
-  std::set<ISubSettings*> m_subSettings;
   using SettingsHandlers = std::vector<ISettingsHandler*>;
   SettingsHandlers m_settingsHandlers;
 
@@ -537,6 +531,6 @@ private:
   using SettingOptionsFillerMap = std::map<std::string, SettingOptionsFiller>;
   SettingOptionsFillerMap m_optionsFillers;
 
-  CSharedSection m_critical;
-  CSharedSection m_settingsCritical;
+  mutable CSharedSection m_critical;
+  mutable CSharedSection m_settingsCritical;
 };
